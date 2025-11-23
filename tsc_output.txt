@@ -1,0 +1,4 @@
+﻿src/components/LiveMatchScouting.tsx(78,3): error TS1128: Declaration or statement expected.
+src/components/LiveMatchScouting.tsx(78,4): error TS1128: Declaration or statement expected.
+src/components/LiveMatchScouting.tsx(78,179): error TS1005: ';' expected.
+src/components/LiveMatchScouting.tsx(1709,1): error TS1128: Declaration or statement expected.
