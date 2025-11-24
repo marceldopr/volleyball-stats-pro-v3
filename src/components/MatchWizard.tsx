@@ -83,7 +83,7 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
           location: existingMatch.location,
           teamId: existingMatch.teamId || '',
           teamSide: existingMatch.teamSide,
-          selectedPlayers: existingMatch.players.map(p => p.playerId) || [],
+          selectedPlayers: existingMatch.players?.map(p => p.playerId) || [],
           sacadorInicialSet1: existingMatch.sacadorInicialSet1,
         }
       }
@@ -240,9 +240,7 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
   }
 
   const getLiberoCount = (): number => {
-    const selectedTeam = availableTeams.find(t => t.id === data.teamId)
-    if (!selectedTeam) return 0
-    return selectedTeam.players.filter(p => data.selectedPlayers.includes(p.id) && p.role === 'L').length
+    return teamRoster.filter(p => data.selectedPlayers.includes(p.player.id) && (p.role === 'L' || p.player.role === 'L')).length
   }
 
   const hasExcessLiberos = (): boolean => getLiberoCount() >= 3
@@ -371,7 +369,7 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
                     <option value="">Selecciona un equipo...</option>
                     {availableTeams.map(team => (
                       <option key={team.id} value={team.id}>
-                        {team.name} ({team.players.length} jugadoras)
+                        {team.name} ({team.players?.length || 0} jugadoras)
                       </option>
                     ))}
                   </select>
@@ -411,6 +409,16 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
             <div className="space-y-6">
               <h3 className="text-lg font-semibold text-gray-900">Información del Partido</h3>
               <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Equipo Rival</label>
+                  <input
+                    type="text"
+                    value={data.opponent}
+                    onChange={e => setData(prev => ({ ...prev, opponent: e.target.value }))}
+                    className="input-field w-full"
+                    placeholder="Ej: CV Barcelona"
+                  />
+                </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2"><Calendar className="w-4 h-4 inline mr-1 text-gray-500" /> Fecha</label>
                   <input type="text" value={displayDate} onChange={handleDateChange} placeholder="DD/MM/YYYY" className={`input-field w-full ${dateError ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500' : ''}`} />
