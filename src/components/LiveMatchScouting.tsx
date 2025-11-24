@@ -7,6 +7,7 @@ import { PlayerSelectionPopup } from './PlayerSelectionPopup'
 import { ReceptionPopup } from './ReceptionPopup'
 import { SubstitutionPopup } from './SubstitutionPopup'
 import { LineupGrid } from './LineupGrid'
+import { matchStatsService } from '../services/matchStatsService'
 
 
 interface ActionHistory {
@@ -1407,6 +1408,103 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
     setShowSubstitutionPopup(false)
   }
 
+  // NUEVO: Función para guardar estadísticas en Supabase al finalizar el partido
+  const handleSaveMatchStats = async () => {
+    if (!match.dbMatchId) {
+      console.warn('[Stats] No dbMatchId for current match, skipping Supabase stats persist.')
+      return
+    }
+
+    try {
+      console.log('[Stats] Starting stats persistence for match:', match.dbMatchId)
+
+      // Iterate over all sets that have been played (or started)
+      const setsToProcess = match.sets.map(s => s.number)
+
+      const statsPayloads = []
+
+      for (const setNumber of setsToProcess) {
+        for (const player of match.players) {
+          // Filter actions for this player in this set
+          const playerActions = match.acciones.filter(a =>
+            a.set === setNumber &&
+            (a.jugadoraId === player.playerId || a.recepcion?.jugadoraId === player.playerId)
+          )
+
+          // Calculate stats
+          const serves = playerActions.filter(a => ['punto_saque', 'error_saque'].includes(a.tipo)).length
+          const aces = playerActions.filter(a => a.tipo === 'punto_saque').length
+          const serveErrors = playerActions.filter(a => a.tipo === 'error_saque').length
+
+          const receptions = playerActions.filter(a => ['recepcion', 'error_recepcion'].includes(a.tipo)).length
+          const receptionErrors = playerActions.filter(a => a.tipo === 'error_recepcion' || (a.tipo === 'recepcion' && a.recepcion?.esError)).length
+
+          const attacks = playerActions.filter(a => ['punto_ataque', 'error_ataque', 'ataque_bloqueado'].includes(a.tipo)).length
+          const kills = playerActions.filter(a => a.tipo === 'punto_ataque').length
+          const attackErrors = playerActions.filter(a => ['error_ataque', 'ataque_bloqueado'].includes(a.tipo)).length
+
+          const blocks = playerActions.filter(a => a.tipo === 'punto_bloqueo').length
+          const blockErrors = playerActions.filter(a => a.tipo === 'error_bloqueo').length
+
+          // Only add if there's at least one stat or if they were on court (optional, but good for completeness)
+          // For now, we save if they have any recorded action in this set, or if we want to save 0s for everyone.
+          // Requirement: "1 fila = 1 jugadora en 1 partido en 1 set". Implies saving for everyone?
+          // Let's save for everyone to be safe, even with 0s.
+
+          statsPayloads.push({
+            match_id: match.dbMatchId,
+            player_id: player.playerId,
+            team_id: match.teamId || '', // Should be available
+            season_id: match.season_id || '', // Should be available
+            set_number: setNumber,
+            serves,
+            aces,
+            serve_errors: serveErrors,
+            receptions,
+            reception_errors: receptionErrors,
+            attacks,
+            kills,
+            attack_errors: attackErrors,
+            blocks,
+            block_errors: blockErrors,
+            digs: 0, // Not tracked yet
+            digs_errors: 0,
+            sets: 0, // Not tracked yet
+            set_errors: 0,
+            notes: undefined
+          })
+        }
+      }
+
+      // Execute upserts in parallel or sequential? Sequential is safer for rate limits, but parallel is faster.
+      // Supabase client handles batching? No, upsert accepts an array!
+      // matchStatsService.upsertStatsForMatchPlayerSet takes a single object.
+      // I should update the service to accept an array OR loop here.
+      // The service defined in Phase 8A takes a single object params.
+      // So I will loop and call it.
+
+      // Check if we have team_id and season_id
+      if (!match.teamId || !match.season_id) {
+        console.warn('[Stats] Missing team_id or season_id, cannot save stats.')
+        return
+      }
+
+      await Promise.all(statsPayloads.map(payload =>
+        matchStatsService.upsertStatsForMatchPlayerSet({
+          ...payload,
+          team_id: match.teamId!,
+          season_id: match.season_id!
+        })
+      ))
+
+      console.log('[Stats] Successfully persisted stats to Supabase')
+
+    } catch (err) {
+      console.error('[Stats] Error al guardar estadísticas en Supabase', err)
+      // No bloquear la UI ni romper el flujo del usuario
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 text-white pb-20">
       {/* Only show main UI if starters are configured OR starters modal is not open */}
@@ -1744,8 +1842,10 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
                 Deshacer
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   setShowMatchCompleteModal(false)
+                  // Persist stats to Supabase
+                  await handleSaveMatchStats()
                   onUpdateMatch(match.id, { status: 'completed' })
                   onNavigateToMatches()
                 }}

@@ -64,6 +64,7 @@ export interface Match {
   // NUEVO: IDs de Supabase
   team_id?: string
   season_id?: string
+  dbMatchId?: string // ID del partido en Supabase
   createdAt: string
   updatedAt: string
 }
@@ -175,6 +176,7 @@ interface MatchState {
   updateMatch: (id: string, updates: Partial<Match>) => void
   deleteMatch: (id: string) => void
   setCurrentMatch: (match: Match | null) => void
+  setMatchDbId: (localMatchId: string, dbMatchId: string) => void // NUEVO
   addSetToMatch: (matchId: string, set: Set) => void
   updateSetScore: (matchId: string, setId: string, homeScore: number, awayScore: number) => void
   updatePlayerStats: (matchId: string, playerId: string, stats: Partial<PlayerStats>) => void
@@ -248,6 +250,19 @@ export const useMatchStore = create<MatchState>()(
 
       setCurrentMatch: (match) => {
         set({ currentMatch: match })
+      },
+
+      setMatchDbId: (localMatchId, dbMatchId) => {
+        set((state) => ({
+          matches: state.matches.map((match) =>
+            match.id === localMatchId
+              ? { ...match, dbMatchId, updatedAt: new Date().toISOString() }
+              : match
+          ),
+          currentMatch: state.currentMatch?.id === localMatchId
+            ? { ...state.currentMatch, dbMatchId, updatedAt: new Date().toISOString() }
+            : state.currentMatch
+        }))
       },
 
       addSetToMatch: (matchId, newSet) => {

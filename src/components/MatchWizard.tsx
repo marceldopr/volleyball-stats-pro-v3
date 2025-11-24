@@ -62,7 +62,7 @@ interface WizardData {
 
 export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: MatchWizardProps) {
   const navigate = useNavigate()
-  const { createMatch, matches } = useMatchStore()
+  const { createMatch, matches, setMatchDbId } = useMatchStore()
   const { profile } = useAuthStore()
 
   const [currentStep, setCurrentStep] = useState(initialStep)
@@ -331,6 +331,9 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
             home_away: data.teamSide === 'local' ? 'home' : 'away',
             status: 'planned',
           })
+
+          // Link local match with Supabase ID
+          setMatchDbId(newMatch.id, supabaseMatch.id)
 
           const convocations = teamRoster.map(item => ({
             player_id: item.player.id,
