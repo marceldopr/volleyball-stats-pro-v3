@@ -14,22 +14,29 @@ export function TeamForm({ team, onClose }: TeamFormProps) {
     category: team?.category || 'female',
     ageGroup: team?.ageGroup || 'U16',
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+    setIsSubmitting(true)
+
     const teamData = {
       ...formData,
       players: team?.players || []
     }
-    
-    if (team) {
-      updateTeam(team.id, teamData)
-    } else {
-      addTeam(teamData)
+
+    try {
+      if (team) {
+        await updateTeam(team.id, teamData)
+      } else {
+        await addTeam(teamData)
+      }
+      onClose()
+    } catch (error) {
+      console.error('Error saving team:', error)
+    } finally {
+      setIsSubmitting(false)
     }
-    
-    onClose()
   }
 
   return (
@@ -59,6 +66,7 @@ export function TeamForm({ team, onClose }: TeamFormProps) {
               className="input"
               placeholder="Ej: CV Barcelona"
               required
+              disabled={isSubmitting}
             />
           </div>
 
@@ -70,6 +78,7 @@ export function TeamForm({ team, onClose }: TeamFormProps) {
               value={formData.category}
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
               className="input"
+              disabled={isSubmitting}
             >
               <option value="female">Femenino</option>
               <option value="male">Masculino</option>
@@ -85,6 +94,7 @@ export function TeamForm({ team, onClose }: TeamFormProps) {
               value={formData.ageGroup}
               onChange={(e) => setFormData({ ...formData, ageGroup: e.target.value })}
               className="input"
+              disabled={isSubmitting}
             >
               <option value="U12">U12</option>
               <option value="U14">U14</option>
@@ -99,14 +109,16 @@ export function TeamForm({ team, onClose }: TeamFormProps) {
               type="button"
               onClick={onClose}
               className="flex-1 btn-secondary"
+              disabled={isSubmitting}
             >
               Cancelar
             </button>
             <button
               type="submit"
               className="flex-1 btn-primary"
+              disabled={isSubmitting}
             >
-              {team ? 'Actualizar' : 'Crear'}
+              {isSubmitting ? 'Guardando...' : (team ? 'Actualizar' : 'Crear')}
             </button>
           </div>
         </form>

@@ -10,7 +10,11 @@ import { SettingsPage } from '@/pages/Settings'
 import { NewMatch } from '@/pages/NewMatch'
 import { Exports } from '@/pages/Exports'
 import { About } from '@/pages/About'
+import { Login } from '@/pages/Login'
+import { Players } from './pages/Players'
+import { ProtectedRoute } from '@/components/routing/ProtectedRoute'
 import { useThemeStore } from '@/stores/themeStore'
+import { Toaster } from 'sonner'
 
 function App() {
   const { isDarkMode } = useThemeStore()
@@ -22,21 +26,33 @@ function App() {
           <Sidebar />
           <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
             <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/teams" element={<Teams />} />
-              <Route path="/matches" element={<Matches />} />
-              <Route path="/matches/new" element={<NewMatch />} />
-              <Route path="/matches/:id" element={<Matches />} />
-              <Route path="/matches/:id/live" element={<LiveMatch />} />
-              <Route path="/matches/:id/analysis" element={<MatchAnalysis />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/exports" element={<Exports />} />
-              <Route path="/about" element={<About />} />
+              <Route path="/login" element={<Login />} />
+              <Route
+                path="*"
+                element={
+                  <ProtectedRoute>
+                    <Routes>
+                      <Route path="/" element={<Dashboard />} />
+                      <Route path="/teams" element={<Teams />} />
+                      <Route path="/players" element={<Players />} /> {/* Added players route */}
+                      <Route path="/matches" element={<Matches />} />
+                      <Route path="/matches/new" element={<NewMatch />} />
+                      <Route path="/matches/:id" element={<Matches />} />
+                      <Route path="/matches/:id/live" element={<LiveMatch />} />
+                      <Route path="/matches/:id/analysis" element={<MatchAnalysis />} />
+                      <Route path="/analytics" element={<Analytics />} />
+                      <Route path="/settings" element={<SettingsPage />} />
+                      <Route path="/exports" element={<Exports />} />
+                      <Route path="/about" element={<About />} />
+                    </Routes>
+                  </ProtectedRoute>
+                }
+              />
             </Routes>
           </div>
         </div>
       </Router>
+      <Toaster />
     </div>
   )
 }

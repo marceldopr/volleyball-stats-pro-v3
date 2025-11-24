@@ -20,23 +20,30 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
     notes: player?.notes || '',
     isActive: player?.isActive ?? true,
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+    setIsSubmitting(true)
+
     const playerData = {
       ...formData,
       height: formData.height ? Number(formData.height) : undefined,
       weight: formData.weight ? Number(formData.weight) : undefined,
     }
 
-    if (player) {
-      updatePlayer(teamId, player.id, playerData)
-    } else {
-      addPlayer(teamId, playerData)
+    try {
+      if (player) {
+        await updatePlayer(teamId, player.id, playerData)
+      } else {
+        await addPlayer(teamId, playerData)
+      }
+      onClose()
+    } catch (error) {
+      console.error('Error saving player:', error)
+    } finally {
+      setIsSubmitting(false)
     }
-    
-    onClose()
   }
 
   return (
@@ -66,6 +73,7 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
               className="input"
               placeholder="Ej: María García"
               required
+              disabled={isSubmitting}
             />
           </div>
 
@@ -81,6 +89,7 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
                 className="input"
                 placeholder="Ej: 12"
                 required
+                disabled={isSubmitting}
               />
             </div>
 
@@ -92,6 +101,7 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
                 value={formData.role}
                 onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                 className="input"
+                disabled={isSubmitting}
               >
                 <option value="S">Colocadora (S)</option>
                 <option value="OH">Extremo (OH)</option>
@@ -115,6 +125,7 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
                 placeholder="Ej: 175"
                 min="100"
                 max="250"
+                disabled={isSubmitting}
               />
             </div>
 
@@ -130,6 +141,7 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
                 placeholder="Ej: 65"
                 min="30"
                 max="150"
+                disabled={isSubmitting}
               />
             </div>
           </div>
@@ -142,6 +154,7 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
               value={formData.dominant}
               onChange={(e) => setFormData({ ...formData, dominant: e.target.value })}
               className="input"
+              disabled={isSubmitting}
             >
               <option value="right">Derecha</option>
               <option value="left">Izquierda</option>
@@ -157,6 +170,7 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               className="input min-h-[100px]"
               placeholder="Observaciones sobre la jugadora..."
+              disabled={isSubmitting}
             />
           </div>
 
@@ -167,6 +181,7 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
               checked={formData.isActive}
               onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
               className="mr-2"
+              disabled={isSubmitting}
             />
             <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
               Jugadora activa
@@ -178,14 +193,16 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
               type="button"
               onClick={onClose}
               className="flex-1 btn-secondary"
+              disabled={isSubmitting}
             >
               Cancelar
             </button>
             <button
               type="submit"
               className="flex-1 btn-primary"
+              disabled={isSubmitting}
             >
-              {player ? 'Actualizar' : 'Crear'}
+              {isSubmitting ? 'Guardando...' : (player ? 'Actualizar' : 'Crear')}
             </button>
           </div>
         </form>

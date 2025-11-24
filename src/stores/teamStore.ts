@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { supabase } from '@/lib/supabaseClient'
+import { useAuthStore } from './authStore'
 
 export interface Player {
   id: string
@@ -25,163 +26,315 @@ export interface Team {
 interface TeamState {
   teams: Team[]
   currentTeam: Team | null
-  addTeam: (team: Omit<Team, 'id' | 'createdAt'>) => void
-  updateTeam: (id: string, team: Partial<Team>) => void
-  deleteTeam: (id: string) => void
+  loading: boolean
+  error: string | null
+
+  loadTeams: () => Promise<void>
+  addTeam: (team: Omit<Team, 'id' | 'createdAt' | 'players'>) => Promise<void>
+  updateTeam: (id: string, team: Partial<Team>) => Promise<void>
+  deleteTeam: (id: string) => Promise<void>
   setCurrentTeam: (team: Team | null) => void
-  addPlayer: (teamId: string, player: Omit<Player, 'id'>) => void
-  updatePlayer: (teamId: string, playerId: string, player: Partial<Player>) => void
-  deletePlayer: (teamId: string, playerId: string) => void
-  initializeTestTeam: () => void
+
+  addPlayer: (teamId: string, player: Omit<Player, 'id'>) => Promise<void>
+  updatePlayer: (teamId: string, playerId: string, player: Partial<Player>) => Promise<void>
+  deletePlayer: (teamId: string, playerId: string) => Promise<void>
 }
 
-export const useTeamStore = create<TeamState>()(
-  persist(
-    (set) => ({
-      teams: [],
-      currentTeam: null,
+export const useTeamStore = create<TeamState>((set) => ({
+  teams: [],
+  currentTeam: null,
+  loading: false,
+  error: null,
 
-      addTeam: (teamData) => {
-        const newTeam: Team = {
-          ...teamData,
-          id: Date.now().toString(),
-          createdAt: new Date().toISOString(),
+  loadTeams: async () => {
+    set({ loading: true, error: null })
+    try {
+      // Get current user's club_id from auth store
+      const { profile } = useAuthStore.getState()
+      if (!profile?.club_id) throw new Error('No club ID found')
+
+      // Fetch teams
+      const { data: teamsData, error: teamsError } = await supabase
+        .from('teams')
+        .select('*')
+        .eq('club_id', profile.club_id)
+        .order('created_at', { ascending: false })
+
+      if (teamsError) throw teamsError
+
+      // Fetch all players for these teams
+      // Note: In a larger app, we might want to fetch players only when selecting a team
+      // but for now, to keep the store structure similar, we'll fetch all.
+      const teamIds = teamsData.map(t => t.id)
+      const { data: playersData, error: playersError } = await supabase
+        .from('players')
+        .select('*')
+        .in('team_id', teamIds)
+
+      if (playersError) throw playersError
+
+      // Map DB structure (snake_case) to frontend structure (camelCase)
+      const formattedTeams: Team[] = teamsData.map(team => {
+        const teamPlayers = playersData
+          .filter(p => p.team_id === team.id)
+          .map(p => ({
+            id: p.id,
+            name: p.name,
+            number: p.number,
+            role: p.role,
+            height: p.height,
+            weight: p.weight,
+            dominant: p.dominant_hand,
+            notes: p.notes,
+            isActive: p.is_active
+          }))
+
+        return {
+          id: team.id,
+          name: team.name,
+          category: team.category,
+          ageGroup: team.age_group,
+          players: teamPlayers,
+          createdAt: team.created_at
         }
-        set((state) => ({
-          teams: [...state.teams, newTeam],
-          currentTeam: newTeam,
-        }))
-      },
+      })
 
-      updateTeam: (id, teamData) => {
-        set((state) => ({
-          teams: state.teams.map((team) =>
-            team.id === id ? { ...team, ...teamData } : team
-          ),
-          currentTeam: state.currentTeam?.id === id
-            ? { ...state.currentTeam, ...teamData }
-            : state.currentTeam,
-        }))
-      },
+      set({ teams: formattedTeams, loading: false })
+    } catch (error) {
+      console.error('Error loading teams:', error)
+      set({ error: (error as Error).message, loading: false })
+    }
+  },
 
-      deleteTeam: (id) => {
-        set((state) => ({
-          teams: state.teams.filter((team) => team.id !== id),
-          currentTeam: state.currentTeam?.id === id ? null : state.currentTeam,
-        }))
-      },
+  addTeam: async (teamData) => {
+    set({ loading: true, error: null })
+    try {
+      const { profile } = useAuthStore.getState()
+      if (!profile?.club_id) throw new Error('No club ID found')
 
-      setCurrentTeam: (team) => {
-        set({ currentTeam: team })
-      },
+      const { data, error } = await supabase
+        .from('teams')
+        .insert({
+          club_id: profile.club_id,
+          name: teamData.name,
+          category: teamData.category,
+          age_group: teamData.ageGroup
+        })
+        .select()
+        .single()
 
-      addPlayer: (teamId, playerData) => {
-        const newPlayer: Player = {
-          ...playerData,
-          id: Date.now().toString(),
-        }
-        set((state) => ({
-          teams: state.teams.map((team) =>
-            team.id === teamId
-              ? { ...team, players: [...team.players, newPlayer] }
-              : team
-          ),
+      if (error) throw error
+
+      const newTeam: Team = {
+        id: data.id,
+        name: data.name,
+        category: data.category,
+        ageGroup: data.age_group,
+        players: [],
+        createdAt: data.created_at
+      }
+
+      set(state => ({
+        teams: [newTeam, ...state.teams],
+        currentTeam: newTeam,
+        loading: false
+      }))
+    } catch (error) {
+      console.error('Error adding team:', error)
+      set({ error: (error as Error).message, loading: false })
+      throw error
+    }
+  },
+
+  updateTeam: async (id, teamData) => {
+    set({ loading: true, error: null })
+    try {
+      const updates: any = {}
+      if (teamData.name) updates.name = teamData.name
+      if (teamData.category) updates.category = teamData.category
+      if (teamData.ageGroup) updates.age_group = teamData.ageGroup
+
+      const { error } = await supabase
+        .from('teams')
+        .update(updates)
+        .eq('id', id)
+
+      if (error) throw error
+
+      set(state => ({
+        teams: state.teams.map(t => t.id === id ? { ...t, ...teamData } : t),
+        currentTeam: state.currentTeam?.id === id ? { ...state.currentTeam, ...teamData } : state.currentTeam,
+        loading: false
+      }))
+    } catch (error) {
+      console.error('Error updating team:', error)
+      set({ error: (error as Error).message, loading: false })
+      throw error
+    }
+  },
+
+  deleteTeam: async (id) => {
+    set({ loading: true, error: null })
+    try {
+      const { error } = await supabase
+        .from('teams')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+
+      set(state => ({
+        teams: state.teams.filter(t => t.id !== id),
+        currentTeam: state.currentTeam?.id === id ? null : state.currentTeam,
+        loading: false
+      }))
+    } catch (error) {
+      console.error('Error deleting team:', error)
+      set({ error: (error as Error).message, loading: false })
+      throw error
+    }
+  },
+
+  setCurrentTeam: (team) => {
+    set({ currentTeam: team })
+  },
+
+  addPlayer: async (teamId, playerData) => {
+    set({ loading: true, error: null })
+    try {
+      const { data, error } = await supabase
+        .from('players')
+        .insert({
+          team_id: teamId,
+          name: playerData.name,
+          number: playerData.number,
+          role: playerData.role,
+          height: playerData.height,
+          weight: playerData.weight,
+          dominant_hand: playerData.dominant,
+          notes: playerData.notes,
+          is_active: playerData.isActive
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      const newPlayer: Player = {
+        id: data.id,
+        name: data.name,
+        number: data.number,
+        role: data.role,
+        height: data.height,
+        weight: data.weight,
+        dominant: data.dominant_hand,
+        notes: data.notes,
+        isActive: data.is_active
+      }
+
+      set(state => {
+        const updatedTeams = state.teams.map(team =>
+          team.id === teamId
+            ? { ...team, players: [...team.players, newPlayer] }
+            : team
+        )
+
+        return {
+          teams: updatedTeams,
           currentTeam: state.currentTeam?.id === teamId
             ? { ...state.currentTeam, players: [...state.currentTeam.players, newPlayer] }
             : state.currentTeam,
-        }))
-      },
-
-      updatePlayer: (teamId, playerId, playerData) => {
-        set((state) => ({
-          teams: state.teams.map((team) =>
-            team.id === teamId
-              ? {
-                ...team,
-                players: team.players.map((player) =>
-                  player.id === playerId ? { ...player, ...playerData } : player
-                ),
-              }
-              : team
-          ),
-          currentTeam: state.currentTeam?.id === teamId
-            ? {
-              ...state.currentTeam,
-              players: state.currentTeam.players.map((player) =>
-                player.id === playerId ? { ...player, ...playerData } : player
-              ),
-            }
-            : state.currentTeam,
-        }))
-      },
-
-      deletePlayer: (teamId, playerId) => {
-        set((state) => ({
-          teams: state.teams.map((team) =>
-            team.id === teamId
-              ? { ...team, players: team.players.filter((p) => p.id !== playerId) }
-              : team
-          ),
-          currentTeam: state.currentTeam?.id === teamId
-            ? {
-              ...state.currentTeam,
-              players: state.currentTeam.players.filter((p) => p.id !== playerId),
-            }
-            : state.currentTeam,
-        }))
-      },
-
-      initializeTestTeam: () => {
-        set((state) => {
-          // Check if test team already exists
-          const testTeamExists = state.teams.some(team => team.id === 'test_team_auto')
-          if (testTeamExists) {
-            return state
-          }
-
-          // Create test team with 12 predefined players
-          const testPlayers: Player[] = [
-            // 2 Colocadoras (S)
-            { id: 'test_player_1', name: 'Ana Test', number: '1', role: 'S', isActive: true },
-            { id: 'test_player_2', name: 'Lucía Test', number: '2', role: 'S', isActive: true },
-
-            // 2 Opuestos (OPP)
-            { id: 'test_player_3', name: 'Marta Test', number: '3', role: 'OPP', isActive: true },
-            { id: 'test_player_4', name: 'Irene Test', number: '4', role: 'OPP', isActive: true },
-
-            // 2 Centrales (MB)
-            { id: 'test_player_5', name: 'Paula Test', number: '5', role: 'MB', isActive: true },
-            { id: 'test_player_6', name: 'Clara Test', number: '6', role: 'MB', isActive: true },
-
-            // 2 Extremos (OH)
-            { id: 'test_player_7', name: 'Julia Test', number: '7', role: 'OH', isActive: true },
-            { id: 'test_player_8', name: 'Nerea Test', number: '8', role: 'OH', isActive: true },
-
-            // 4 Líberos (L)
-            { id: 'test_player_9', name: 'Eva Test', number: '9', role: 'L', isActive: true },
-            { id: 'test_player_10', name: 'Noa Test', number: '10', role: 'L', isActive: true },
-            { id: 'test_player_11', name: 'Aina Test', number: '11', role: 'L', isActive: true },
-            { id: 'test_player_12', name: 'Nora Test', number: '12', role: 'L', isActive: true },
-          ]
-
-          const testTeam: Team = {
-            id: 'test_team_auto',
-            name: 'CV Antigravity Test',
-            category: 'female',
-            ageGroup: 'senior',
-            players: testPlayers,
-            createdAt: new Date().toISOString(),
-          }
-
-          return {
-            teams: [...state.teams, testTeam],
-            currentTeam: state.currentTeam,
-          }
-        })
-      },
-    }),
-    {
-      name: 'team-storage',
+          loading: false
+        }
+      })
+    } catch (error) {
+      console.error('Error adding player:', error)
+      set({ error: (error as Error).message, loading: false })
+      throw error
     }
-  )
-)
+  },
+
+  updatePlayer: async (teamId, playerId, playerData) => {
+    set({ loading: true, error: null })
+    try {
+      const updates: any = {}
+      if (playerData.name) updates.name = playerData.name
+      if (playerData.number) updates.number = playerData.number
+      if (playerData.role) updates.role = playerData.role
+      if (playerData.height !== undefined) updates.height = playerData.height
+      if (playerData.weight !== undefined) updates.weight = playerData.weight
+      if (playerData.dominant) updates.dominant_hand = playerData.dominant
+      if (playerData.notes !== undefined) updates.notes = playerData.notes
+      if (playerData.isActive !== undefined) updates.is_active = playerData.isActive
+
+      const { error } = await supabase
+        .from('players')
+        .update(updates)
+        .eq('id', playerId)
+
+      if (error) throw error
+
+      set(state => {
+        const updatedTeams = state.teams.map(team =>
+          team.id === teamId
+            ? {
+              ...team,
+              players: team.players.map(p =>
+                p.id === playerId ? { ...p, ...playerData } : p
+              )
+            }
+            : team
+        )
+
+        return {
+          teams: updatedTeams,
+          currentTeam: state.currentTeam?.id === teamId
+            ? {
+              ...state.currentTeam,
+              players: state.currentTeam.players.map(p =>
+                p.id === playerId ? { ...p, ...playerData } : p
+              )
+            }
+            : state.currentTeam,
+          loading: false
+        }
+      })
+    } catch (error) {
+      console.error('Error updating player:', error)
+      set({ error: (error as Error).message, loading: false })
+      throw error
+    }
+  },
+
+  deletePlayer: async (teamId, playerId) => {
+    set({ loading: true, error: null })
+    try {
+      const { error } = await supabase
+        .from('players')
+        .delete()
+        .eq('id', playerId)
+
+      if (error) throw error
+
+      set(state => {
+        const updatedTeams = state.teams.map(team =>
+          team.id === teamId
+            ? { ...team, players: team.players.filter(p => p.id !== playerId) }
+            : team
+        )
+
+        return {
+          teams: updatedTeams,
+          currentTeam: state.currentTeam?.id === teamId
+            ? { ...state.currentTeam, players: state.currentTeam.players.filter(p => p.id !== playerId) }
+            : state.currentTeam,
+          loading: false
+        }
+      })
+    } catch (error) {
+      console.error('Error deleting player:', error)
+      set({ error: (error as Error).message, loading: false })
+      throw error
+    }
+  }
+}))

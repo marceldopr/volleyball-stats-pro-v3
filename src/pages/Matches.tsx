@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Plus, Calendar, Trophy, Clock, Eye, Trash2 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
-import { useMatchStore } from '../stores/matchStore'
 import { MatchWizard } from '../components/MatchWizard'
+import { useMatchStore } from '../stores/matchStore'
 import { MatchDetail } from '../components/MatchDetail'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { useAuthStore } from '../stores/authStore'
+import { seasonService } from '../services/seasonService'
+import { teamService } from '../services/teamService'
+import { Plus, Calendar, Trophy, Clock, Eye, Trash2 } from 'lucide-react'
+
 
 export function Matches() {
   const { id } = useParams()
@@ -13,14 +17,40 @@ export function Matches() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [matchToDelete, setMatchToDelete] = useState<any>(null)
   const { matches: storeMatches, deleteMatch } = useMatchStore()
+  const { profile } = useAuthStore()
+
+  const [currentSeason, setCurrentSeason] = useState<any>(null)
+  const [availableTeams, setAvailableTeams] = useState<any[]>([])
+
+  // Load season and teams for the user's club
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!profile?.club_id) return
+      try {
+        const season = await seasonService.getCurrentSeasonByClub(profile.club_id)
+        setCurrentSeason(season)
+        if (season) {
+          const teams = await teamService.getTeamsByClubAndSeason(profile.club_id, season.id)
+          setAvailableTeams(teams)
+        }
+      } catch (err) {
+        console.error('Error loading season/teams', err)
+      }
+    }
+    fetchData()
+  }, [profile?.club_id])
+
+  // Map team IDs to names for quick lookup
+  const teamMap = availableTeams.reduce((acc, team) => {
+    acc[team.id] = team.name
+    return acc
+  }, {} as Record<string, string>)
 
   // Auto-select match if ID is provided in URL
   useEffect(() => {
     if (id) {
       const match = storeMatches.find(m => m.id === id)
-      if (match) {
-        setSelectedMatch(match)
-      }
+      if (match) setSelectedMatch(match)
     }
   }, [id, storeMatches])
 
@@ -33,10 +63,7 @@ export function Matches() {
     if (matchToDelete) {
       try {
         deleteMatch(matchToDelete.id)
-        // If we're viewing the deleted match, close its detail
-        if (selectedMatch?.id === matchToDelete.id) {
-          setSelectedMatch(null)
-        }
+        if (selectedMatch?.id === matchToDelete.id) setSelectedMatch(null)
       } catch (error) {
         alert('No se ha podido eliminar el partido. Inténtalo de nuevo.')
       }
@@ -49,8 +76,6 @@ export function Matches() {
     setDeleteConfirmOpen(false)
     setMatchToDelete(null)
   }
-
-  // Use store matches directly - no demo data
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -96,10 +121,7 @@ export function Matches() {
           <h1 className="text-2xl font-bold text-gray-900">Partidos</h1>
           <p className="text-sm text-gray-500 mt-1">Gestiona tu calendario y resultados</p>
         </div>
-        <button
-          onClick={() => setIsWizardOpen(true)}
-          className="btn-primary flex items-center gap-2"
-        >
+        <button onClick={() => setIsWizardOpen(true)} className="btn-primary flex items-center gap-2">
           <Plus className="w-4 h-4" />
           <span>Nuevo Partido</span>
         </button>
@@ -107,119 +129,111 @@ export function Matches() {
 
       {/* Lista de partidos */}
       <div className="space-y-4">
-        {storeMatches.map((match) => (
-          <div key={match.id} className="card hover:shadow-md transition-all duration-200">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h3 className="text-xl font-bold text-gray-900">{match.opponent}</h3>
-                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${match.teamSide === 'local'
+        {storeMatches
+          .filter((match) => {
+            // Show matches that belong to the user's club and current season, unless admin
+            const isAdmin = profile?.role === 'admin'
+            const belongsToClub = availableTeams.some(t => t.id === match.team_id)
+            const sameSeason = currentSeason && match.season_id === currentSeason.id
+            return isAdmin || (belongsToClub && sameSeason)
+          })
+          .map((match) => (
+            <div key={match.id} className="card hover:shadow-md transition-all duration-200">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="text-xl font-bold text-gray-900">{match.opponent}</h3>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${match.teamSide === 'local'
                       ? 'bg-green-100 text-green-800 border border-green-200'
                       : 'bg-blue-100 text-blue-800 border border-blue-200'
-                    }`}>
-                    {match.teamSide === 'local' ? 'Local' : 'Visitante'}
-                  </span>
-                </div>
+                      }`}>
+                      {match.teamSide === 'local' ? 'Local' : 'Visitante'}
+                    </span>
+                  </div>
 
-                <div className="flex items-center gap-4 text-sm text-gray-500">
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-gray-400" />
-                    <span>{new Date(match.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-4 h-4 text-gray-400" />
-                    <span>{match.time}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-4 h-4 flex items-center justify-center">📍</div>
-                    <span>{match.location}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${getStatusColor(match.status)}`}>
-                    {getStatusText(match.status)}
-                  </span>
-                  {match.status === 'completed' && (
-                    <div className="mt-1 text-2xl font-bold text-gray-900 tabular-nums">
-                      {getFinalResult(match)}
+                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <span>{new Date(match.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                     </div>
-                  )}
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-gray-400" />
+                      <span>{match.time}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-4 h-4 flex items-center justify-center">📍</div>
+                      <span>{match.location}</span>
+                    </div>
+                    {match.team_id && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium">Equipo:</span>
+                        <span>{teamMap[match.team_id] || 'Desconocido'}</span>
+                      </div>
+                    )}
+                    {match.season_id && currentSeason && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium">Temporada:</span>
+                        <span>{currentSeason.name}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <button
-                  onClick={() => handleDeleteClick(match)}
-                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                  title="Eliminar partido"
-                >
-                  <Trash2 className="w-5 h-5" />
+
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${getStatusColor(match.status)}`}>
+                      {getStatusText(match.status)}
+                    </span>
+                    {match.status === 'completed' && (
+                      <div className="mt-1 text-2xl font-bold text-gray-900 tabular-nums">
+                        {getFinalResult(match)}
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={() => handleDeleteClick(match)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Eliminar partido">
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
+                <button onClick={() => setSelectedMatch(match)} className="btn-secondary text-sm py-2">
+                  <Eye className="w-4 h-4 mr-2" />
+                  Ver detalles
                 </button>
+                {match.status === 'upcoming' && (
+                  <Link to={`/matches/${match.id}/live`} className="btn-primary text-sm py-2">
+                    Comenzar Partido
+                  </Link>
+                )}
+                {match.status === 'live' && (
+                  <Link to={`/matches/${match.id}/live`} className="btn-action-danger text-sm py-2 animate-pulse">
+                    <div className="w-2 h-2 bg-white rounded-full mr-2"></div>
+                    Ver en Vivo
+                  </Link>
+                )}
+                {match.status === 'completed' && (
+                  <Link to={`/matches/${match.id}/analysis`} className="btn-outline text-sm py-2">
+                    Ver Análisis
+                  </Link>
+                )}
               </div>
             </div>
-
-            <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
-              <button
-                onClick={() => setSelectedMatch(match)}
-                className="btn-secondary text-sm py-2"
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                Ver detalles
-              </button>
-
-              {match.status === 'upcoming' && (
-                <Link
-                  to={`/matches/${match.id}/live`}
-                  className="btn-primary text-sm py-2"
-                >
-                  Comenzar Partido
-                </Link>
-              )}
-              {match.status === 'live' && (
-                <Link
-                  to={`/matches/${match.id}/live`}
-                  className="btn-action-danger text-sm py-2 animate-pulse"
-                >
-                  <div className="w-2 h-2 bg-white rounded-full mr-2"></div>
-                  Ver en Vivo
-                </Link>
-              )}
-              {match.status === 'completed' && (
-                <Link
-                  to={`/matches/${match.id}/analysis`}
-                  className="btn-outline text-sm py-2"
-                >
-                  Ver Análisis
-                </Link>
-              )}
-            </div>
-          </div>
-        ))}
+          ))}
       </div>
 
       {storeMatches.length === 0 && (
         <div className="text-center py-12">
           <Trophy className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">Todavía no has creado ningún partido.</h3>
-          <button
-            onClick={() => setIsWizardOpen(true)}
-            className="btn-primary"
-          >
-            Crear nuevo partido
-          </button>
+          <button onClick={() => setIsWizardOpen(true)} className="btn-primary">Crear nuevo partido</button>
         </div>
       )}
 
-      <MatchWizard
-        isOpen={isWizardOpen}
-        onClose={() => setIsWizardOpen(false)}
-      />
+      <MatchWizard isOpen={isWizardOpen} onClose={() => setIsWizardOpen(false)} />
 
       {selectedMatch && (
-        <MatchDetail
-          match={selectedMatch}
-          onClose={() => setSelectedMatch(null)}
-        />
+        <MatchDetail match={selectedMatch} onClose={() => setSelectedMatch(null)} />
       )}
 
       <ConfirmDialog

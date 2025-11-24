@@ -61,6 +61,9 @@ export interface Match {
   liberoOnCourtBySet?: {
     [setNumber: number]: string | null
   }
+  // NUEVO: IDs de Supabase
+  team_id?: string
+  season_id?: string
   createdAt: string
   updatedAt: string
 }

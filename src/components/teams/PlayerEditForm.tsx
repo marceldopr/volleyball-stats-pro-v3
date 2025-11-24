@@ -23,6 +23,7 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
     isActive: player.isActive,
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const roles = [
     { value: 'S', label: 'Colocadora (S)' },
@@ -64,15 +65,17 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!validateForm()) {
       return
     }
 
+    setIsSubmitting(true)
+
     try {
-      updatePlayer(teamId, player.id, {
+      await updatePlayer(teamId, player.id, {
         name: formData.name.trim(),
         number: formData.number,
         role: formData.role as Player['role'],
@@ -89,12 +92,14 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
     } catch (error) {
       toast.error('Error al actualizar la jugadora')
       console.error('Error updating player:', error)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
-    
+
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked
       setFormData(prev => ({ ...prev, [name]: checked }))
@@ -135,6 +140,7 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
               onChange={handleInputChange}
               className={`input w-full ${errors.name ? 'border-red-500' : ''}`}
               placeholder="Ej: María García"
+              disabled={isSubmitting}
             />
             {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
           </div>
@@ -153,6 +159,7 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
                 max="99"
                 className={`input w-full ${errors.number ? 'border-red-500' : ''}`}
                 placeholder="Ej: 10"
+                disabled={isSubmitting}
               />
               {errors.number && <p className="text-red-500 text-sm mt-1">{errors.number}</p>}
             </div>
@@ -166,6 +173,7 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
                 value={formData.role}
                 onChange={handleInputChange}
                 className={`input w-full ${errors.role ? 'border-red-500' : ''}`}
+                disabled={isSubmitting}
               >
                 <option value="">Seleccionar rol</option>
                 {roles.map((role) => (
@@ -192,6 +200,7 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
                 max="250"
                 className="input w-full"
                 placeholder="Ej: 180"
+                disabled={isSubmitting}
               />
             </div>
 
@@ -208,6 +217,7 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
                 max="150"
                 className="input w-full"
                 placeholder="Ej: 70"
+                disabled={isSubmitting}
               />
             </div>
           </div>
@@ -221,6 +231,7 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
               value={formData.dominant}
               onChange={handleInputChange}
               className="input w-full"
+              disabled={isSubmitting}
             >
               <option value="right">Derecha</option>
               <option value="left">Izquierda</option>
@@ -238,6 +249,7 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
               rows={3}
               className="input w-full"
               placeholder="Información adicional sobre la jugadora..."
+              disabled={isSubmitting}
             />
           </div>
 
@@ -249,6 +261,7 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
               checked={formData.isActive}
               onChange={handleInputChange}
               className="mr-2"
+              disabled={isSubmitting}
             />
             <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
               Jugadora activa
@@ -262,6 +275,7 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
             type="button"
             onClick={onClose}
             className="btn-outline"
+            disabled={isSubmitting}
           >
             Cancelar
           </button>
@@ -269,8 +283,9 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
             type="submit"
             onClick={handleSubmit}
             className="btn-primary"
+            disabled={isSubmitting}
           >
-            Guardar cambios
+            {isSubmitting ? 'Guardando...' : 'Guardar cambios'}
           </button>
         </div>
       </div>

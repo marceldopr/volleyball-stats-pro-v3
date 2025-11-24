@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Home,
   Users,
@@ -8,13 +8,16 @@ import {
   Download,
   Info,
   Menu,
-  X
+  X,
+  LogOut
 } from 'lucide-react'
 import { useState } from 'react'
 import { clsx } from 'clsx'
+import { useAuthStore } from '@/stores/authStore'
 
 const navigation = [
   { name: 'Home', href: '/', icon: Home },
+  { name: 'Jugadoras', href: '/players', icon: Users },
   { name: 'Equipos', href: '/teams', icon: Users },
   { name: 'Partidos', href: '/matches', icon: Trophy },
   { name: 'Análisis', href: '/analytics', icon: BarChart3 },
@@ -26,6 +29,23 @@ const navigation = [
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
+  const { profile, logout } = useAuthStore()
+
+  const role = profile?.role
+
+  const filteredNavigation = navigation.filter(item => {
+    if (role === 'director_tecnic') return true
+    if (role === 'entrenador') {
+      return ['Home', 'Equipos', 'Partidos', 'Configuración', 'Sobre la App'].includes(item.name)
+    }
+    return false
+  })
+
+  const handleLogout = async () => {
+    await logout()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <>
@@ -57,7 +77,7 @@ export function Sidebar() {
         {/* Navigation */}
         <nav className="mt-6 px-3">
           <ul className="space-y-1">
-            {navigation.map((item) => {
+            {filteredNavigation.map((item) => {
               const isActive = location.pathname === item.href
               return (
                 <li key={item.name}>
@@ -81,7 +101,15 @@ export function Sidebar() {
         {/* Footer */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800">
           <div className="text-center">
-            <p className="text-gray-500 text-xs">v1.0.0</p>
+            <p className="text-gray-500 text-xs mb-4">v1.0.0</p>
+
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-3 py-2 w-full text-sm text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-md transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Cerrar sesión</span>
+            </button>
           </div>
         </div>
       </div>
