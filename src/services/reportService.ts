@@ -1,5 +1,10 @@
 import { supabase } from '@/lib/supabaseClient'
 
+// TODO: LEGACY - This service is no longer used since Phase 9B.
+// The new structured reports use playerReportService.ts and the player_reports table.
+// This service uses the old 'reports' table with simple text-based reports.
+// Kept for reference but not actively used in the UI.
+
 export interface PlayerReportDB {
     id: string
     club_id: string

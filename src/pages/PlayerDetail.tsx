@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, User } from 'lucide-react'
+import { ArrowLeft, User, FileText } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import { playerService, PlayerDB } from '../services/playerService'
-import { PlayerReports } from '../components/players/PlayerReports'
 
 export function PlayerDetail() {
     const { id } = useParams<{ id: string }>()
@@ -109,8 +108,8 @@ export function PlayerDetail() {
                                 <div className="flex items-center gap-2">
                                     <span className="font-medium text-gray-700">Estado:</span>
                                     <span className={`px-3 py-1 rounded-full font-medium ${player.is_active
-                                            ? 'bg-green-100 text-green-800'
-                                            : 'bg-gray-100 text-gray-800'
+                                        ? 'bg-green-100 text-green-800'
+                                        : 'bg-gray-100 text-gray-800'
                                         }`}>
                                         {player.is_active ? 'Activa' : 'Inactiva'}
                                     </span>
@@ -128,13 +127,41 @@ export function PlayerDetail() {
                                 </div>
                             )}
                         </div>
+
+                        {/* Action Buttons */}
+                        <div className="mt-4">
+                            <button
+                                onClick={() => navigate(`/players/${player.id}/reports`)}
+                                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
+                            >
+                                <FileText className="w-4 h-4" />
+                                Ver Informes de Evaluación
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* Content */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <PlayerReports playerId={player.id} />
+                <div className="bg-white rounded-lg shadow p-6">
+                    <h2 className="text-xl font-bold text-gray-900 mb-4">Información de la Jugadora</h2>
+                    <div className="space-y-3 text-gray-700">
+                        <p><span className="font-medium">Nombre completo:</span> {player.first_name} {player.last_name}</p>
+                        <p><span className="font-medium">Posición:</span> {getPositionName(player.main_position)}</p>
+                        <p><span className="font-medium">Estado:</span> {player.is_active ? 'Activa' : 'Inactiva'}</p>
+                        {player.birth_date && (
+                            <p>
+                                <span className="font-medium">Fecha de nacimiento:</span>{' '}
+                                {new Date(player.birth_date).toLocaleDateString('es-ES', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                })}
+                            </p>
+                        )}
+                    </div>
+                </div>
             </div>
         </div>
     )

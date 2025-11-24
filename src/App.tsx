@@ -13,6 +13,7 @@ import { About } from '@/pages/About'
 import { Login } from '@/pages/Login'
 import { Players } from './pages/Players'
 import { PlayerDetail } from './pages/PlayerDetail'
+import PlayerReports from './pages/PlayerReports'
 import { ProtectedRoute } from '@/components/routing/ProtectedRoute'
 import { useThemeStore } from '@/stores/themeStore'
 import { Toaster } from 'sonner'
@@ -37,6 +38,7 @@ function App() {
                       <Route path="/teams" element={<Teams />} />
                       <Route path="/players" element={<Players />} /> {/* Added players route */}
                       <Route path="/players/:id" element={<PlayerDetail />} />
+                      <Route path="/players/:playerId/reports" element={<PlayerReports />} />
                       <Route path="/matches" element={<Matches />} />
                       <Route path="/matches/new" element={<NewMatch />} />
                       <Route path="/matches/:id" element={<Matches />} />
