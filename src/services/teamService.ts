@@ -13,6 +13,7 @@ export interface TeamDB {
     notes: string | null
     created_at: string
     updated_at: string
+    player_team_season?: { id: string }[]
 }
 
 export const teamService = {
@@ -20,7 +21,7 @@ export const teamService = {
     getTeamsByClubAndSeason: async (clubId: string, seasonId: string): Promise<TeamDB[]> => {
         const { data, error } = await supabase
             .from('teams')
-            .select('*')
+            .select('*, player_team_season(id)')
             .eq('club_id', clubId)
             .eq('season_id', seasonId)
             .order('name', { ascending: true })

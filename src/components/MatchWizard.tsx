@@ -369,7 +369,7 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
                     <option value="">Selecciona un equipo...</option>
                     {availableTeams.map(team => (
                       <option key={team.id} value={team.id}>
-                        {team.name} ({team.players?.length || 0} jugadoras)
+                        {team.name} ({team.player_team_season?.length || 0} jugadoras)
                       </option>
                     ))}
                   </select>
