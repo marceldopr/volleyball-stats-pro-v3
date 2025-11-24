@@ -6,6 +6,8 @@ import { useAuthStore } from '../stores/authStore'
 import { seasonService } from '../services/seasonService'
 import { teamService } from '../services/teamService'
 import { playerTeamSeasonService } from '../services/playerTeamSeasonService'
+import { matchService } from '../services/matchService'
+import { matchConvocationService } from '../services/matchConvocationService'
 import { LiberoValidationModal } from './LiberoValidationModal'
 import { POSITION_NAMES } from '@/constants'
 
@@ -254,7 +256,7 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
     navigate('/teams')
   }
 
-  const handleCreateMatch = () => {
+  const handleCreateMatch = async () => {
     setError('')
     try {
       const selectedTeam = availableTeams.find(t => t.id === data.teamId)
@@ -311,6 +313,43 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
         sets: [{ id: '1', number: 1, homeScore: 0, awayScore: 0, status: 'not_started' }],
         players: matchPlayers,
       })
+
+      // Persist to Supabase (Silent)
+      try {
+        if (profile?.club_id && currentSeason?.id && selectedTeam) {
+          // Combine date and time for ISO string
+          const dateTimeString = `${data.date}T${data.time}:00`
+          const matchDate = new Date(dateTimeString).toISOString()
+
+          const supabaseMatch = await matchService.createMatch({
+            club_id: profile.club_id,
+            season_id: currentSeason.id,
+            team_id: data.teamId,
+            opponent_name: data.opponent.trim(),
+            match_date: matchDate,
+            location: data.location.trim(),
+            home_away: data.teamSide === 'local' ? 'home' : 'away',
+            status: 'planned',
+          })
+
+          const convocations = teamRoster.map(item => ({
+            player_id: item.player.id,
+            status: data.selectedPlayers.includes(item.player.id) ? 'convocado' : 'no_convocado',
+            reason_not_convoked: data.selectedPlayers.includes(item.player.id) ? undefined : 'decisión técnica',
+            notes: undefined
+          }))
+
+          await matchConvocationService.setConvocationsForMatch({
+            matchId: supabaseMatch.id,
+            teamId: selectedTeam.id,
+            seasonId: currentSeason.id,
+            convocations
+          })
+        }
+      } catch (err) {
+        console.error('Error persisting match to Supabase:', err)
+        // Silent fail - do not block UI flow
+      }
 
       // Reset wizard state
       setCurrentStep(1)
