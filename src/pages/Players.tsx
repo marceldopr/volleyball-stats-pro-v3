@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Edit, X, Loader2 } from 'lucide-react'
+import { Plus, Search, Edit, X, Loader2, Eye } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { playerService, PlayerDB } from '@/services/playerService'
 import { toast } from 'sonner'
 import { POSITION_NAMES } from '@/constants'
 
 export function Players() {
+    const navigate = useNavigate()
     const { profile } = useAuthStore()
     const [players, setPlayers] = useState<PlayerDB[]>([])
     const [loading, setLoading] = useState(true)
@@ -209,12 +211,22 @@ export function Players() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <button
-                                                onClick={() => handleOpenModal(player)}
-                                                className="text-orange-600 hover:text-orange-900 p-2 hover:bg-orange-50 rounded-full transition-colors"
-                                            >
-                                                <Edit className="w-4 h-4" />
-                                            </button>
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={() => navigate(`/players/${player.id}`)}
+                                                    className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded-full transition-colors"
+                                                    title="Ver detalle"
+                                                >
+                                                    <Eye className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleOpenModal(player)}
+                                                    className="text-orange-600 hover:text-orange-900 p-2 hover:bg-orange-50 rounded-full transition-colors"
+                                                    title="Editar"
+                                                >
+                                                    <Edit className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

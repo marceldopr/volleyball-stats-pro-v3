@@ -12,6 +12,7 @@ import { Exports } from '@/pages/Exports'
 import { About } from '@/pages/About'
 import { Login } from '@/pages/Login'
 import { Players } from './pages/Players'
+import { PlayerDetail } from './pages/PlayerDetail'
 import { ProtectedRoute } from '@/components/routing/ProtectedRoute'
 import { useThemeStore } from '@/stores/themeStore'
 import { Toaster } from 'sonner'
@@ -35,6 +36,7 @@ function App() {
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/teams" element={<Teams />} />
                       <Route path="/players" element={<Players />} /> {/* Added players route */}
+                      <Route path="/players/:id" element={<PlayerDetail />} />
                       <Route path="/matches" element={<Matches />} />
                       <Route path="/matches/new" element={<NewMatch />} />
                       <Route path="/matches/:id" element={<Matches />} />
