@@ -77,6 +77,7 @@ export function LiveMatch() {
           setWizardStep(step)
           setShowWizard(true)
         }}
+        teamName={team?.name}
       />
 
       {showWizard && (

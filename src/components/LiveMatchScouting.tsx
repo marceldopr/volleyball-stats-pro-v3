@@ -1,7 +1,6 @@
 ﻿import { useState, useEffect } from 'react'
 import { Undo2, Trophy, ArrowRightLeft, Zap, Hand, AlertTriangle, Target, Ban, TrendingDown, X, Users } from 'lucide-react'
 import { Match, Equipo } from '../stores/matchStore'
-import { useTeamStore } from '../stores/teamStore'
 import { useMatchStore } from '../stores/matchStore'
 import { StartersManagement } from './StartersManagement'
 import { PlayerSelectionPopup } from './PlayerSelectionPopup'
@@ -27,9 +26,10 @@ interface LiveMatchScoutingProps {
   onUpdateMatch: (id: string, updates: Partial<Match>) => void
   onNavigateToMatches: () => void
   onNavigateToWizardStep?: (step: number) => void
+  teamName?: string
 }
 
-export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, onNavigateToWizardStep }: LiveMatchScoutingProps) {
+export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, onNavigateToWizardStep, teamName }: LiveMatchScoutingProps) {
   const [homeScore, setHomeScore] = useState(0)
   const [awayScore, setAwayScore] = useState(0)
   const [estadoSaque, setEstadoSaque] = useState<'myTeamServing' | 'myTeamReceiving' | null>(null)
@@ -328,10 +328,8 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
     return displayRotation
   }
 
-  // Get team name from store
-  const { teams } = useTeamStore()
-  const myTeam = teams.find(team => team.id === match.teamId)
-  const myTeamName = myTeam?.name || 'Mi Equipo'
+  // Get team name from prop or fallback
+  const myTeamName = teamName || 'Mi Equipo'
 
   // Local team ALWAYS on left, visitor ALWAYS on right
   const localTeamName = isHomeTeam ? myTeamName : match.opponent
@@ -410,7 +408,15 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
 
   // NUEVO: Auto-open starters modal if no lineup is configured for Set 1
   useEffect(() => {
+    console.log('🔍 StartersModal Check:', {
+      currentSet: match.currentSet,
+      hasStartingLineup: !!match.startingLineup,
+      showStartersModal,
+      shouldOpen: match.currentSet === 1 && !match.startingLineup && !showStartersModal
+    })
+
     if (match.currentSet === 1 && !match.startingLineup && !showStartersModal) {
+      console.log('✅ Opening StartersManagement modal')
       setShowStartersModal(true)
     }
   }, [match.currentSet, match.startingLineup, showStartersModal])
@@ -1403,170 +1409,175 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
 
   return (
     <div className="min-h-screen bg-gray-900 text-white pb-20">
-      {/* Header & Scoreboard Section */}
-      <div className="bg-gray-800 pb-6 pt-2 rounded-b-3xl shadow-lg mb-6">
-        {/* Top Bar: Teams & Set */}
-        <div className="flex items-center w-full px-4 mb-4">
-          <span className="flex-1 text-xs font-medium text-gray-400 uppercase tracking-wider truncate text-left overflow-hidden whitespace-nowrap">
-            {localTeamName}
-          </span>
+      {/* Only show main UI if starters are configured OR starters modal is not open */}
+      {(match.startingLineup || !showStartersModal) && (
+        <>
+          {/* Header & Scoreboard Section */}
+          <div className="bg-gray-800 pb-6 pt-2 rounded-b-3xl shadow-lg mb-6">
+            {/* Top Bar: Teams & Set */}
+            <div className="flex items-center w-full px-4 mb-4">
+              <span className="flex-1 text-xs font-medium text-gray-400 uppercase tracking-wider truncate text-left overflow-hidden whitespace-nowrap">
+                {localTeamName}
+              </span>
 
-          <div className="mx-2 px-4 py-1 rounded-full bg-white text-[11px] font-semibold text-gray-900 uppercase tracking-widest shadow-sm">
-            SET {match.currentSet}
-          </div>
+              <div className="mx-2 px-4 py-1 rounded-full bg-white text-[11px] font-semibold text-gray-900 uppercase tracking-widest shadow-sm">
+                SET {match.currentSet}
+              </div>
 
-          <span className="flex-1 text-xs font-medium text-gray-400 uppercase tracking-wider truncate text-right overflow-hidden whitespace-nowrap">
-            {visitorTeamName}
-          </span>
-        </div>
-
-        {/* Main Scoreboard */}
-        <div className="flex justify-center items-center gap-8">
-          {/* Home Score */}
-          <div className="relative">
-            <span className="text-6xl font-bold tracking-tighter font-mono">
-              {homeScore}
-            </span>
-            {estadoSaque === 'myTeamServing' && isHomeTeam && (
-              <div className="absolute -right-4 top-2 w-3 h-3 bg-green-500 rounded-full shadow-glow-green animate-pulse" />
-            )}
-            {estadoSaque === 'myTeamReceiving' && !isHomeTeam && (
-              <div className="absolute -right-4 top-2 w-3 h-3 bg-green-500 rounded-full shadow-glow-green animate-pulse" />
-            )}
-          </div>
-
-          <span className="text-gray-600 text-4xl font-light">-</span>
-
-          {/* Away Score */}
-          <div className="relative">
-            <span className="text-6xl font-bold tracking-tighter font-mono">
-              {awayScore}
-            </span>
-            {estadoSaque === 'myTeamServing' && !isHomeTeam && (
-              <div className="absolute -right-4 top-2 w-3 h-3 bg-green-500 rounded-full shadow-glow-green animate-pulse" />
-            )}
-            {estadoSaque === 'myTeamReceiving' && isHomeTeam && (
-              <div className="absolute -right-4 top-2 w-3 h-3 bg-green-500 rounded-full shadow-glow-green animate-pulse" />
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="px-4 max-w-md mx-auto space-y-6">
-        {/* Action Buttons Grid */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Left Column - Positive Actions (Green) */}
-          <div className="space-y-3">
-            {estadoSaque === 'myTeamServing' && (
-              <button
-                onClick={handleServePoint}
-                className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-full font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
-              >
-                <Target className="w-5 h-5" /> Punto saque
-              </button>
-            )}
-            <button
-              onClick={handleAttackPoint}
-              className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-full font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
-            >
-              <Zap className="w-5 h-5" /> Punto ataque
-            </button>
-            <button
-              onClick={handleBlockPoint}
-              className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-full font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
-            >
-              <Hand className="w-5 h-5" /> Punto bloqueo
-            </button>
-            <button
-              onClick={handleOpponentError}
-              className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-full font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
-            >
-              <AlertTriangle className="w-5 h-5" /> Error rival
-            </button>
-          </div>
-
-          {/* Right Column - Negative/Opponent Actions (Red) */}
-          <div className="space-y-3">
-            {estadoSaque === 'myTeamServing' && (
-              <button
-                onClick={handleServeError}
-                className="w-full py-3 px-4 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white rounded-full font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
-              >
-                <Zap className="w-5 h-5" /> Error saque
-              </button>
-            )}
-            <button
-              onClick={handleAttackBlocked}
-              className="w-full py-3 px-4 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white rounded-full font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
-            >
-              <Ban className="w-5 h-5" /> Ataque bloqueado
-            </button>
-            <button
-              onClick={handleAttackError}
-              className="w-full py-3 px-4 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white rounded-full font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
-            >
-              <TrendingDown className="w-5 h-5" /> Error ataque
-            </button>
-            <button
-              onClick={handleGenericError}
-              className="w-full py-3 px-4 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white rounded-full font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
-            >
-              <X className="w-5 h-5" /> Error genérico
-            </button>
-            <button
-              onClick={handleOpponentPoint}
-              className="w-full py-3 px-4 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white rounded-full font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
-            >
-              <Users className="w-5 h-5" /> Punto rival
-            </button>
-          </div>
-        </div>
-
-        {/* Half-Court Rotation Display */}
-        <LineupGrid
-          players={displayRotationOrder.map((playerId, idx) => {
-            const player = match.players.find(p => p.playerId === playerId)
-            return {
-              id: playerId || '',
-              number: player?.number || 0,
-              name: player?.name || '',
-              position: player?.position || '',
-              isLibero: player?.position === 'L',
-              courtPosition: idx + 1
-            }
-          })}
-          showCourtLines={true}
-          size="small"
-        />
-
-        {/* Bottom Actions */}
-        <div className="grid grid-cols-2 gap-3 pt-2">
-          <button
-            onClick={() => setShowSubstitutionPopup(true)}
-            className="py-3 px-4 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-xl font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
-          >
-            <ArrowRightLeft className="w-5 h-5" />
-            Sustitución
-          </button>
-
-          <button
-            onClick={handleUndo}
-            disabled={actionHistory.length === 0}
-            className={`py-3 px-4 rounded-xl font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2 ${actionHistory.length > 0
-              ? 'bg-gray-700 hover:bg-gray-600 text-white'
-              : 'bg-gray-800 text-gray-500 cursor-not-allowed'
-              }`}
-          >
-            <Undo2 className="w-5 h-5" />
-            <div className="flex flex-col items-start leading-tight">
-              <span>Deshacer</span>
-              <span className="text-[10px] font-normal opacity-75 truncate max-w-[100px]">
-                {getLastActionDescription() || 'Sin acciones'}
+              <span className="flex-1 text-xs font-medium text-gray-400 uppercase tracking-wider truncate text-right overflow-hidden whitespace-nowrap">
+                {visitorTeamName}
               </span>
             </div>
-          </button>
-        </div>
-      </div>
+
+            {/* Main Scoreboard */}
+            <div className="flex justify-center items-center gap-8">
+              {/* Home Score */}
+              <div className="relative">
+                <span className="text-6xl font-bold tracking-tighter font-mono">
+                  {homeScore}
+                </span>
+                {estadoSaque === 'myTeamServing' && isHomeTeam && (
+                  <div className="absolute -right-4 top-2 w-3 h-3 bg-green-500 rounded-full shadow-glow-green animate-pulse" />
+                )}
+                {estadoSaque === 'myTeamReceiving' && !isHomeTeam && (
+                  <div className="absolute -right-4 top-2 w-3 h-3 bg-green-500 rounded-full shadow-glow-green animate-pulse" />
+                )}
+              </div>
+
+              <span className="text-gray-600 text-4xl font-light">-</span>
+
+              {/* Away Score */}
+              <div className="relative">
+                <span className="text-6xl font-bold tracking-tighter font-mono">
+                  {awayScore}
+                </span>
+                {estadoSaque === 'myTeamServing' && !isHomeTeam && (
+                  <div className="absolute -right-4 top-2 w-3 h-3 bg-green-500 rounded-full shadow-glow-green animate-pulse" />
+                )}
+                {estadoSaque === 'myTeamReceiving' && isHomeTeam && (
+                  <div className="absolute -right-4 top-2 w-3 h-3 bg-green-500 rounded-full shadow-glow-green animate-pulse" />
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="px-4 max-w-md mx-auto space-y-6">
+            {/* Action Buttons Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Left Column - Positive Actions (Green) */}
+              <div className="space-y-3">
+                {estadoSaque === 'myTeamServing' && (
+                  <button
+                    onClick={handleServePoint}
+                    className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-full font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                  >
+                    <Target className="w-5 h-5" /> Punto saque
+                  </button>
+                )}
+                <button
+                  onClick={handleAttackPoint}
+                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-full font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                >
+                  <Zap className="w-5 h-5" /> Punto ataque
+                </button>
+                <button
+                  onClick={handleBlockPoint}
+                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-full font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                >
+                  <Hand className="w-5 h-5" /> Punto bloqueo
+                </button>
+                <button
+                  onClick={handleOpponentError}
+                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-full font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                >
+                  <AlertTriangle className="w-5 h-5" /> Error rival
+                </button>
+              </div>
+
+              {/* Right Column - Negative/Opponent Actions (Red) */}
+              <div className="space-y-3">
+                {estadoSaque === 'myTeamServing' && (
+                  <button
+                    onClick={handleServeError}
+                    className="w-full py-3 px-4 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white rounded-full font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                  >
+                    <Zap className="w-5 h-5" /> Error saque
+                  </button>
+                )}
+                <button
+                  onClick={handleAttackBlocked}
+                  className="w-full py-3 px-4 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white rounded-full font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                >
+                  <Ban className="w-5 h-5" /> Ataque bloqueado
+                </button>
+                <button
+                  onClick={handleAttackError}
+                  className="w-full py-3 px-4 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white rounded-full font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                >
+                  <TrendingDown className="w-5 h-5" /> Error ataque
+                </button>
+                <button
+                  onClick={handleGenericError}
+                  className="w-full py-3 px-4 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white rounded-full font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                >
+                  <X className="w-5 h-5" /> Error genérico
+                </button>
+                <button
+                  onClick={handleOpponentPoint}
+                  className="w-full py-3 px-4 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white rounded-full font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                >
+                  <Users className="w-5 h-5" /> Punto rival
+                </button>
+              </div>
+            </div>
+
+            {/* Half-Court Rotation Display */}
+            <LineupGrid
+              players={displayRotationOrder.map((playerId, idx) => {
+                const player = match.players.find(p => p.playerId === playerId)
+                return {
+                  id: playerId || '',
+                  number: player?.number || 0,
+                  name: player?.name || '',
+                  position: player?.position || '',
+                  isLibero: player?.position === 'L',
+                  courtPosition: idx + 1
+                }
+              })}
+              showCourtLines={true}
+              size="small"
+            />
+
+            {/* Bottom Actions */}
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button
+                onClick={() => setShowSubstitutionPopup(true)}
+                className="py-3 px-4 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-xl font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+              >
+                <ArrowRightLeft className="w-5 h-5" />
+                Sustitución
+              </button>
+
+              <button
+                onClick={handleUndo}
+                disabled={actionHistory.length === 0}
+                className={`py-3 px-4 rounded-xl font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2 ${actionHistory.length > 0
+                  ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                  : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                  }`}
+              >
+                <Undo2 className="w-5 h-5" />
+                <div className="flex flex-col items-start leading-tight">
+                  <span>Deshacer</span>
+                  <span className="text-[10px] font-normal opacity-75 truncate max-w-[100px]">
+                    {getLastActionDescription() || 'Sin acciones'}
+                  </span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Modals */}
       <StartersManagement

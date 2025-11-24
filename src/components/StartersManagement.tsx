@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { X, Users } from 'lucide-react'
 import { Match, StartingLineup } from '../stores/matchStore'
-import { useTeamStore } from '../stores/teamStore'
 import { VolleyballCourt } from './VolleyballCourt'
 import { LiberoSlot } from './LiberoSlot'
 import { PlayerSelectionModal } from './PlayerSelectionModal'
@@ -31,10 +30,8 @@ export function StartersManagement({ isOpen, onClose, match, onSave, currentSet,
   const [selectedPosition, setSelectedPosition] = useState<string | null>(null)
   const [isPlayerModalOpen, setIsPlayerModalOpen] = useState(false)
   const [error, setError] = useState<string>('')
-  const { teams } = useTeamStore()
   const [serveSelection, setServeSelection] = useState<'local' | 'visitor' | null>(sacadorInicialSet5 || null)
 
-  const selectedTeam = teams.find(team => team.id === match.teamId)
   const matchPlayers = match.players || []
 
   useEffect(() => {
@@ -167,7 +164,16 @@ export function StartersManagement({ isOpen, onClose, match, onSave, currentSet,
     }
   }
 
-  if (!isOpen || !selectedTeam) return null
+  console.log('🏐 StartersManagement render:', {
+    isOpen,
+    matchPlayersCount: matchPlayers.length,
+    hasOpponent: !!match.opponent
+  })
+
+  if (!isOpen) return null
+
+  // Get team name from match - use a fallback if not available
+  const teamName = match.opponent ? 'Mi Equipo' : 'Equipo'
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -218,7 +224,7 @@ export function StartersManagement({ isOpen, onClose, match, onSave, currentSet,
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
-                  {selectedTeam.name}
+                  {teamName}
                 </button>
                 <button
                   onClick={() => handleServeSelection(false)}
