@@ -40,7 +40,8 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
   const [displayRotationOrder, setDisplayRotationOrder] = useState<string[]>([])
   const [showSetCompleteModal, setShowSetCompleteModal] = useState(false)
   const [showMatchCompleteModal, setShowMatchCompleteModal] = useState(false)
-  const [showStartersModal, setShowStartersModal] = useState(false)
+  // Auto-open starters modal if no lineup is set for set 1
+  const [showStartersModal, setShowStartersModal] = useState(!match.startingLineup && match.currentSet === 1)
   const [pendingSetCompletion, setPendingSetCompletion] = useState<{
     setNumber: number
     homeScore: number
@@ -406,6 +407,13 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
       }
     }
   }, [match.currentSet, match.sacadorInicialSet5, estadoSaque, match.teamSide])
+
+  // NUEVO: Auto-open starters modal if no lineup is configured for Set 1
+  useEffect(() => {
+    if (match.currentSet === 1 && !match.startingLineup && !showStartersModal) {
+      setShowStartersModal(true)
+    }
+  }, [match.currentSet, match.startingLineup, showStartersModal])
 
   // Rotate players - clockwise rotation: 1â†’6â†’5â†’4â†’3â†’2â†’1
   const rotatePlayers = () => {

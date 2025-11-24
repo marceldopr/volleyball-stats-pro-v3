@@ -130,7 +130,10 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
       if (!data.teamId || !currentSeason) return
       try {
         const roster = await playerTeamSeasonService.getRosterByTeamAndSeason(data.teamId, currentSeason.id)
-        setTeamRoster(roster)
+        const filteredRoster = roster.filter((item: any) => item.player)
+        setTeamRoster(filteredRoster)
+        // Select all players by default when roster loads
+        setData(prev => ({ ...prev, selectedPlayers: filteredRoster.map((item: any) => item.player.id) }))
       } catch (err) {
         console.error('Error fetching roster:', err)
         setError('Error al cargar la plantilla del equipo.')
@@ -240,7 +243,7 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
   }
 
   const getLiberoCount = (): number => {
-    return teamRoster.filter(p => data.selectedPlayers.includes(p.player.id) && (p.role === 'L' || p.player.role === 'L')).length
+    return teamRoster.filter(p => data.selectedPlayers.includes(p.player.id) && (p.role === 'L' || p.player.main_position === 'L')).length
   }
 
   const hasExcessLiberos = (): boolean => getLiberoCount() >= 3
@@ -262,29 +265,34 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
 
       const matchPlayers = teamRoster
         .filter(item => data.selectedPlayers.includes(item.player.id))
-        .map(item => ({
-          playerId: item.player.id,
-          name: item.player.name,
-          number: parseInt(item.jersey_number || item.player.number || '0'),
-          position: item.role || item.player.role || 'L',
-          starter: false,
-          stats: {
-            serves: 0,
-            aces: 0,
-            serveErrors: 0,
-            receptions: 0,
-            receptionErrors: 0,
-            attacks: 0,
-            kills: 0,
-            attackErrors: 0,
-            blocks: 0,
-            blockErrors: 0,
-            digs: 0,
-            digsErrors: 0,
-            sets: 0,
-            setErrors: 0,
-          },
-        }))
+        .map(item => {
+          // Determine position: ignore 'starter' role, prefer specific role or main_position
+          const position = (item.role && item.role !== 'starter') ? item.role : (item.player.main_position || 'L')
+
+          return {
+            playerId: item.player.id,
+            name: `${item.player.first_name} ${item.player.last_name}`,
+            number: parseInt(item.jersey_number || '0'),
+            position: position,
+            starter: false,
+            stats: {
+              serves: 0,
+              aces: 0,
+              serveErrors: 0,
+              receptions: 0,
+              receptionErrors: 0,
+              attacks: 0,
+              kills: 0,
+              attackErrors: 0,
+              blocks: 0,
+              blockErrors: 0,
+              digs: 0,
+              digsErrors: 0,
+              sets: 0,
+              setErrors: 0,
+            },
+          }
+        })
 
       const newMatch = createMatch({
         opponent: data.opponent.trim(),
@@ -324,7 +332,7 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
       setError('')
 
       onClose()
-      navigate(`/matches/${newMatch.id}`)
+      navigate(`/matches/${newMatch.id}/live`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ha ocurrido un error al crear el partido. Inténtalo de nuevo.')
     }
@@ -463,18 +471,21 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
                   </div>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {teamRoster.map(item => (
-                    <div key={item.player.id} className={`p-2 border-2 rounded-xl cursor-pointer transition-all flex flex-col items-center justify-center gap-1 relative group min-h-[110px] ${data.selectedPlayers.includes(item.player.id) ? 'border-primary-500 bg-primary-50 shadow-sm' : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'}`} onClick={() => togglePlayerSelection(item.player.id)} title={`Seleccionar ${item.player.name}`}>
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-sm border-2 border-white mb-1.5 transition-colors flex-shrink-0 ${data.selectedPlayers.includes(item.player.id) ? 'bg-primary-600' : 'bg-gray-900'}`}>{item.player.number}</div>
-                      <span title={POSITION_NAMES[item.role || item.player.role || 'L']} className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase mb-1 ${item.role === 'L' ? 'bg-yellow-400 text-yellow-900' : item.role === 'S' ? 'bg-blue-100 text-blue-800' : item.role === 'OH' ? 'bg-green-100 text-green-800' : item.role === 'MB' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>{item.role || item.player.role || 'L'}</span>
-                      <p className="font-bold text-gray-900 text-xs truncate w-full text-center">{item.player.name.split(' ')[0]}</p>
-                      {data.selectedPlayers.includes(item.player.id) && (
-                        <div className="absolute top-2 right-2 w-5 h-5 bg-primary-600 rounded-full border-2 border-white flex items-center justify-center">
-                          <span className="text-white text-[10px] font-bold">✓</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                  {teamRoster.map(item => {
+                    const position = (item.role && item.role !== 'starter') ? item.role : (item.player.main_position || 'L')
+                    return (
+                      <div key={item.player.id} className={`p-2 border-2 rounded-xl cursor-pointer transition-all flex flex-col items-center justify-center gap-1 relative group min-h-[110px] ${data.selectedPlayers.includes(item.player.id) ? 'border-primary-500 bg-primary-50 shadow-sm' : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'}`} onClick={() => togglePlayerSelection(item.player.id)} title={`Seleccionar ${item.player.first_name} ${item.player.last_name}`}>
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-sm border-2 border-white mb-1.5 transition-colors flex-shrink-0 ${data.selectedPlayers.includes(item.player.id) ? 'bg-primary-600' : 'bg-gray-900'}`}>{item.jersey_number || '0'}</div>
+                        <span title={POSITION_NAMES[position]} className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase mb-1 ${position === 'L' ? 'bg-yellow-400 text-yellow-900' : position === 'S' ? 'bg-blue-100 text-blue-800' : position === 'OH' ? 'bg-green-100 text-green-800' : position === 'MB' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>{position}</span>
+                        <p className="font-bold text-gray-900 text-xs truncate w-full text-center">{item.player.first_name}</p>
+                        {data.selectedPlayers.includes(item.player.id) && (
+                          <div className="absolute top-2 right-2 w-5 h-5 bg-primary-600 rounded-full border-2 border-white flex items-center justify-center">
+                            <span className="text-white text-[10px] font-bold">✓</span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
                 {data.selectedPlayers.length === 0 && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-4">

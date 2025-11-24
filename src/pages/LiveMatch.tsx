@@ -53,23 +53,7 @@ export function LiveMatch() {
     )
   }
 
-  // Check if match has starting lineup configured
-  if (!match.startingLineup) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto p-6">
-          <h1 className="text-xl font-semibold text-gray-900 mb-4">Titulares no configuradas</h1>
-          <p className="text-gray-600 mb-6">Debes configurar las titulares antes de comenzar el partido.</p>
-          <button
-            onClick={() => window.history.back()}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-          >
-            Volver atrás
-          </button>
-        </div>
-      </div>
-    )
-  }
+
 
   return (
     <>

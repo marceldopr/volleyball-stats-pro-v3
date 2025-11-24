@@ -111,8 +111,8 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
         )
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden min-h-[500px] flex flex-col">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center flex-shrink-0">
                 <div>
                     <h2 className="text-xl font-bold text-gray-900">Plantilla: {team.name}</h2>
                     <p className="text-sm text-gray-500">{season.name}</p>
@@ -133,9 +133,12 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                 </div>
             </div>
 
-            <div className="p-6">
+            <div className="p-6 flex-1 overflow-y-auto">
                 {loading ? (
-                    <div className="text-center py-8">Cargando plantilla...</div>
+                    <div className="flex flex-col justify-center items-center h-full text-gray-500 gap-3">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+                        <p>Cargando plantilla...</p>
+                    </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full">
