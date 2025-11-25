@@ -1,46 +1,87 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, Calendar, Clock, MapPin, Trophy, Edit3, Trash2 } from 'lucide-react'
+import { Users, Calendar, Clock, MapPin, Trophy, Edit3, Trash2, Loader2 } from 'lucide-react'
 import { Match, StartingLineup } from '../stores/matchStore'
 import { StartersManagement } from './StartersManagement'
 import { useMatchStore } from '../stores/matchStore'
 import { ConfirmDialog } from './ConfirmDialog'
+import { matchService } from '../services/matchService'
 
 interface MatchDetailProps {
   match: Match
   onClose: () => void
 }
 
-export function MatchDetail({ match, onClose }: MatchDetailProps) {
+export function MatchDetail({ match: initialMatch, onClose }: MatchDetailProps) {
   const navigate = useNavigate()
+  const [match, setMatch] = useState<Match>(initialMatch)
+  const [loading, setLoading] = useState(false)
   const [showStartersModal, setShowStartersModal] = useState(false)
   const [isFirstTimeSetup, setIsFirstTimeSetup] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const { updateMatch, deleteMatch } = useMatchStore()
-  
+
+  // Load full details if missing
+  useEffect(() => {
+    const loadFullDetails = async () => {
+      // Check if we need to load details
+      // If players or sets are empty, and we have an ID, try to load from Supabase
+      const needsLoading = (match.players?.length === 0 || match.sets?.length === 0) && match.id
+
+      if (needsLoading) {
+        setLoading(true)
+        try {
+          const fullDetails = await matchService.getMatchFullDetails(match.id)
+          if (fullDetails) {
+            setMatch(fullDetails)
+          }
+        } catch (err) {
+          console.error('Error loading match details:', err)
+        } finally {
+          setLoading(false)
+        }
+      }
+    }
+
+    // Only run if it's a different match ID or if we haven't loaded yet
+    if (initialMatch.id === match.id && (match.players?.length === 0 || match.sets?.length === 0)) {
+      loadFullDetails()
+    }
+  }, [initialMatch.id])
+
   const starters = match.players?.filter(player => player.starter) || []
   const hasStarters = starters.length > 0
-  
+
   // Auto-open starters modal if no starters defined and match is upcoming
   useEffect(() => {
-    if (match.status === 'upcoming' && !hasStarters) {
-      setShowStartersModal(true)
-      setIsFirstTimeSetup(true)
+    if (match.status === 'upcoming' && !hasStarters && !loading) {
+      // Only auto-open if we are sure we have loaded data
+      if (match.players && match.players.length > 0) {
+        setShowStartersModal(true)
+        setIsFirstTimeSetup(true)
+      }
     }
-  }, [match.status, hasStarters])
-  
+  }, [match.status, hasStarters, loading, match.players])
+
   const handleSaveStarters = (starterIds: string[], startingLineup: StartingLineup) => {
     try {
       const updatedPlayers = match.players?.map(player => ({
         ...player,
         starter: starterIds.includes(player.playerId)
       })) || []
-      
-      updateMatch(match.id, { 
+
+      updateMatch(match.id, {
         players: updatedPlayers,
         startingLineup
       })
-      
+
+      // Update local state as well
+      setMatch(prev => ({
+        ...prev,
+        players: updatedPlayers,
+        startingLineup
+      }))
+
       // If this is first time setup after creating a match, navigate to live match
       if (isFirstTimeSetup) {
         setShowStartersModal(false)
@@ -55,7 +96,7 @@ export function MatchDetail({ match, onClose }: MatchDetailProps) {
       throw error
     }
   }
-  
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'upcoming': return 'bg-blue-100 text-blue-800'
@@ -64,7 +105,7 @@ export function MatchDetail({ match, onClose }: MatchDetailProps) {
       default: return 'bg-gray-100 text-gray-800'
     }
   }
-  
+
   const getStatusText = (status: string) => {
     switch (status) {
       case 'upcoming': return 'Próximo'
@@ -91,7 +132,18 @@ export function MatchDetail({ match, onClose }: MatchDetailProps) {
   const handleDeleteCancel = () => {
     setDeleteConfirmOpen(false)
   }
-  
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-xl p-8 flex flex-col items-center">
+          <Loader2 className="w-8 h-8 text-primary-600 animate-spin mb-4" />
+          <p className="text-gray-600">Cargando detalles del partido...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
@@ -119,7 +171,7 @@ export function MatchDetail({ match, onClose }: MatchDetailProps) {
             </button>
           </div>
         </div>
-        
+
         {/* Match Info */}
         <div className="p-6 border-b border-gray-200">
           <div className="grid grid-cols-2 gap-4 mb-4">
@@ -141,23 +193,22 @@ export function MatchDetail({ match, onClose }: MatchDetailProps) {
               </span>
             </div>
             <div className="flex items-center space-x-2">
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                match.teamSide === 'local' 
-                  ? 'bg-green-100 text-green-800' 
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${match.teamSide === 'local'
+                  ? 'bg-green-100 text-green-800'
                   : 'bg-blue-100 text-blue-800'
-              }`}>
+                }`}>
                 {match.teamSide === 'local' ? 'Local' : 'Visitante'}
               </span>
             </div>
           </div>
-          
+
           {match.result && (
             <div className="text-center">
               <span className="text-2xl font-bold text-primary-600">{match.result}</span>
             </div>
           )}
         </div>
-        
+
         {/* Starters Section */}
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
@@ -172,7 +223,7 @@ export function MatchDetail({ match, onClose }: MatchDetailProps) {
               </button>
             )}
           </div>
-          
+
           {hasStarters ? (
             <div className="grid grid-cols-1 gap-2">
               {starters.map((player) => (
@@ -199,7 +250,7 @@ export function MatchDetail({ match, onClose }: MatchDetailProps) {
             </div>
           )}
         </div>
-        
+
         {/* Players Section */}
         <div className="p-6 border-t border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Jugadoras Convocadas</h3>
@@ -219,7 +270,7 @@ export function MatchDetail({ match, onClose }: MatchDetailProps) {
             ))}
           </div>
         </div>
-        
+
         {/* Footer */}
         <div className="flex items-center justify-between p-6 border-t border-gray-200">
           <button
@@ -228,7 +279,7 @@ export function MatchDetail({ match, onClose }: MatchDetailProps) {
           >
             Cerrar
           </button>
-          
+
           {match.status === 'upcoming' && (
             <button
               onClick={() => {
@@ -246,7 +297,7 @@ export function MatchDetail({ match, onClose }: MatchDetailProps) {
           )}
         </div>
       </div>
-      
+
       <StartersManagement
         isOpen={showStartersModal}
         onClose={() => setShowStartersModal(false)}

@@ -560,7 +560,12 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
         </div>
       </div>
       {showLiberoValidationModal && (
-        <LiberoValidationModal onClose={() => setShowLiberoValidationModal(false)} onNavigate={handleNavigateToTeams} />
+        <LiberoValidationModal
+          isOpen={showLiberoValidationModal}
+          liberoCount={getLiberoCount()}
+          onClose={() => setShowLiberoValidationModal(false)}
+          onNavigateToTeams={handleNavigateToTeams}
+        />
       )}
     </div>
   )

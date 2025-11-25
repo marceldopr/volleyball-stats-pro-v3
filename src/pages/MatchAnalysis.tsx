@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Trophy, Calendar, Clock } from 'lucide-react'
+import { ArrowLeft, Trophy, Calendar, Clock, Loader2 } from 'lucide-react'
 import { useMatchStore } from '../stores/matchStore'
 import { useTeamStore } from '../stores/teamStore'
-import { AccionPartido, Equipo } from '../stores/matchStore'
+import { AccionPartido, Equipo, Match } from '../stores/matchStore'
+import { matchService } from '../services/matchService'
 
 export function MatchAnalysis() {
   const { id } = useParams<{ id: string }>()
@@ -10,8 +12,45 @@ export function MatchAnalysis() {
   const { matches } = useMatchStore()
   const { teams } = useTeamStore()
 
-  const match = matches.find(m => m.id === id)
-  
+  const [match, setMatch] = useState<Match | undefined>(matches.find(m => m.id === id))
+  const [loading, setLoading] = useState(!match || (match?.players?.length === 0))
+
+  useEffect(() => {
+    const loadMatch = async () => {
+      if (!id) return
+
+      // If match exists in store and has data, use it
+      const storeMatch = matches.find(m => m.id === id)
+      if (storeMatch && storeMatch.players?.length > 0 && storeMatch.sets?.length > 0) {
+        setMatch(storeMatch)
+        setLoading(false)
+        return
+      }
+
+      // Otherwise fetch from Supabase
+      setLoading(true)
+      try {
+        const fetchedMatch = await matchService.getMatchFullDetails(id)
+        if (fetchedMatch) {
+          setMatch(fetchedMatch)
+        }
+      } catch (err) {
+        console.error('Error loading match analysis:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadMatch()
+  }, [id, matches])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 text-primary-600 animate-spin" />
+      </div>
+    )
+  }
+
   if (!match) {
     return (
       <div className="p-6">
@@ -31,7 +70,7 @@ export function MatchAnalysis() {
 
   const myTeam = teams.find(team => team.id === match.teamId)
   const isHomeTeam = match.teamSide === 'local'
-  
+
   // Team names
   const localTeamName = isHomeTeam ? myTeam?.name || 'Mi Equipo' : match.opponent
   const visitorTeamName = isHomeTeam ? match.opponent : myTeam?.name || 'Mi Equipo'
@@ -50,9 +89,13 @@ export function MatchAnalysis() {
     const esMarcadorValido = totalPuntos > 0 && shouldEndSet(set.number, set.homeScore, set.awayScore)
     return set.status === 'completed' || esMarcadorValido
   })
-  const setsGanadosLocal = setsValidos.filter(s => s.homeScore > s.awayScore).length
-  const setsGanadosVisitante = setsValidos.filter(s => s.awayScore > s.homeScore).length
-  const finalResult = `${setsGanadosLocal} – ${setsGanadosVisitante}`
+
+  // If no valid sets found from scores (e.g. loaded from Supabase without scores), try to use result string
+  let finalResult = `${setsValidos.filter(s => s.homeScore > s.awayScore).length} – ${setsValidos.filter(s => s.awayScore > s.homeScore).length}`
+
+  if (setsValidos.length === 0 && match.result) {
+    finalResult = match.result
+  }
 
   // Function to calculate action summary
   const calcularResumen = (acciones: AccionPartido[]) => {
@@ -90,28 +133,28 @@ export function MatchAnalysis() {
   // Function to calculate player participation
   const calcularParticipacionJugadoras = (acciones: AccionPartido[]) => {
     const puntosJugadosPorJugadora: Record<string, number> = {}
-    
+
     for (const accion of acciones) {
       if (!accion.jugadorasEnCanchaIds || accion.jugadorasEnCanchaIds.length === 0) continue
-      
+
       for (const playerId of accion.jugadorasEnCanchaIds) {
         puntosJugadosPorJugadora[playerId] = (puntosJugadosPorJugadora[playerId] || 0) + 1
       }
     }
-    
+
     return puntosJugadosPorJugadora
   }
 
   // Calculate player participation
   const participacionJugadoras = calcularParticipacionJugadoras(match.acciones || [])
-  
+
   // Calculate sets played by each player
   const calcularSetsJugados = (acciones: AccionPartido[]) => {
     const setsJugadosPorJugadora: Record<string, Set<number>> = {}
-    
+
     for (const accion of acciones) {
       if (!accion.jugadorasEnCanchaIds || accion.jugadorasEnCanchaIds.length === 0) continue
-      
+
       for (const playerId of accion.jugadorasEnCanchaIds) {
         if (!setsJugadosPorJugadora[playerId]) {
           setsJugadosPorJugadora[playerId] = new Set<number>()
@@ -119,14 +162,27 @@ export function MatchAnalysis() {
         setsJugadosPorJugadora[playerId].add(accion.set)
       }
     }
-    
+
     return setsJugadosPorJugadora
   }
-  
+
   const setsJugadosPorJugadora = calcularSetsJugados(match.acciones || [])
 
   // Calculate individual player statistics
   const calcularEstadisticasJugadora = (acciones: AccionPartido[], playerId: string) => {
+    // If we have stats in the player object (loaded from Supabase), use them
+    const player = match.players.find(p => p.playerId === playerId)
+    if (player && player.stats && (!acciones || acciones.length === 0)) {
+      const s = player.stats
+      const puntosAFavor = s.aces + s.kills + s.blocks
+      const erroresPropios = s.serveErrors + s.attackErrors + s.receptionErrors + s.blockErrors + s.setErrors + s.digsErrors
+      return {
+        puntosAFavor,
+        erroresPropios,
+        balanceNeto: puntosAFavor - erroresPropios
+      }
+    }
+
     let puntosAFavor = 0
     let erroresPropios = 0
 
@@ -161,12 +217,12 @@ export function MatchAnalysis() {
       if (accion.recepcion && accion.equipo === match.teamSide) {
         const playerId = accion.recepcion.jugadoraId
         const calificacion = accion.recepcion.calificacion
-        
+
         if (!recepcionesPorJugadora[playerId]) {
           recepcionesPorJugadora[playerId] = []
         }
         recepcionesPorJugadora[playerId].push(calificacion)
-        
+
         sumaCalificaciones += calificacion
         totalRecepciones++
       }
@@ -178,12 +234,12 @@ export function MatchAnalysis() {
       ) {
         const playerId = accion.jugadoraId
         const calificacion = 0
-        
+
         if (!recepcionesPorJugadora[playerId]) {
           recepcionesPorJugadora[playerId] = []
         }
         recepcionesPorJugadora[playerId].push(calificacion)
-        
+
         sumaCalificaciones += calificacion
         totalRecepciones++
       }
@@ -197,7 +253,7 @@ export function MatchAnalysis() {
         const player = match.players.find(p => p.playerId === playerId)
         const suma = calificaciones.reduce((acc, cal) => acc + cal, 0)
         const media = suma / calificaciones.length
-        
+
         return {
           playerId,
           name: player?.name || 'Jugadora desconocida',
@@ -213,23 +269,43 @@ export function MatchAnalysis() {
       playerAverages: mediasJugadoras
     }
   }
-  
-  const jugadorasConParticipacion = Object.entries(participacionJugadoras)
-    .map(([playerId, puntosJugados]) => {
-      const player = match.players.find(p => p.playerId === playerId)
-      const setsJugados = setsJugadosPorJugadora[playerId]?.size ?? 0
-      const estadisticas = calcularEstadisticasJugadora(match.acciones || [], playerId)
+
+  // For participation list, if we don't have actions, we iterate over players
+  let jugadorasConParticipacion: any[] = []
+
+  if (match.acciones && match.acciones.length > 0) {
+    jugadorasConParticipacion = Object.entries(participacionJugadoras)
+      .map(([playerId, puntosJugados]) => {
+        const player = match.players.find(p => p.playerId === playerId)
+        const setsJugados = setsJugadosPorJugadora[playerId]?.size ?? 0
+        const estadisticas = calcularEstadisticasJugadora(match.acciones || [], playerId)
+        return {
+          playerId,
+          name: player?.name || 'Jugadora desconocida',
+          number: player?.number || 0,
+          position: player?.position || '',
+          puntosJugados,
+          setsJugados,
+          ...estadisticas
+        }
+      })
+      .sort((a, b) => b.puntosJugados - a.puntosJugados)
+  } else {
+    // Fallback for Supabase matches without actions
+    jugadorasConParticipacion = match.players.map(player => {
+      const estadisticas = calcularEstadisticasJugadora([], player.playerId)
       return {
-        playerId,
-        name: player?.name || 'Jugadora desconocida',
-        number: player?.number || 0,
-        position: player?.position || '',
-        puntosJugados,
-        setsJugados,
+        playerId: player.playerId,
+        name: player.name,
+        number: player.number,
+        position: player.position,
+        puntosJugados: 0, // Cannot calculate without actions
+        setsJugados: player.stats.sets || 0,
         ...estadisticas
       }
-    })
-    .sort((a, b) => b.puntosJugados - a.puntosJugados) // Ordenar de más a menos puntos jugados
+    }).filter(p => p.puntosAFavor > 0 || p.erroresPropios > 0 || p.setsJugados > 0) // Only show active players
+      .sort((a, b) => b.puntosAFavor - a.puntosAFavor)
+  }
 
   // Calculate reception statistics
   const estadisticasRecepcion = calcularEstadisticasRecepcion(match.acciones || [])
@@ -250,16 +326,16 @@ export function MatchAnalysis() {
 
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Análisis del partido</h1>
-          
+
           <div className="flex items-center justify-center space-x-4 text-lg mb-4">
             <div className="text-center">
               <div className="font-semibold">{localTeamName}</div>
             </div>
-            
+
             <div className="text-4xl font-bold text-primary-600">
               {finalResult}
             </div>
-            
+
             <div className="text-center">
               <div className="font-semibold">{visitorTeamName}</div>
             </div>
@@ -318,10 +394,7 @@ export function MatchAnalysis() {
         {!hasActionData ? (
           <div className="text-center py-8">
             <div className="text-gray-500 mb-2">
-              No hay acciones registradas para este partido.
-            </div>
-            <div className="text-sm text-gray-400">
-              Las acciones se registrarán en partidos futuros.
+              No hay acciones detalladas registradas para este partido (importado de base de datos).
             </div>
           </div>
         ) : (
@@ -372,10 +445,7 @@ export function MatchAnalysis() {
         {!hasActionData || estadisticasRecepcion.playerAverages.length === 0 ? (
           <div className="text-center py-8">
             <div className="text-gray-500 mb-2">
-              No hay recepciones registradas para este partido.
-            </div>
-            <div className="text-sm text-gray-400">
-              Las recepciones se registrarán en partidos futuros.
+              No hay datos detallados de recepción para este partido.
             </div>
           </div>
         ) : (
@@ -397,7 +467,7 @@ export function MatchAnalysis() {
                 {estadisticasRecepcion.playerAverages.map((jugadora) => (
                   <div key={jugadora.playerId} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg">
                     <span className="text-gray-700 font-medium">
-                      {jugadora.name} 
+                      {jugadora.name}
                       <span className="text-sm text-gray-500 ml-2">({jugadora.receptions} recepciones)</span>
                     </span>
                     <span className="font-semibold text-gray-900">
@@ -417,13 +487,10 @@ export function MatchAnalysis() {
           Participación por jugadora
         </h2>
 
-        {!hasActionData || jugadorasConParticipacion.length === 0 ? (
+        {jugadorasConParticipacion.length === 0 ? (
           <div className="text-center py-8">
             <div className="text-gray-500 mb-2">
               No hay datos de participación por jugadora para este partido.
-            </div>
-            <div className="text-sm text-gray-400">
-              Los datos de participación se registrarán en partidos futuros.
             </div>
           </div>
         ) : (
@@ -447,14 +514,13 @@ export function MatchAnalysis() {
                     <td className="py-3 px-4 font-medium">{jugadora.number}</td>
                     <td className="py-3 px-4">{jugadora.name}</td>
                     <td className="py-3 px-4">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        jugadora.position === 'S' ? 'bg-blue-100 text-blue-800' :
-                        jugadora.position === 'OH' ? 'bg-green-100 text-green-800' :
-                        jugadora.position === 'MB' ? 'bg-yellow-100 text-yellow-800' :
-                        jugadora.position === 'OPP' ? 'bg-purple-100 text-purple-800' :
-                        jugadora.position === 'L' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${jugadora.position === 'S' ? 'bg-blue-100 text-blue-800' :
+                          jugadora.position === 'OH' ? 'bg-green-100 text-green-800' :
+                            jugadora.position === 'MB' ? 'bg-yellow-100 text-yellow-800' :
+                              jugadora.position === 'OPP' ? 'bg-purple-100 text-purple-800' :
+                                jugadora.position === 'L' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                        }`}>
                         {jugadora.position}
                       </span>
                     </td>
@@ -462,9 +528,8 @@ export function MatchAnalysis() {
                     <td className="py-3 px-4 text-center font-semibold text-gray-900">{jugadora.puntosJugados}</td>
                     <td className="py-3 px-4 text-center font-semibold text-green-600">{jugadora.puntosAFavor}</td>
                     <td className="py-3 px-4 text-center font-semibold text-red-600">{jugadora.erroresPropios}</td>
-                    <td className={`py-3 px-4 text-center font-semibold ${
-                      (jugadora.balanceNeto || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
+                    <td className={`py-3 px-4 text-center font-semibold ${(jugadora.balanceNeto || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
                       {(jugadora.balanceNeto || 0) >= 0 ? '+' : ''}{jugadora.balanceNeto}
                     </td>
                   </tr>

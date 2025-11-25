@@ -8,6 +8,7 @@ import { ReceptionPopup } from './ReceptionPopup'
 import { SubstitutionPopup } from './SubstitutionPopup'
 import { LineupGrid } from './LineupGrid'
 import { matchStatsService } from '../services/matchStatsService'
+import { matchService } from '../services/matchService'
 
 
 interface ActionHistory {
@@ -1498,6 +1499,13 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
       ))
 
       console.log('[Stats] Successfully persisted stats to Supabase')
+
+      // NUEVO: Update match status to 'finished' in Supabase
+      await matchService.updateMatch(match.dbMatchId, {
+        status: 'finished'
+      })
+
+      console.log('[Stats] Match status updated to finished')
 
     } catch (err) {
       console.error('[Stats] Error al guardar estadísticas en Supabase', err)
