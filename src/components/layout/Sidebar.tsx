@@ -35,8 +35,10 @@ export function Sidebar() {
   const role = profile?.role
 
   const filteredNavigation = navigation.filter(item => {
-    if (role === 'dt' || role === 'admin') return true
-    if (role === 'coach') {
+    // Support both new and legacy role names to prevent empty sidebar with stale sessions
+    const roleStr = role as string
+    if (roleStr === 'dt' || roleStr === 'admin' || roleStr === 'director_tecnic') return true
+    if (roleStr === 'coach' || roleStr === 'entrenador') {
       return ['Home', 'Equipos', 'Partidos', 'Configuración', 'Sobre la App'].includes(item.name)
     }
     return false
