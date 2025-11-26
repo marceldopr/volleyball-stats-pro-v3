@@ -9,7 +9,8 @@ import {
   Info,
   Menu,
   X,
-  LogOut
+  LogOut,
+  UserCog
 } from 'lucide-react'
 import { useState } from 'react'
 import { clsx } from 'clsx'
@@ -22,6 +23,7 @@ const navigation = [
   { name: 'Equipos', href: '/teams', icon: Users },
   { name: 'Partidos', href: '/matches', icon: Trophy },
   { name: 'Análisis', href: '/analytics', icon: BarChart3 },
+  { name: 'Entrenadores', href: '/coach-assignments', icon: UserCog, roles: ['dt', 'admin'] },
   { name: 'Configuración', href: '/settings', icon: Settings },
   { name: 'Exportaciones', href: '/exports', icon: Download },
   { name: 'Sobre la App', href: '/about', icon: Info },
@@ -44,11 +46,17 @@ export function Sidebar() {
   if (roleStr === 'admin') roleLabel = 'Administrador/a'
 
   const filteredNavigation = navigation.filter(item => {
+    // Check if item has role restrictions
+    if ('roles' in item && item.roles) {
+      const roleStr = role as string
+      return item.roles.includes(roleStr) || item.roles.includes('admin')
+    }
+
     // Support both new and legacy role names to prevent empty sidebar with stale sessions
     const roleStr = role as string
     if (roleStr === 'dt' || roleStr === 'admin' || roleStr === 'director_tecnic') return true
     if (roleStr === 'coach' || roleStr === 'entrenador') {
-      return ['Home', 'Equipos', 'Partidos', 'Configuración', 'Sobre la App'].includes(item.name)
+      return ['Home', 'Jugadoras', 'Equipos', 'Partidos', 'Configuración', 'Sobre la App'].includes(item.name)
     }
     return false
   })

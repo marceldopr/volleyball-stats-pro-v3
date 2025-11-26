@@ -10,7 +10,81 @@ export interface CoachTeamAssignmentDB {
     updated_at: string
 }
 
+export interface CoachWithAssignments {
+    id: string
+    full_name: string
+    email: string
+    role: string
+    assignments: Array<{
+        id: string
+        team_id: string
+        team_name: string
+        season_id: string
+    }>
+}
+
 export const coachAssignmentService = {
+    /**
+     * Get all coaches with their team assignments for a specific club and season
+     * @param clubId - The club ID
+     * @param seasonId - The season ID
+     * @returns Array of coaches with their assignments
+     */
+    getCoachesWithAssignments: async (clubId: string, seasonId: string): Promise<CoachWithAssignments[]> => {
+        // 1. Get all coaches from the club
+        const { data: coaches, error: coachesError } = await supabase
+            .from('profiles')
+            .select('id, full_name, email, role')
+            .eq('club_id', clubId)
+            .eq('role', 'coach')
+
+        if (coachesError) {
+            console.error('Error fetching coaches:', coachesError)
+            throw coachesError
+        }
+
+        if (!coaches || coaches.length === 0) {
+            return []
+        }
+
+        // 2. Get all assignments for these coaches in the current season
+        const coachIds = coaches.map(c => c.id)
+        const { data: assignments, error: assignmentsError } = await supabase
+            .from('coach_team_assignments')
+            .select(`
+                id,
+                user_id,
+                team_id,
+                season_id,
+                teams:team_id (
+                    name
+                )
+            `)
+            .in('user_id', coachIds)
+            .eq('season_id', seasonId)
+
+        if (assignmentsError) {
+            console.error('Error fetching assignments:', assignmentsError)
+            throw assignmentsError
+        }
+
+        // 3. Combine data
+        return coaches.map(coach => ({
+            id: coach.id,
+            full_name: coach.full_name,
+            email: coach.email || '',
+            role: coach.role || 'coach',
+            assignments: (assignments || [])
+                .filter(a => a.user_id === coach.id)
+                .map(a => ({
+                    id: a.id,
+                    team_id: a.team_id,
+                    team_name: (a.teams as any)?.name || 'Equipo desconocido',
+                    season_id: a.season_id
+                }))
+        }))
+    },
+
     /**
      * Get all teams assigned to a specific user (coach)
      * @param userId - The user's ID
@@ -57,11 +131,11 @@ export const coachAssignmentService = {
     },
 
     /**
-     * Create a new coach-team assignment
+     * Assign a coach to a team
      * @param params - Assignment parameters
      * @returns The created assignment record
      */
-    createAssignment: async (params: {
+    assignCoachToTeam: async (params: {
         user_id: string
         team_id: string
         season_id: string
@@ -82,10 +156,10 @@ export const coachAssignmentService = {
     },
 
     /**
-     * Delete a coach-team assignment
+     * Remove a coach-team assignment
      * @param id - Assignment ID to delete
      */
-    deleteAssignment: async (id: string): Promise<void> => {
+    removeCoachAssignment: async (id: string): Promise<void> => {
         const { error } = await supabase
             .from('coach_team_assignments')
             .delete()
@@ -95,5 +169,20 @@ export const coachAssignmentService = {
             console.error('Error deleting coach assignment:', error)
             throw error
         }
+    },
+
+    // Legacy method names for backward compatibility
+    createAssignment: async (params: {
+        user_id: string
+        team_id: string
+        season_id: string
+        role_in_team?: string
+    }): Promise<CoachTeamAssignmentDB> => {
+        return coachAssignmentService.assignCoachToTeam(params)
+    },
+
+    deleteAssignment: async (id: string): Promise<void> => {
+        return coachAssignmentService.removeCoachAssignment(id)
     }
 }
+

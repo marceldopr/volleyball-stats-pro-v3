@@ -15,6 +15,7 @@ import { Register } from '@/pages/Register'
 import { Players } from './pages/Players'
 import { PlayerDetail } from './pages/PlayerDetail'
 import PlayerReports from './pages/PlayerReports'
+import { CoachAssignments } from './pages/CoachAssignments'
 import { ProtectedRoute } from '@/components/routing/ProtectedRoute'
 import { useThemeStore } from '@/stores/themeStore'
 import { Toaster } from 'sonner'
@@ -47,6 +48,7 @@ function App() {
                       <Route path="/matches/:id/live" element={<LiveMatch />} />
                       <Route path="/matches/:id/analysis" element={<MatchAnalysis />} />
                       <Route path="/analytics" element={<Analytics />} />
+                      <Route path="/coach-assignments" element={<CoachAssignments />} />
                       <Route path="/settings" element={<SettingsPage />} />
                       <Route path="/exports" element={<Exports />} />
                       <Route path="/about" element={<About />} />

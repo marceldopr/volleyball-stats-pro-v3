@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Trash2, X, Search, UserPlus } from 'lucide-react'
+import { Trash2, X, Search, UserPlus, Eye } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
+import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 import { TeamDB } from '@/services/teamService'
 import { SeasonDB } from '@/services/seasonService'
 import { playerService, PlayerDB } from '@/services/playerService'
@@ -20,6 +21,8 @@ interface RosterItem extends PlayerTeamSeasonDB {
 
 export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerProps) {
     const { profile } = useAuthStore()
+    const { isCoach } = useCurrentUserRole()
+    const isReadOnly = isCoach
     const [roster, setRoster] = useState<RosterItem[]>([])
     const [loading, setLoading] = useState(true)
 
@@ -114,17 +117,27 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden min-h-[500px] flex flex-col">
             <div className="p-6 border-b border-gray-200 flex justify-between items-center flex-shrink-0">
                 <div>
-                    <h2 className="text-xl font-bold text-gray-900">Plantilla: {team.name}</h2>
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-xl font-bold text-gray-900">Plantilla: {team.name}</h2>
+                        {isReadOnly && (
+                            <span className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                                <Eye className="w-3 h-3" />
+                                Solo lectura
+                            </span>
+                        )}
+                    </div>
                     <p className="text-sm text-gray-500">{season.name}</p>
                 </div>
                 <div className="flex gap-2">
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        className="btn-primary flex items-center gap-2"
-                    >
-                        <UserPlus className="w-4 h-4" />
-                        <span>Añadir Jugadora</span>
-                    </button>
+                    {!isReadOnly && (
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="btn-primary flex items-center gap-2"
+                        >
+                            <UserPlus className="w-4 h-4" />
+                            <span>Añadir Jugadora</span>
+                        </button>
+                    )}
                     {onClose && (
                         <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
                             <X className="w-5 h-5 text-gray-500" />
@@ -148,7 +161,9 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Posición</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                                    {!isReadOnly && (
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
@@ -174,20 +189,22 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                                 {item.status === 'active' ? 'Activa' : item.status}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                                            <button
-                                                onClick={() => handleRemovePlayer(item.id)}
-                                                className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full"
-                                                title="Quitar del equipo"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </td>
+                                        {!isReadOnly && (
+                                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                                                <button
+                                                    onClick={() => handleRemovePlayer(item.id)}
+                                                    className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full"
+                                                    title="Quitar del equipo"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                                 {roster.length === 0 && (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                                        <td colSpan={isReadOnly ? 4 : 5} className="px-6 py-12 text-center text-gray-500">
                                             No hay jugadoras en este equipo todavía.
                                         </td>
                                     </tr>
