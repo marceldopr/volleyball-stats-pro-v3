@@ -14,6 +14,7 @@ import {
 import { useState } from 'react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '@/stores/authStore'
+import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 
 const navigation = [
   { name: 'Home', href: '/', icon: Home },
@@ -31,8 +32,16 @@ export function Sidebar() {
   const location = useLocation()
   const navigate = useNavigate()
   const { profile, logout } = useAuthStore()
+  const { role } = useCurrentUserRole()
 
-  const role = profile?.role
+  // Calculate display name and role label
+  const displayName = profile?.full_name || 'Usuario'
+
+  let roleLabel = 'Usuari'
+  const roleStr = role as string
+  if (roleStr === 'dt' || roleStr === 'director_tecnic') roleLabel = 'Director/a Tècnic/a'
+  if (roleStr === 'coach' || roleStr === 'entrenador') roleLabel = 'Entrenador/a'
+  if (roleStr === 'admin') roleLabel = 'Administrador/a'
 
   const filteredNavigation = navigation.filter(item => {
     // Support both new and legacy role names to prevent empty sidebar with stale sessions
@@ -75,6 +84,19 @@ export function Sidebar() {
           </div>
           <p className="text-gray-400 text-xs mt-1">Pro Analytics</p>
         </div>
+
+        {/* User Profile Section */}
+        {profile && (
+          <div className="px-4 pt-4 pb-3 border-b border-slate-800">
+            <p className="text-xs text-slate-400">Sessió iniciada com</p>
+            <p className="text-sm font-medium text-white truncate" title={displayName}>
+              {displayName}
+            </p>
+            <p className="text-xs text-emerald-400">
+              {roleLabel}
+            </p>
+          </div>
+        )}
 
         {/* Navigation */}
         <nav className="mt-6 px-3">
