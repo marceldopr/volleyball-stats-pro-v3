@@ -3,9 +3,9 @@ import { persist } from 'zustand/middleware'
 import { supabase } from '@/lib/supabaseClient'
 import type { Session } from '@supabase/supabase-js'
 
-type UserRole = 'director_tecnic' | 'entrenador' | 'admin'
+export type UserRole = 'dt' | 'coach' | 'admin'
 
-interface Profile {
+export interface Profile {
     id: string
     club_id: string
     full_name: string

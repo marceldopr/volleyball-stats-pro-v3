@@ -4,10 +4,12 @@ import { useAuthStore } from '@/stores/authStore'
 import { seasonService, SeasonDB } from '@/services/seasonService'
 import { teamService, TeamDB } from '@/services/teamService'
 import { TeamRosterManager } from '@/components/teams/TeamRosterManager'
+import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 import { toast } from 'sonner'
 
 export function Teams() {
   const { profile } = useAuthStore()
+  const { isCoach, assignedTeamIds, loading: roleLoading } = useCurrentUserRole()
 
   // State
   const [currentSeason, setCurrentSeason] = useState<SeasonDB | null>(null)
@@ -53,8 +55,17 @@ export function Teams() {
 
       // 2. If season exists, get teams
       if (season) {
-        const teamList = await teamService.getTeamsByClubAndSeason(profile.club_id, season.id)
-        setTeams(teamList)
+        const allTeams = await teamService.getTeamsByClubAndSeason(profile.club_id, season.id)
+
+        // 3. Filter teams based on role
+        if (isCoach) {
+          // Coaches only see their assigned teams
+          const filteredTeams = allTeams.filter(team => assignedTeamIds.includes(team.id))
+          setTeams(filteredTeams)
+        } else {
+          // DT and Admin see all teams
+          setTeams(allTeams)
+        }
       } else {
         setTeams([])
       }
@@ -175,7 +186,7 @@ export function Teams() {
     }
   }
 
-  if (loading) {
+  if (loading || roleLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
@@ -195,7 +206,7 @@ export function Teams() {
           </div>
         </div>
 
-        {currentSeason && (
+        {currentSeason && !isCoach && (
           <button
             onClick={() => handleOpenModal()}
             className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center"
@@ -273,8 +284,15 @@ export function Teams() {
           {teams.length === 0 && (
             <div className="col-span-full text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
               <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <h3 className="text-lg font-medium text-gray-900">No hay equipos</h3>
-              <p className="text-gray-500">Crea tu primer equipo para esta temporada</p>
+              <h3 className="text-lg font-medium text-gray-900">
+                {isCoach ? 'No tienes equipos asignados' : 'No hay equipos'}
+              </h3>
+              <p className="text-gray-500">
+                {isCoach
+                  ? 'Todavía no tienes equipos asignados en esta temporada. Contacta con Dirección Técnica.'
+                  : 'Crea tu primer equipo para esta temporada'
+                }
+              </p>
             </div>
           )}
         </div>

@@ -35,8 +35,8 @@ export function Sidebar() {
   const role = profile?.role
 
   const filteredNavigation = navigation.filter(item => {
-    if (role === 'director_tecnic') return true
-    if (role === 'entrenador') {
+    if (role === 'dt' || role === 'admin') return true
+    if (role === 'coach') {
       return ['Home', 'Equipos', 'Partidos', 'Configuración', 'Sobre la App'].includes(item.name)
     }
     return false

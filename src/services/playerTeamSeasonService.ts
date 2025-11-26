@@ -18,6 +18,7 @@ export interface PlayerTeamSeasonDB {
     player?: PlayerDB
 }
 
+
 export const playerTeamSeasonService = {
     getRosterByTeamAndSeason: async (teamId: string, seasonId: string): Promise<PlayerTeamSeasonDB[]> => {
         // 1. Fetch the roster links
@@ -58,6 +59,27 @@ export const playerTeamSeasonService = {
             player: playersMap.get(item.player_id)
         }))
     },
+
+    getPlayerTeamBySeason: async (playerId: string, seasonId: string): Promise<PlayerTeamSeasonDB | null> => {
+        const { data, error } = await supabase
+            .from('player_team_season')
+            .select('*')
+            .eq('player_id', playerId)
+            .eq('season_id', seasonId)
+            .single()
+
+        if (error) {
+            // Player might not be assigned to any team
+            if (error.code === 'PGRST116') {
+                return null
+            }
+            console.error('Error fetching player team assignment:', error)
+            throw error
+        }
+
+        return data
+    },
+
 
     addPlayerToTeamSeason: async (params: {
         player_id: string
@@ -101,6 +123,34 @@ export const playerTeamSeasonService = {
         }
 
         return updatedRecord
+    },
+
+    getPlayersByTeams: async (teamIds: string[], seasonId: string): Promise<PlayerDB[]> => {
+        if (teamIds.length === 0) return []
+
+        const { data, error } = await supabase
+            .from('player_team_season')
+            .select(`
+                player_id,
+                club_players (*)
+            `)
+            .in('team_id', teamIds)
+            .eq('season_id', seasonId)
+
+        if (error) {
+            console.error('Error fetching players by teams:', error)
+            throw error
+        }
+
+        // Extract unique players (a player might be in multiple teams)
+        const playersMap = new Map<string, PlayerDB>()
+        data?.forEach((item: any) => {
+            if (item.club_players) {
+                playersMap.set(item.club_players.id, item.club_players)
+            }
+        })
+
+        return Array.from(playersMap.values())
     },
 
     removePlayerFromTeamSeason: async (id: string): Promise<void> => {

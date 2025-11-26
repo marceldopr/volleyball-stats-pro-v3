@@ -8,6 +8,7 @@ import { useAuthStore } from '../stores/authStore'
 import { seasonService } from '../services/seasonService'
 import { teamService } from '../services/teamService'
 import { matchService } from '../services/matchService'
+import { useCurrentUserRole } from '../hooks/useCurrentUserRole'
 import { Plus, Calendar, Trophy, Clock, Trash2, Eye } from 'lucide-react'
 
 
@@ -18,6 +19,7 @@ export function Matches() {
   const [matchToDelete, setMatchToDelete] = useState<any>(null)
   const { deleteMatch } = useMatchStore()
   const { profile } = useAuthStore()
+  const { isCoach, assignedTeamIds, loading: roleLoading } = useCurrentUserRole()
 
   const [currentSeason, setCurrentSeason] = useState<any>(null)
   const [availableTeams, setAvailableTeams] = useState<any[]>([])
@@ -37,8 +39,19 @@ export function Matches() {
           setAvailableTeams(teams)
 
           // Load matches from Supabase
-          const matches = await matchService.getMatchesByClubAndSeason(profile.club_id, season.id)
-          setSupabaseMatches(matches)
+          const allMatches = await matchService.getMatchesByClubAndSeason(profile.club_id, season.id)
+
+          // Filter matches based on role
+          if (isCoach) {
+            // Coaches only see matches from their assigned teams
+            const filteredMatches = allMatches.filter(match =>
+              assignedTeamIds.includes(match.team_id)
+            )
+            setSupabaseMatches(filteredMatches)
+          } else {
+            // DT and Admin see all matches
+            setSupabaseMatches(allMatches)
+          }
         }
       } catch (err) {
         console.error('Error loading season/teams/matches', err)
@@ -47,7 +60,7 @@ export function Matches() {
       }
     }
     fetchData()
-  }, [profile?.club_id])
+  }, [profile?.club_id, isCoach, assignedTeamIds])
 
   // Map team IDs to names for quick lookup
   const teamMap = availableTeams.reduce((acc, team) => {
@@ -132,26 +145,33 @@ export function Matches() {
           <h1 className="text-2xl font-bold text-gray-900">Partidos</h1>
           <p className="text-sm text-gray-500 mt-1">Gestiona tu calendario y resultados</p>
         </div>
-        <button onClick={() => setIsWizardOpen(true)} className="btn-primary flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          <span>Nuevo Partido</span>
-        </button>
+        {!isCoach && (
+          <button onClick={() => setIsWizardOpen(true)} className="btn-primary flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            <span>Nuevo Partido</span>
+          </button>
+        )}
       </div>
 
       {/* Loading state */}
-      {loading && (
+      {(loading || roleLoading) && (
         <div className="text-center py-12">
           <div className="text-gray-500">Cargando partidos...</div>
         </div>
       )}
 
       {/* Empty state */}
-      {!loading && supabaseMatches.length === 0 && (
+      {!loading && !roleLoading && supabaseMatches.length === 0 && (
         <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
           <Trophy className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-600 mb-2">No hay partidos registrados</p>
+          <p className="text-gray-600 mb-2">
+            {isCoach ? 'No tienes partidos asignados' : 'No hay partidos registrados'}
+          </p>
           <p className="text-sm text-gray-500">
-            Crea tu primer partido usando el botón "Nuevo Partido"
+            {isCoach
+              ? 'Todavía no tienes equipos asignados. Contacta con Dirección Técnica.'
+              : 'Crea tu primer partido usando el botón "Nuevo Partido"'
+            }
           </p>
         </div>
       )}

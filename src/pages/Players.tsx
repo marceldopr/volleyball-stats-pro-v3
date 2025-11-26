@@ -3,12 +3,16 @@ import { Plus, Search, Edit, X, Loader2, Eye } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { playerService, PlayerDB } from '@/services/playerService'
+import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
+import { seasonService } from '@/services/seasonService'
+import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 import { toast } from 'sonner'
 import { POSITION_NAMES } from '@/constants'
 
 export function Players() {
     const navigate = useNavigate()
     const { profile } = useAuthStore()
+    const { isCoach, assignedTeamIds, loading: roleLoading } = useCurrentUserRole()
     const [players, setPlayers] = useState<PlayerDB[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
@@ -29,17 +33,34 @@ export function Players() {
     const [submitting, setSubmitting] = useState(false)
 
     useEffect(() => {
-        if (profile?.club_id) {
+        if (profile?.club_id && !roleLoading) {
             loadPlayers()
         }
-    }, [profile?.club_id])
+    }, [profile?.club_id, isCoach, assignedTeamIds, roleLoading])
 
     const loadPlayers = async () => {
         if (!profile?.club_id) return
         setLoading(true)
         try {
-            const data = await playerService.getPlayersByClub(profile.club_id)
-            setPlayers(data)
+            if (isCoach) {
+                // Coaches only see players from their assigned teams
+                if (assignedTeamIds.length === 0) {
+                    setPlayers([])
+                } else {
+                    // Get current season
+                    const season = await seasonService.getCurrentSeasonByClub(profile.club_id)
+                    if (season) {
+                        const data = await playerTeamSeasonService.getPlayersByTeams(assignedTeamIds, season.id)
+                        setPlayers(data)
+                    } else {
+                        setPlayers([])
+                    }
+                }
+            } else {
+                // DT and Admin see all players
+                const data = await playerService.getPlayersByClub(profile.club_id)
+                setPlayers(data)
+            }
         } catch (error) {
             toast.error('Error al cargar jugadoras')
         } finally {
@@ -126,13 +147,15 @@ export function Players() {
                     <h1 className="text-2xl font-bold text-gray-900">Base de Datos de Jugadoras</h1>
                     <p className="text-sm text-gray-500 mt-1">Gestión global de jugadoras del club</p>
                 </div>
-                <button
-                    onClick={() => handleOpenModal()}
-                    className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center"
-                >
-                    <Plus className="w-4 h-4" />
-                    <span>Nueva Jugadora</span>
-                </button>
+                {!isCoach && (
+                    <button
+                        onClick={() => handleOpenModal()}
+                        className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center"
+                    >
+                        <Plus className="w-4 h-4" />
+                        <span>Nueva Jugadora</span>
+                    </button>
+                )}
             </div>
 
             {/* Filters */}
@@ -173,7 +196,7 @@ export function Players() {
 
             {/* Table */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                {loading ? (
+                {(loading || roleLoading) ? (
                     <div className="flex justify-center items-center h-64">
                         <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
                     </div>
@@ -233,7 +256,10 @@ export function Players() {
                                 {filteredPlayers.length === 0 && (
                                     <tr>
                                         <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                                            No se encontraron jugadoras
+                                            {isCoach
+                                                ? 'No se han encontrado jugadoras para tus equipos asignados.'
+                                                : 'No se encontraron jugadoras'
+                                            }
                                         </td>
                                     </tr>
                                 )}

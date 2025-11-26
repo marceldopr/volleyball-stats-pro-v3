@@ -7,10 +7,13 @@ import { useAuthStore } from '@/stores/authStore'
 import { PlayerReportForm } from '@/components/reports/PlayerReportForm'
 import { seasonService } from '@/services/seasonService'
 import { teamService } from '@/services/teamService'
+import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
+import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 
 export default function PlayerReportsPage() {
     const { playerId } = useParams<{ playerId: string }>()
     const { profile } = useAuthStore()
+    const { isCoach, assignedTeamIds } = useCurrentUserRole()
 
     const [reports, setReports] = useState<PlayerReportDB[]>([])
     const [loading, setLoading] = useState(true)
@@ -21,10 +24,14 @@ export default function PlayerReportsPage() {
     const [currentSeasonId, setCurrentSeasonId] = useState<string>('')
     const [currentTeamId, setCurrentTeamId] = useState<string>('')
 
+    // Permission state
+    const [canCreateReport, setCanCreateReport] = useState(true)
+    const [permissionMessage, setPermissionMessage] = useState('')
+
     // Load current season and team
     useEffect(() => {
         const loadSeasonAndTeam = async () => {
-            if (!profile?.club_id) return
+            if (!profile?.club_id || !playerId) return
 
             try {
                 // Get current season
@@ -32,10 +39,43 @@ export default function PlayerReportsPage() {
                 if (season) {
                     setCurrentSeasonId(season.id)
 
-                    // Get first team from current season (fallback)
-                    const teams = await teamService.getTeamsByClubAndSeason(profile.club_id, season.id)
-                    if (teams.length > 0) {
-                        setCurrentTeamId(teams[0].id)
+                    // Get player's current team from player_team_season
+                    const playerAssignment = await playerTeamSeasonService.getPlayerTeamBySeason(
+                        playerId,
+                        season.id
+                    )
+
+                    if (playerAssignment) {
+                        setCurrentTeamId(playerAssignment.team_id)
+
+                        // Check permissions for coaches
+                        if (isCoach) {
+                            const hasPermission = assignedTeamIds.includes(playerAssignment.team_id)
+                            setCanCreateReport(hasPermission)
+
+                            if (!hasPermission) {
+                                setPermissionMessage(
+                                    'No tienes permisos para crear informes sobre esta jugadora (no pertenece a tus equipos asignados).'
+                                )
+                            }
+                        } else {
+                            // DT and Admin always have permission
+                            setCanCreateReport(true)
+                        }
+                    } else {
+                        // Player not assigned to any team in current season
+                        // Fallback: get first team from current season
+                        const teams = await teamService.getTeamsByClubAndSeason(profile.club_id, season.id)
+                        if (teams.length > 0) {
+                            setCurrentTeamId(teams[0].id)
+                        }
+
+                        if (isCoach) {
+                            setCanCreateReport(false)
+                            setPermissionMessage(
+                                'Esta jugadora no está asignada a ningún equipo en la temporada actual.'
+                            )
+                        }
                     }
                 }
             } catch (error) {
@@ -44,7 +84,7 @@ export default function PlayerReportsPage() {
         }
 
         loadSeasonAndTeam()
-    }, [profile?.club_id])
+    }, [profile?.club_id, playerId, isCoach, assignedTeamIds])
 
     // Load reports
     useEffect(() => {
@@ -122,8 +162,9 @@ export default function PlayerReportsPage() {
                 </h2>
                 <button
                     onClick={() => setIsFormOpen(true)}
-                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
-                    disabled={!currentTeamId || !currentSeasonId}
+                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!currentTeamId || !currentSeasonId || !canCreateReport}
+                    title={!canCreateReport ? permissionMessage : ''}
                 >
                     <Plus className="w-4 h-4" />
                     Nuevo Informe
@@ -133,6 +174,12 @@ export default function PlayerReportsPage() {
             {!currentTeamId || !currentSeasonId && (
                 <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800">
                     ⚠️ No se pudo cargar el equipo o temporada actual. Por favor, asegúrate de tener una temporada activa y al menos un equipo creado.
+                </div>
+            )}
+
+            {!canCreateReport && permissionMessage && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+                    ⚠️ {permissionMessage}
                 </div>
             )}
 
