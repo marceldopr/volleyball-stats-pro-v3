@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Trash2, X, Search, UserPlus, Eye } from 'lucide-react'
+import { Trash2, X, Search, UserPlus, Eye, AlertTriangle, Filter } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 import { TeamDB } from '@/services/teamService'
@@ -8,6 +8,7 @@ import { playerService, PlayerDB } from '@/services/playerService'
 import { playerTeamSeasonService, PlayerTeamSeasonDB } from '@/services/playerTeamSeasonService'
 import { toast } from 'sonner'
 import { POSITION_NAMES } from '@/constants'
+import { getCategoryStageFromBirthDate, getStageIndex } from '@/utils/categoryStage'
 
 interface TeamRosterManagerProps {
     team: TeamDB
@@ -31,6 +32,7 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
     const [availablePlayers, setAvailablePlayers] = useState<PlayerDB[]>([])
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedPlayerId, setSelectedPlayerId] = useState<string>('')
+    const [showIncompatible, setShowIncompatible] = useState(false)
     const [addFormData, setAddFormData] = useState({
         jersey_number: '',
         role: 'starter',
@@ -66,6 +68,37 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
             toast.error('Error al cargar la plantilla')
         } finally {
             setLoading(false)
+        }
+    }
+
+    const checkCompatibility = (player: PlayerDB) => {
+        const issues: string[] = []
+
+        // 1. Gender Check
+        if (team.gender !== 'mixed') {
+            if (team.gender === 'female' && player.gender !== 'female') {
+                issues.push('Género incompatible (Equipo Femenino)')
+            } else if (team.gender === 'male' && player.gender !== 'male') {
+                issues.push('Género incompatible (Equipo Masculino)')
+            }
+        }
+
+        // 2. Category Check
+        if (player.birth_date && season.reference_date) {
+            const playerStage = getCategoryStageFromBirthDate(player.birth_date, new Date(season.reference_date))
+            const playerStageIndex = getStageIndex(playerStage)
+            const teamStageIndex = getStageIndex(team.category_stage)
+
+            // Player cannot play in a lower category (e.g. Senior cannot play in Junior)
+            // But Junior CAN play in Senior (playing up)
+            if (playerStageIndex > teamStageIndex) {
+                issues.push(`Categoría incompatible (${playerStage} > ${team.category_stage})`)
+            }
+        }
+
+        return {
+            compatible: issues.length === 0,
+            issues
         }
     }
 
@@ -105,13 +138,18 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
         }
     }
 
-    // Filter available players to exclude those already in roster
+    // Filter available players
     const filteredAvailablePlayers = availablePlayers
         .filter(p => !roster.some(r => r.player_id === p.id))
         .filter(p =>
             p.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             p.last_name.toLowerCase().includes(searchTerm.toLowerCase())
         )
+        .map(p => ({
+            ...p,
+            compatibility: checkCompatibility(p)
+        }))
+        .filter(p => showIncompatible || p.compatibility.compatible)
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden min-h-[500px] flex flex-col">
@@ -126,7 +164,7 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                             </span>
                         )}
                     </div>
-                    <p className="text-sm text-gray-500">{season.name}</p>
+                    <p className="text-sm text-gray-500">{season.name} - {team.category_stage} {team.gender === 'female' ? 'Fem' : team.gender === 'male' ? 'Masc' : 'Mixto'}</p>
                 </div>
                 <div className="flex gap-2">
                     {!isReadOnly && (
@@ -231,7 +269,17 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
 
                         <form onSubmit={handleAddPlayer} className="p-6 space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Buscar Jugadora</label>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="block text-sm font-medium text-gray-700">Buscar Jugadora</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowIncompatible(!showIncompatible)}
+                                        className={`text-xs flex items-center gap-1 ${showIncompatible ? 'text-orange-600' : 'text-gray-500'}`}
+                                    >
+                                        <Filter className="w-3 h-3" />
+                                        {showIncompatible ? 'Ocultar incompatibles' : 'Mostrar incompatibles'}
+                                    </button>
+                                </div>
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                                     <input
@@ -242,23 +290,39 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                         className="input pl-10 w-full mb-2"
                                     />
                                 </div>
-                                <select
-                                    required
-                                    value={selectedPlayerId}
-                                    onChange={(e) => setSelectedPlayerId(e.target.value)}
-                                    className="input w-full"
-                                    size={5}
-                                >
-                                    <option value="" disabled>Selecciona una jugadora</option>
-                                    {filteredAvailablePlayers.map(p => (
-                                        <option key={p.id} value={p.id}>
-                                            {p.first_name} {p.last_name} ({p.main_position})
-                                        </option>
-                                    ))}
-                                </select>
-                                {filteredAvailablePlayers.length === 0 && (
-                                    <p className="text-xs text-gray-500 mt-1">No se encontraron jugadoras disponibles.</p>
-                                )}
+                                <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md">
+                                    {filteredAvailablePlayers.length === 0 ? (
+                                        <div className="p-4 text-center text-sm text-gray-500">
+                                            No se encontraron jugadoras disponibles.
+                                        </div>
+                                    ) : (
+                                        <div className="divide-y divide-gray-100">
+                                            {filteredAvailablePlayers.map(p => (
+                                                <div
+                                                    key={p.id}
+                                                    onClick={() => p.compatibility.compatible && setSelectedPlayerId(p.id)}
+                                                    className={`p-3 flex items-center justify-between cursor-pointer transition-colors ${selectedPlayerId === p.id ? 'bg-orange-50 border-l-4 border-orange-500' : 'hover:bg-gray-50'
+                                                        } ${!p.compatibility.compatible ? 'opacity-60 cursor-not-allowed bg-gray-50' : ''}`}
+                                                >
+                                                    <div>
+                                                        <div className="font-medium text-sm text-gray-900">
+                                                            {p.first_name} {p.last_name}
+                                                        </div>
+                                                        <div className="text-xs text-gray-500">
+                                                            {p.main_position} • {p.gender === 'female' ? 'Fem' : 'Masc'} • {p.birth_date ? new Date(p.birth_date).getFullYear() : 'Sin fecha'}
+                                                        </div>
+                                                    </div>
+                                                    {!p.compatibility.compatible && (
+                                                        <div className="text-xs text-red-600 flex items-center gap-1" title={p.compatibility.issues.join(', ')}>
+                                                            <AlertTriangle className="w-3 h-3" />
+                                                            Incompatible
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">

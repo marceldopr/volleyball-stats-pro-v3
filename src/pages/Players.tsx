@@ -25,6 +25,7 @@ export function Players() {
     const [formData, setFormData] = useState({
         first_name: '',
         last_name: '',
+        gender: 'female',
         main_position: 'OH',
         dominant_hand: 'right',
         is_active: true,
@@ -74,6 +75,7 @@ export function Players() {
             setFormData({
                 first_name: player.first_name,
                 last_name: player.last_name,
+                gender: player.gender || 'female',
                 main_position: player.main_position,
                 dominant_hand: player.dominant_hand || 'right',
                 is_active: player.is_active,
@@ -84,6 +86,7 @@ export function Players() {
             setFormData({
                 first_name: '',
                 last_name: '',
+                gender: 'female',
                 main_position: 'OH',
                 dominant_hand: 'right',
                 is_active: true,
@@ -102,13 +105,16 @@ export function Players() {
             if (editingPlayer) {
                 await playerService.updatePlayer(editingPlayer.id, {
                     ...formData,
+                    gender: formData.gender as any,
                     main_position: formData.main_position as any,
                     dominant_hand: formData.dominant_hand as any
                 })
                 toast.success('Jugadora actualizada')
             } else {
-                await playerService.createPlayer(profile.club_id, {
+                await playerService.createPlayer({
+                    club_id: profile.club_id,
                     ...formData,
+                    gender: formData.gender as any,
                     main_position: formData.main_position as any,
                     dominant_hand: formData.dominant_hand as any,
                     secondary_position: null,
@@ -313,6 +319,17 @@ export function Players() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Género</label>
+                                    <select
+                                        value={formData.gender}
+                                        onChange={e => setFormData({ ...formData, gender: e.target.value })}
+                                        className="input w-full"
+                                    >
+                                        <option value="female">Femenino</option>
+                                        <option value="male">Masculino</option>
+                                    </select>
+                                </div>
+                                <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Posición *</label>
                                     <select
                                         value={formData.main_position}
@@ -326,6 +343,9 @@ export function Players() {
                                         <option value="L">Líbero</option>
                                     </select>
                                 </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Mano Dominante</label>
                                     <select

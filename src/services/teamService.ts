@@ -5,8 +5,11 @@ export interface TeamDB {
     club_id: string
     season_id: string
     name: string
-    category: string
-    gender: 'female' | 'male' | 'mixed' | string
+    category: string // Legacy field, keeping for now
+    category_stage: 'Benjamín' | 'Alevín' | 'Infantil' | 'Cadete' | 'Juvenil' | 'Júnior' | 'Sénior'
+    division_name: string | null
+    team_suffix: string | null
+    gender: 'female' | 'male' | 'mixed'
     competition_level: string | null
     head_coach_id: string | null
     assistant_coach_id: string | null
@@ -34,14 +37,10 @@ export const teamService = {
     },
 
     // Create a new team for a club/season
-    createTeam: async (
-        clubId: string,
-        seasonId: string,
-        data: { name: string; category: string; gender: string; competition_level?: string; notes?: string }
-    ): Promise<TeamDB> => {
-        const { data: newTeam, error } = await supabase
+    createTeam: async (team: Omit<TeamDB, 'id' | 'created_at' | 'updated_at'>): Promise<TeamDB> => {
+        const { data, error } = await supabase
             .from('teams')
-            .insert({ club_id: clubId, season_id: seasonId, ...data })
+            .insert(team)
             .select()
             .single()
 
@@ -49,14 +48,14 @@ export const teamService = {
             console.error('Error creating team:', error)
             throw error
         }
-        return newTeam
+        return data
     },
 
     // Update an existing team
-    updateTeam: async (id: string, data: Partial<TeamDB>): Promise<TeamDB> => {
-        const { data: updatedTeam, error } = await supabase
+    updateTeam: async (id: string, updates: Partial<Omit<TeamDB, 'id' | 'created_at' | 'updated_at'>>): Promise<TeamDB> => {
+        const { data, error } = await supabase
             .from('teams')
-            .update({ ...data, updated_at: new Date().toISOString() })
+            .update({ ...updates, updated_at: new Date().toISOString() })
             .eq('id', id)
             .select()
             .single()
@@ -65,7 +64,7 @@ export const teamService = {
             console.error('Error updating team:', error)
             throw error
         }
-        return updatedTeam
+        return data
     },
 
     // Delete a team by ID

@@ -11,8 +11,10 @@ export function TeamForm({ team, onClose }: TeamFormProps) {
   const { addTeam, updateTeam } = useTeamStore()
   const [formData, setFormData] = useState({
     name: team?.name || '',
-    category: team?.category || 'female',
-    ageGroup: team?.ageGroup || 'U16',
+    gender: team?.gender || 'female',
+    category_stage: team?.category_stage || 'Sénior',
+    division_name: team?.division_name || '',
+    team_suffix: team?.team_suffix || '',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -70,38 +72,72 @@ export function TeamForm({ team, onClose }: TeamFormProps) {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Categoría
-            </label>
-            <select
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              className="input"
-              disabled={isSubmitting}
-            >
-              <option value="female">Femenino</option>
-              <option value="male">Masculino</option>
-              <option value="mixed">Mixto</option>
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Género
+              </label>
+              <select
+                value={formData.gender}
+                onChange={(e) => setFormData({ ...formData, gender: e.target.value as any })}
+                className="input"
+                disabled={isSubmitting}
+              >
+                <option value="female">Femenino</option>
+                <option value="male">Masculino</option>
+                <option value="mixed">Mixto</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Etapa Formativa
+              </label>
+              <select
+                value={formData.category_stage}
+                onChange={(e) => setFormData({ ...formData, category_stage: e.target.value as any })}
+                className="input"
+                disabled={isSubmitting}
+              >
+                <option value="Benjamín">Benjamín</option>
+                <option value="Alevín">Alevín</option>
+                <option value="Infantil">Infantil</option>
+                <option value="Cadete">Cadete</option>
+                <option value="Juvenil">Juvenil</option>
+                <option value="Júnior">Júnior</option>
+                <option value="Sénior">Sénior</option>
+              </select>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Grupo de Edad
-            </label>
-            <select
-              value={formData.ageGroup}
-              onChange={(e) => setFormData({ ...formData, ageGroup: e.target.value })}
-              className="input"
-              disabled={isSubmitting}
-            >
-              <option value="U12">U12</option>
-              <option value="U14">U14</option>
-              <option value="U16">U16</option>
-              <option value="U18">U18</option>
-              <option value="senior">Senior</option>
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                División (Opcional)
+              </label>
+              <input
+                type="text"
+                value={formData.division_name}
+                onChange={(e) => setFormData({ ...formData, division_name: e.target.value })}
+                className="input"
+                placeholder="Ej: 1a Catalana"
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Sufijo (Opcional)
+              </label>
+              <input
+                type="text"
+                value={formData.team_suffix}
+                onChange={(e) => setFormData({ ...formData, team_suffix: e.target.value })}
+                className="input"
+                placeholder="Ej: A, B, Blau"
+                disabled={isSubmitting}
+              />
+            </div>
           </div>
 
           <div className="flex space-x-3 pt-4">

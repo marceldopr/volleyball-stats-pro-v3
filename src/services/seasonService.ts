@@ -6,6 +6,7 @@ export interface SeasonDB {
     name: string
     start_date: string | null
     end_date: string | null
+    reference_date: string
     is_current: boolean
     created_at: string
     updated_at: string
@@ -44,24 +45,18 @@ export const seasonService = {
         return data
     },
 
-    createSeason: async (
-        clubId: string,
-        data: { name: string; start_date?: string; end_date?: string; is_current?: boolean }
-    ): Promise<SeasonDB> => {
+    createSeason: async (season: Omit<SeasonDB, 'id' | 'created_at' | 'updated_at'>): Promise<SeasonDB> => {
         // If setting as current, unset others first (optional but good practice)
-        if (data.is_current) {
+        if (season.is_current) {
             await supabase
                 .from('seasons')
                 .update({ is_current: false })
-                .eq('club_id', clubId)
+                .eq('club_id', season.club_id)
         }
 
-        const { data: newSeason, error } = await supabase
+        const { data, error } = await supabase
             .from('seasons')
-            .insert({
-                club_id: clubId,
-                ...data
-            })
+            .insert(season)
             .select()
             .single()
 
@@ -70,9 +65,24 @@ export const seasonService = {
             throw error
         }
 
-        return newSeason
-    }
-    ,
+        return data
+    },
+
+    updateSeason: async (id: string, updates: Partial<Omit<SeasonDB, 'id' | 'created_at' | 'updated_at'>>): Promise<SeasonDB> => {
+        const { data, error } = await supabase
+            .from('seasons')
+            .update({ ...updates, updated_at: new Date().toISOString() })
+            .eq('id', id)
+            .select()
+            .single()
+
+        if (error) {
+            console.error('Error updating season:', error)
+            throw error
+        }
+        return data
+    },
+
     // Fetch a single season by its ID
     getSeasonById: async (seasonId: string): Promise<SeasonDB | null> => {
         const { data, error } = await supabase

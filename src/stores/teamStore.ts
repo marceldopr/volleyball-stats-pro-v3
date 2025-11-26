@@ -17,8 +17,12 @@ export interface Player {
 export interface Team {
   id: string
   name: string
-  category: 'female' | 'male' | 'mixed'
-  ageGroup: 'U12' | 'U14' | 'U16' | 'U18' | 'senior'
+  // New fields
+  category_stage: 'Benjamín' | 'Alevín' | 'Infantil' | 'Cadete' | 'Juvenil' | 'Júnior' | 'Sénior'
+  division_name?: string | null
+  team_suffix?: string | null
+  gender: 'female' | 'male' | 'mixed'
+  // Legacy/Computed
   players: Player[]
   createdAt: string
 }
@@ -49,11 +53,9 @@ export const useTeamStore = create<TeamState>((set) => ({
   loadTeams: async () => {
     set({ loading: true, error: null })
     try {
-      // Get current user's club_id from auth store
       const { profile } = useAuthStore.getState()
       if (!profile?.club_id) throw new Error('No club ID found')
 
-      // Fetch teams
       const { data: teamsData, error: teamsError } = await supabase
         .from('teams')
         .select('*')
@@ -62,9 +64,6 @@ export const useTeamStore = create<TeamState>((set) => ({
 
       if (teamsError) throw teamsError
 
-      // Fetch all players for these teams
-      // Note: In a larger app, we might want to fetch players only when selecting a team
-      // but for now, to keep the store structure similar, we'll fetch all.
       const teamIds = teamsData.map(t => t.id)
       const { data: playersData, error: playersError } = await supabase
         .from('players')
@@ -73,7 +72,6 @@ export const useTeamStore = create<TeamState>((set) => ({
 
       if (playersError) throw playersError
 
-      // Map DB structure (snake_case) to frontend structure (camelCase)
       const formattedTeams: Team[] = teamsData.map(team => {
         const teamPlayers = playersData
           .filter(p => p.team_id === team.id)
@@ -92,8 +90,10 @@ export const useTeamStore = create<TeamState>((set) => ({
         return {
           id: team.id,
           name: team.name,
-          category: team.category,
-          ageGroup: team.age_group,
+          category_stage: team.category_stage,
+          division_name: team.division_name,
+          team_suffix: team.team_suffix,
+          gender: team.gender,
           players: teamPlayers,
           createdAt: team.created_at
         }
@@ -117,8 +117,10 @@ export const useTeamStore = create<TeamState>((set) => ({
         .insert({
           club_id: profile.club_id,
           name: teamData.name,
-          category: teamData.category,
-          age_group: teamData.ageGroup
+          category_stage: teamData.category_stage,
+          division_name: teamData.division_name,
+          team_suffix: teamData.team_suffix,
+          gender: teamData.gender
         })
         .select()
         .single()
@@ -128,8 +130,10 @@ export const useTeamStore = create<TeamState>((set) => ({
       const newTeam: Team = {
         id: data.id,
         name: data.name,
-        category: data.category,
-        ageGroup: data.age_group,
+        category_stage: data.category_stage,
+        division_name: data.division_name,
+        team_suffix: data.team_suffix,
+        gender: data.gender,
         players: [],
         createdAt: data.created_at
       }
@@ -151,8 +155,10 @@ export const useTeamStore = create<TeamState>((set) => ({
     try {
       const updates: any = {}
       if (teamData.name) updates.name = teamData.name
-      if (teamData.category) updates.category = teamData.category
-      if (teamData.ageGroup) updates.age_group = teamData.ageGroup
+      if (teamData.category_stage) updates.category_stage = teamData.category_stage
+      if (teamData.division_name !== undefined) updates.division_name = teamData.division_name
+      if (teamData.team_suffix !== undefined) updates.team_suffix = teamData.team_suffix
+      if (teamData.gender) updates.gender = teamData.gender
 
       const { error } = await supabase
         .from('teams')

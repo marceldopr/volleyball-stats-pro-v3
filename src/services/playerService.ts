@@ -5,6 +5,7 @@ export interface PlayerDB {
     club_id: string
     first_name: string
     last_name: string
+    gender: 'female' | 'male'
     birth_date: string | null
     main_position: 'S' | 'OH' | 'MB' | 'OPP' | 'L' | string
     secondary_position: string | null
@@ -32,16 +33,10 @@ export const playerService = {
         return data || []
     },
 
-    createPlayer: async (
-        clubId: string,
-        data: Omit<PlayerDB, 'id' | 'club_id' | 'created_at' | 'updated_at'>
-    ): Promise<PlayerDB> => {
-        const { data: newPlayer, error } = await supabase
+    createPlayer: async (player: Omit<PlayerDB, 'id' | 'created_at' | 'updated_at'>): Promise<PlayerDB> => {
+        const { data, error } = await supabase
             .from('club_players')
-            .insert({
-                club_id: clubId,
-                ...data,
-            })
+            .insert(player)
             .select()
             .single()
 
@@ -49,17 +44,13 @@ export const playerService = {
             console.error('Error creating player:', error)
             throw error
         }
-
-        return newPlayer
+        return data
     },
 
-    updatePlayer: async (id: string, data: Partial<PlayerDB>): Promise<PlayerDB> => {
-        const { data: updatedPlayer, error } = await supabase
+    updatePlayer: async (id: string, updates: Partial<Omit<PlayerDB, 'id' | 'created_at' | 'updated_at'>>): Promise<PlayerDB> => {
+        const { data, error } = await supabase
             .from('club_players')
-            .update({
-                ...data,
-                updated_at: new Date().toISOString(),
-            })
+            .update({ ...updates, updated_at: new Date().toISOString() })
             .eq('id', id)
             .select()
             .single()
@@ -68,7 +59,6 @@ export const playerService = {
             console.error('Error updating player:', error)
             throw error
         }
-
-        return updatedPlayer
+        return data
     },
 }

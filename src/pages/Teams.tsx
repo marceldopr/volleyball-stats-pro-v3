@@ -34,7 +34,8 @@ export function Teams() {
   const [seasonFormData, setSeasonFormData] = useState({
     name: '',
     start_date: new Date().toISOString().split('T')[0],
-    end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0]
+    end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
+    reference_date: new Date().toISOString().split('T')[0]
   })
   const [creatingSeason, setCreatingSeason] = useState(false)
 
@@ -119,10 +120,23 @@ export function Teams() {
     setSubmitting(true)
     try {
       if (editingTeam) {
-        await teamService.updateTeam(editingTeam.id, formData)
+        await teamService.updateTeam(editingTeam.id, {
+          ...formData,
+          gender: formData.gender as any
+        })
         toast.success('Equipo actualizado')
       } else {
-        await teamService.createTeam(profile.club_id, currentSeason.id, formData)
+        await teamService.createTeam({
+          club_id: profile.club_id,
+          season_id: currentSeason.id,
+          ...formData,
+          gender: formData.gender as any,
+          category_stage: 'Sénior', // Default or add to form
+          division_name: null,
+          team_suffix: null,
+          head_coach_id: null,
+          assistant_coach_id: null
+        })
         toast.success('Equipo creado')
       }
       setShowModal(false)
@@ -145,7 +159,8 @@ export function Teams() {
 
     setCreatingSeason(true)
     try {
-      const newSeason = await seasonService.createSeason(profile.club_id, {
+      const newSeason = await seasonService.createSeason({
+        club_id: profile.club_id,
         ...seasonFormData,
         is_current: true
       })
@@ -457,6 +472,22 @@ export function Teams() {
                     className="input w-full"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Fecha de Referencia (Cálculo de Edades)
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={seasonFormData.reference_date}
+                  onChange={e => setSeasonFormData({ ...seasonFormData, reference_date: e.target.value })}
+                  className="input w-full"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Fecha utilizada para calcular la categoría de los jugadores (ej: 31/12 del año de inicio).
+                </p>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-6">
