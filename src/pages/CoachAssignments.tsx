@@ -36,33 +36,44 @@ export function CoachAssignments() {
     }, [profile?.club_id])
 
     const loadData = async () => {
-        if (!profile?.club_id) return
+        if (!profile?.club_id) {
+            console.warn('[CoachAssignments] No club_id in profile:', profile)
+            return
+        }
 
+        console.log('[CoachAssignments] Loading data for club:', profile.club_id)
         setLoading(true)
         try {
             // Get current season
             const seasons = await seasonService.getSeasonsByClub(profile.club_id)
+            console.log('[CoachAssignments] Seasons found:', seasons.length, seasons.map(s => ({ id: s.id, name: s.name, is_current: s.is_current })))
+
             const activeSeason = seasons.find(s => s.is_current) || seasons[0]
             setCurrentSeason(activeSeason)
 
             if (!activeSeason) {
+                console.error('[CoachAssignments] No active season found')
                 toast.error('No hay temporadas activas')
                 setLoading(false)
                 return
             }
+
+            console.log('[CoachAssignments] Using season:', { id: activeSeason.id, name: activeSeason.name })
 
             // Get coaches with assignments
             const coachesData = await coachAssignmentService.getCoachesWithAssignments(
                 profile.club_id,
                 activeSeason.id
             )
+            console.log('[CoachAssignments] Coaches data received:', coachesData.length, coachesData)
             setCoaches(coachesData)
 
             // Get all teams for assignment dropdown
             const teams = await teamService.getTeamsByClubAndSeason(profile.club_id, activeSeason.id)
+            console.log('[CoachAssignments] Teams found:', teams.length)
             setAvailableTeams(teams)
         } catch (error) {
-            console.error('Error loading data:', error)
+            console.error('[CoachAssignments] Error loading data:', error)
             toast.error('Error al cargar los datos')
         } finally {
             setLoading(false)

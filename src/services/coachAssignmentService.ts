@@ -31,58 +31,102 @@ export const coachAssignmentService = {
      * @returns Array of coaches with their assignments
      */
     getCoachesWithAssignments: async (clubId: string, seasonId: string): Promise<CoachWithAssignments[]> => {
+        console.log('[getCoachesWithAssignments] Starting query with:', { clubId, seasonId })
+
         // 1. Get all coaches from the club
+        // NOTE: Removed 'email' from select as it likely doesn't exist in profiles table and causes 400 error
+        // NOTE: Checking for both 'coach' and 'entrenador' to handle legacy data
         const { data: coaches, error: coachesError } = await supabase
             .from('profiles')
-            .select('id, full_name, email, role')
+            .select('id, full_name, role, club_id')
             .eq('club_id', clubId)
-            .eq('role', 'coach')
+            .in('role', ['coach', 'entrenador'])
+
+        console.log('[getCoachesWithAssignments] Coaches query result:', {
+            count: coaches?.length || 0,
+            coaches: coaches?.map(c => ({ id: c.id, name: c.full_name, role: c.role })),
+            error: coachesError
+        })
 
         if (coachesError) {
-            console.error('Error fetching coaches:', coachesError)
+            console.error('[getCoachesWithAssignments] Error fetching coaches:', coachesError)
             throw coachesError
         }
 
         if (!coaches || coaches.length === 0) {
+            console.warn('[getCoachesWithAssignments] No coaches found for club:', clubId)
             return []
         }
 
         // 2. Get all assignments for these coaches in the current season
         const coachIds = coaches.map(c => c.id)
+        console.log('[getCoachesWithAssignments] Fetching assignments for coach IDs:', coachIds)
+
         const { data: assignments, error: assignmentsError } = await supabase
             .from('coach_team_assignments')
-            .select(`
-                id,
-                user_id,
-                team_id,
-                season_id,
-                teams:team_id (
-                    name
-                )
-            `)
+            .select('id, user_id, team_id, season_id')
             .in('user_id', coachIds)
             .eq('season_id', seasonId)
 
+        console.log('[getCoachesWithAssignments] Assignments query result:', {
+            count: assignments?.length || 0,
+            assignments: assignments?.map(a => ({ id: a.id, user_id: a.user_id, team_id: a.team_id })),
+            error: assignmentsError
+        })
+
         if (assignmentsError) {
-            console.error('Error fetching assignments:', assignmentsError)
-            throw assignmentsError
+            console.error('[getCoachesWithAssignments] Error fetching assignments:', assignmentsError)
+            // Don't throw - continue with empty assignments
         }
 
-        // 3. Combine data
-        return coaches.map(coach => ({
+        // 3. Get team names for assignments (separate query to avoid join issues)
+        let teamNames: Record<string, string> = {}
+        if (assignments && assignments.length > 0) {
+            const teamIds = [...new Set(assignments.map(a => a.team_id))]
+            console.log('[getCoachesWithAssignments] Fetching team names for IDs:', teamIds)
+
+            const { data: teams, error: teamsError } = await supabase
+                .from('teams')
+                .select('id, name')
+                .in('id', teamIds)
+
+            console.log('[getCoachesWithAssignments] Teams query result:', {
+                count: teams?.length || 0,
+                teams: teams?.map(t => ({ id: t.id, name: t.name })),
+                error: teamsError
+            })
+
+            if (!teamsError && teams) {
+                teamNames = teams.reduce((acc, team) => {
+                    acc[team.id] = team.name
+                    return acc
+                }, {} as Record<string, string>)
+            }
+        }
+
+        // 4. Combine data
+        const result = coaches.map(coach => ({
             id: coach.id,
             full_name: coach.full_name,
-            email: coach.email || '',
+            email: '', // Email not available in profiles table
             role: coach.role || 'coach',
             assignments: (assignments || [])
                 .filter(a => a.user_id === coach.id)
                 .map(a => ({
                     id: a.id,
                     team_id: a.team_id,
-                    team_name: (a.teams as any)?.name || 'Equipo desconocido',
+                    team_name: teamNames[a.team_id] || 'Equipo desconocido',
                     season_id: a.season_id
                 }))
         }))
+
+        console.log('[getCoachesWithAssignments] Final result:', {
+            totalCoaches: result.length,
+            coachesWithAssignments: result.filter(c => c.assignments.length > 0).length,
+            coachesWithoutAssignments: result.filter(c => c.assignments.length === 0).length
+        })
+
+        return result
     },
 
     /**
@@ -185,4 +229,3 @@ export const coachAssignmentService = {
         return coachAssignmentService.removeCoachAssignment(id)
     }
 }
-
