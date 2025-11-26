@@ -11,6 +11,7 @@ import { NewMatch } from '@/pages/NewMatch'
 import { Exports } from '@/pages/Exports'
 import { About } from '@/pages/About'
 import { Login } from '@/pages/Login'
+import { Register } from '@/pages/Register'
 import { Players } from './pages/Players'
 import { PlayerDetail } from './pages/PlayerDetail'
 import PlayerReports from './pages/PlayerReports'
@@ -29,6 +30,7 @@ function App() {
           <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
               <Route
                 path="*"
                 element={

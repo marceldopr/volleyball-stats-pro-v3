@@ -1,5 +1,5 @@
 import { useState, FormEvent, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { Trophy } from 'lucide-react'
 
@@ -113,6 +113,19 @@ export function Login() {
                                 'Iniciar sesión'
                             )}
                         </button>
+
+                        {/* Register Link */}
+                        <div className="text-center">
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                ¿No tienes cuenta?{' '}
+                                <Link
+                                    to="/register"
+                                    className="text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 font-medium transition-colors"
+                                >
+                                    Regístrate aquí
+                                </Link>
+                            </p>
+                        </div>
                     </form>
                 </div>
 
