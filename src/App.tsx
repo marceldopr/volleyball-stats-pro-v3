@@ -15,6 +15,10 @@ import { Register } from '@/pages/Register'
 import { Players } from './pages/Players'
 import { PlayerDetail } from './pages/PlayerDetail'
 import PlayerReports from './pages/PlayerReports'
+import { PlayerReportsPage } from './pages/PlayerReportsPage'
+import { TeamSeasonPlanPage } from './pages/TeamSeasonPlanPage'
+import { TeamPlansListPage } from './pages/TeamPlansListPage'
+import { CoachReportsPage } from './pages/CoachReportsPage'
 import { CoachAssignments } from './pages/CoachAssignments'
 import { ProtectedRoute } from '@/components/routing/ProtectedRoute'
 import { useThemeStore } from '@/stores/themeStore'
@@ -39,9 +43,13 @@ function App() {
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/teams" element={<Teams />} />
+                      <Route path="/reports/team-plans" element={<TeamPlansListPage />} />
+                      <Route path="/reports/team-plan/:teamId" element={<TeamSeasonPlanPage />} />
                       <Route path="/players" element={<Players />} /> {/* Added players route */}
                       <Route path="/players/:id" element={<PlayerDetail />} />
                       <Route path="/players/:playerId/reports" element={<PlayerReports />} />
+                      <Route path="/reports/players" element={<PlayerReportsPage />} />
+                      <Route path="/reports/coaches" element={<CoachReportsPage />} />
                       <Route path="/matches" element={<Matches />} />
                       <Route path="/matches/new" element={<NewMatch />} />
                       <Route path="/matches/:id" element={<Matches />} />

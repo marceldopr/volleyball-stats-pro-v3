@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, Users, Loader2, Calendar } from 'lucide-react'
+import { Plus, Edit, Trash2, Users, Loader2, Calendar, FileText } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { seasonService, SeasonDB } from '@/services/seasonService'
 import { teamService, TeamDB } from '@/services/teamService'
@@ -11,6 +12,7 @@ import { toast } from 'sonner'
 export function Teams() {
   const { profile } = useAuthStore()
   const { isCoach, assignedTeamIds, loading: roleLoading } = useCurrentUserRole()
+  const navigate = useNavigate()
 
   // State
   const [currentSeason, setCurrentSeason] = useState<SeasonDB | null>(null)
@@ -257,10 +259,19 @@ export function Teams() {
             <div key={team.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{team.name}</h3>
-                  <p className="text-sm text-gray-500">{team.category_stage} - {getGenderLabel(team.gender)}</p>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {team.name} <span className="text-gray-500 font-normal">- {team.category_stage}</span>
+                  </h3>
+                  <p className="text-sm text-gray-500">{getGenderLabel(team.gender)}</p>
                 </div>
                 <div className="flex gap-2">
+                  <button
+                    onClick={() => navigate(`/reports/team-plan/${team.id}`)}
+                    className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                    title="Planificación"
+                  >
+                    <FileText className="w-4 h-4" />
+                  </button>
                   <button
                     onClick={() => setManagingRosterTeam(team)}
                     className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"

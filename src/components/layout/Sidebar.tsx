@@ -5,32 +5,102 @@ import {
   Trophy,
   BarChart3,
   Settings,
-  Download,
   Info,
   Menu,
   X,
   LogOut,
-  UserCog
+  UserCog,
+  FileText,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react'
 import { useState } from 'react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '@/stores/authStore'
 import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 
-const navigation = [
-  { name: 'Home', href: '/', icon: Home },
-  { name: 'Jugadoras', href: '/players', icon: Users },
-  { name: 'Equipos', href: '/teams', icon: Users },
-  { name: 'Partidos', href: '/matches', icon: Trophy },
-  { name: 'Análisis', href: '/analytics', icon: BarChart3 },
-  { name: 'Entrenadores', href: '/coach-assignments', icon: UserCog, roles: ['dt', 'admin'] },
-  { name: 'Configuración', href: '/settings', icon: Settings },
-  { name: 'Exportaciones', href: '/exports', icon: Download },
-  { name: 'Sobre la App', href: '/about', icon: Info },
+// Navigation item types
+interface NavItem {
+  name: string
+  href?: string
+  icon: any
+  placeholder?: boolean
+  children?: NavItem[]
+}
+
+interface NavSection {
+  title?: string
+  items: NavItem[]
+}
+
+// Navigation structure for Director Técnico
+const dtNavigation: NavSection[] = [
+  {
+    items: [
+      { name: 'Home', href: '/', icon: Home }
+    ]
+  },
+  {
+    title: 'Deportistas',
+    items: [
+      { name: 'Jugadoras', href: '/players', icon: Users },
+      { name: 'Equipos', href: '/teams', icon: Users }
+    ]
+  },
+  {
+    title: 'Competición',
+    items: [
+      { name: 'Partidos', href: '/matches', icon: Trophy },
+      { name: 'Estadísticas', href: '/analytics', icon: BarChart3, placeholder: true }
+    ]
+  },
+  {
+    title: 'Informes',
+    items: [
+      { name: 'Informes de Jugadoras', href: '/reports/players', icon: FileText },
+      { name: 'Planificación de Equipos', href: '/reports/team-plans', icon: FileText },
+      { name: 'Informes de Entrenadores', href: '/reports/coaches', icon: FileText }
+    ]
+  },
+  {
+    title: 'Club',
+    items: [
+      { name: 'Entrenadores', href: '/coach-assignments', icon: UserCog },
+      { name: 'Configuración del Club', href: '/settings', icon: Settings },
+      { name: 'Sobre la App', href: '/about', icon: Info }
+    ]
+  }
+]
+
+// Navigation structure for Coach
+const coachNavigation: NavSection[] = [
+  {
+    items: [
+      { name: 'Home', href: '/', icon: Home }
+    ]
+  },
+  {
+    items: [
+      { name: 'Jugadoras', href: '/players', icon: Users },
+      { name: 'Equipos', href: '/teams', icon: Users },
+      { name: 'Partidos', href: '/matches', icon: Trophy }
+    ]
+  },
+  {
+    items: [
+      { name: 'Informes', href: '/reports/players', icon: FileText }
+    ]
+  },
+  {
+    items: [
+      { name: 'Sobre la App', href: '/about', icon: Info }
+    ]
+  }
 ]
 
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false)
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   const location = useLocation()
   const navigate = useNavigate()
   const { profile, logout } = useAuthStore()
@@ -45,25 +115,89 @@ export function Sidebar() {
   if (roleStr === 'coach' || roleStr === 'entrenador') roleLabel = 'Entrenador/a'
   if (roleStr === 'admin') roleLabel = 'Administrador/a'
 
-  const filteredNavigation = navigation.filter(item => {
-    // Check if item has role restrictions
-    if ('roles' in item && item.roles) {
-      const roleStr = role as string
-      return item.roles.includes(roleStr) || item.roles.includes('admin')
-    }
+  // Determine which navigation to use
+  const isDT = roleStr === 'dt' || roleStr === 'director_tecnic' || roleStr === 'admin'
+  const navigationSections = isDT ? dtNavigation : coachNavigation
 
-    // Support both new and legacy role names to prevent empty sidebar with stale sessions
-    const roleStr = role as string
-    if (roleStr === 'dt' || roleStr === 'admin' || roleStr === 'director_tecnic') return true
-    if (roleStr === 'coach' || roleStr === 'entrenador') {
-      return ['Home', 'Jugadoras', 'Equipos', 'Partidos', 'Configuración', 'Sobre la App'].includes(item.name)
+  const toggleSection = (title: string) => {
+    const newExpanded = new Set(expandedSections)
+    if (newExpanded.has(title)) {
+      newExpanded.delete(title)
+    } else {
+      newExpanded.add(title)
     }
-    return false
-  })
+    setExpandedSections(newExpanded)
+  }
+
+  const handleItemClick = (item: NavItem) => {
+    if (item.placeholder) {
+      // Show placeholder message
+      return
+    }
+    setIsOpen(false)
+  }
 
   const handleLogout = async () => {
     await logout()
     navigate('/login', { replace: true })
+  }
+
+  const renderNavItem = (item: NavItem) => {
+    const isActive = item.href && location.pathname === item.href
+
+    if (item.placeholder) {
+      return (
+        <div
+          className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-500 cursor-not-allowed opacity-60"
+          title="Próximamente"
+        >
+          <item.icon className="w-5 h-5 flex-shrink-0" />
+          <span className="text-sm">{item.name}</span>
+          <span className="ml-auto text-xs bg-gray-800 px-2 py-0.5 rounded">Pronto</span>
+        </div>
+      )
+    }
+
+    if (item.children) {
+      const isExpanded = expandedSections.has(item.name)
+      return (
+        <div>
+          <button
+            onClick={() => toggleSection(item.name)}
+            className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-all duration-200 font-medium w-full"
+          >
+            <item.icon className="w-5 h-5 flex-shrink-0" />
+            <span>{item.name}</span>
+            {isExpanded ? (
+              <ChevronDown className="w-4 h-4 ml-auto" />
+            ) : (
+              <ChevronRight className="w-4 h-4 ml-auto" />
+            )}
+          </button>
+          {isExpanded && (
+            <div className="ml-4 mt-1 space-y-1">
+              {item.children.map((child) => (
+                <div key={child.name}>{renderNavItem(child)}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    return (
+      <Link
+        to={item.href!}
+        className={clsx(
+          'flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-all duration-200 font-medium',
+          isActive && 'bg-gray-800 text-white'
+        )}
+        onClick={() => handleItemClick(item)}
+      >
+        <item.icon className="w-5 h-5 flex-shrink-0" />
+        <span>{item.name}</span>
+      </Link>
+    )
   }
 
   return (
@@ -107,31 +241,29 @@ export function Sidebar() {
         )}
 
         {/* Navigation */}
-        <nav className="mt-6 px-3">
-          <ul className="space-y-1">
-            {filteredNavigation.map((item) => {
-              const isActive = location.pathname === item.href
-              return (
-                <li key={item.name}>
-                  <Link
-                    to={item.href}
-                    className={clsx(
-                      'nav-link',
-                      isActive && 'active'
-                    )}
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <item.icon className="nav-icon" />
-                    <span>{item.name}</span>
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
+        <nav className="mt-6 px-3 pb-24 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+          <div className="space-y-6">
+            {navigationSections.map((section, idx) => (
+              <div key={idx}>
+                {section.title && (
+                  <h3 className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                    {section.title}
+                  </h3>
+                )}
+                <ul className="space-y-1">
+                  {section.items.map((item) => (
+                    <li key={item.name}>
+                      {renderNavItem(item)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </nav>
 
         {/* Footer */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800 bg-gray-900">
           <div className="text-center">
             <p className="text-gray-500 text-xs mb-4">v1.0.0</p>
 
