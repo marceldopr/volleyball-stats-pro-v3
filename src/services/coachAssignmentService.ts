@@ -40,7 +40,7 @@ export const coachAssignmentService = {
             .from('profiles')
             .select('id, full_name, role, club_id')
             .eq('club_id', clubId)
-            .in('role', ['coach', 'entrenador'])
+            .eq('role', 'coach')
 
         console.log('[getCoachesWithAssignments] Coaches query result:', {
             count: coaches?.length || 0,
