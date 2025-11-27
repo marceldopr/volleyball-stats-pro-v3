@@ -26,16 +26,16 @@ function App() {
   return (
     <div className={`min-h-screen ${isDarkMode ? 'dark' : ''}`}>
       <Router>
-        <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-          <Sidebar />
-          <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route
-                path="*"
-                element={
-                  <ProtectedRoute>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route
+            path="*"
+            element={
+              <ProtectedRoute>
+                <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+                  <Sidebar />
+                  <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/teams" element={<Teams />} />
@@ -53,14 +53,14 @@ function App() {
                       <Route path="/exports" element={<Exports />} />
                       <Route path="/about" element={<About />} />
                     </Routes>
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </div>
-        </div>
+                  </div>
+                </div>
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+        <Toaster />
       </Router>
-      <Toaster />
     </div>
   )
 }
