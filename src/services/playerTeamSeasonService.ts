@@ -38,10 +38,9 @@ export const playerTeamSeasonService = {
         // 2. Extract player IDs
         const playerIds = rosterData.map(item => item.player_id)
 
-        // 3. Fetch player details from club_players table
-        // Note: Using 'club_players' as seen in playerService.ts
+        // 3. Fetch player details from players table
         const { data: playersData, error: playersError } = await supabase
-            .from('club_players')
+            .from('players')
             .select('*')
             .in('id', playerIds)
 
@@ -132,7 +131,7 @@ export const playerTeamSeasonService = {
             .from('player_team_season')
             .select(`
                 player_id,
-                club_players (*)
+                players (*)
             `)
             .in('team_id', teamIds)
             .eq('season_id', seasonId)
@@ -145,8 +144,8 @@ export const playerTeamSeasonService = {
         // Extract unique players (a player might be in multiple teams)
         const playersMap = new Map<string, PlayerDB>()
         data?.forEach((item: any) => {
-            if (item.club_players) {
-                playersMap.set(item.club_players.id, item.club_players)
+            if (item.players) {
+                playersMap.set(item.players.id, item.players)
             }
         })
 
