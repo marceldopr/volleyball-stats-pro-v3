@@ -21,7 +21,7 @@ export interface PlayerDB {
 export const playerService = {
     getPlayersByClub: async (clubId: string): Promise<PlayerDB[]> => {
         const { data, error } = await supabase
-            .from('players')
+            .from('club_players')
             .select('*')
             .eq('club_id', clubId)
             .order('first_name', { ascending: true })
@@ -32,7 +32,7 @@ export const playerService = {
 
     createPlayer: async (player: Omit<PlayerDB, 'id' | 'created_at' | 'updated_at'>): Promise<PlayerDB> => {
         const { data, error } = await supabase
-            .from('players')
+            .from('club_players')
             .insert(player)
             .select()
             .single()
@@ -43,7 +43,7 @@ export const playerService = {
 
     updatePlayer: async (id: string, player: Partial<PlayerDB>): Promise<PlayerDB> => {
         const { data, error } = await supabase
-            .from('players')
+            .from('club_players')
             .update(player)
             .eq('id', id)
             .select()
@@ -55,7 +55,7 @@ export const playerService = {
 
     deletePlayer: async (id: string): Promise<void> => {
         const { error } = await supabase
-            .from('players')
+            .from('club_players')
             .delete()
             .eq('id', id)
 
