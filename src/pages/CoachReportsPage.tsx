@@ -71,7 +71,7 @@ export function CoachReportsPage() {
                 // Get coaches (profiles with role 'coach')
                 const { data: coachesData, error } = await (await import('@/lib/supabaseClient')).supabase
                     .from('profiles')
-                    .select('id, full_name, email')
+                    .select('id, full_name')
                     .eq('club_id', profile.club_id)
                     .eq('role', 'coach')
                     .order('full_name', { ascending: true })
