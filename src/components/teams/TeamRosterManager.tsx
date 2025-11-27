@@ -293,7 +293,7 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                 <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md">
                                     {filteredAvailablePlayers.length === 0 ? (
                                         <div className="p-4 text-center text-sm text-gray-500">
-                                            No se encontraron jugadoras disponibles.
+                                            Sin jugadoras disponibles para este equipo
                                         </div>
                                     ) : (
                                         <div className="divide-y divide-gray-100">

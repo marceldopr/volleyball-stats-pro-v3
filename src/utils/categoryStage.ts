@@ -35,9 +35,9 @@ export const STAGE_ORDER: CategoryStage[] = [
  */
 export function getCategoryStageFromBirthDate(
     birthDate: string | Date,
-    referenceDate: Date
+    referenceDate: Date = new Date() // Default to current date if not provided
 ): CategoryStage {
-    if (!birthDate) return 'Sénior'; // Default fallback if no birth date
+    if (!birthDate) return 'Sénior'; // Default fallback
 
     const birth = new Date(birthDate);
 

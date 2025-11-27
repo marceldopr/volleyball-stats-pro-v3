@@ -25,7 +25,10 @@ export function Players() {
     const [formData, setFormData] = useState({
         first_name: '',
         last_name: '',
+        birth_date: '',
         gender: 'female',
+        height_cm: '',
+        weight_kg: '',
         main_position: 'OH',
         dominant_hand: 'right',
         is_active: true,
@@ -75,7 +78,10 @@ export function Players() {
             setFormData({
                 first_name: player.first_name,
                 last_name: player.last_name,
+                birth_date: player.birth_date ? new Date(player.birth_date).toISOString().split('T')[0] : '',
                 gender: player.gender || 'female',
+                height_cm: player.height_cm ? player.height_cm.toString() : '',
+                weight_kg: player.weight_kg ? player.weight_kg.toString() : '',
                 main_position: player.main_position,
                 dominant_hand: player.dominant_hand || 'right',
                 is_active: player.is_active,
@@ -86,7 +92,10 @@ export function Players() {
             setFormData({
                 first_name: '',
                 last_name: '',
+                birth_date: '',
                 gender: 'female',
+                height_cm: '',
+                weight_kg: '',
                 main_position: 'OH',
                 dominant_hand: 'right',
                 is_active: true,
@@ -102,30 +111,31 @@ export function Players() {
 
         setSubmitting(true)
         try {
+            const playerData = {
+                ...formData,
+                gender: formData.gender as any,
+                main_position: formData.main_position as any,
+                dominant_hand: formData.dominant_hand as any,
+                height_cm: formData.height_cm ? parseInt(formData.height_cm) : null,
+                weight_kg: formData.weight_kg ? parseInt(formData.weight_kg) : null,
+                birth_date: formData.birth_date // Send as string YYYY-MM-DD
+            }
+
             if (editingPlayer) {
-                await playerService.updatePlayer(editingPlayer.id, {
-                    ...formData,
-                    gender: formData.gender as any,
-                    main_position: formData.main_position as any,
-                    dominant_hand: formData.dominant_hand as any
-                })
+                await playerService.updatePlayer(editingPlayer.id, playerData)
                 toast.success('Jugadora actualizada')
             } else {
                 await playerService.createPlayer({
                     club_id: profile.club_id,
-                    ...formData,
-                    gender: formData.gender as any,
-                    main_position: formData.main_position as any,
-                    dominant_hand: formData.dominant_hand as any,
-                    secondary_position: null,
-                    birth_date: null,
-                    height_cm: null
+                    ...playerData,
+                    secondary_position: null
                 })
                 toast.success('Jugadora creada')
             }
             setShowModal(false)
             loadPlayers()
         } catch (error) {
+            console.error(error)
             toast.error('Error al guardar')
         } finally {
             setSubmitting(false)
@@ -223,6 +233,9 @@ export function Players() {
                                     <tr key={player.id} className="hover:bg-gray-50">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="font-medium text-gray-900">{player.first_name} {player.last_name}</div>
+                                            <div className="text-xs text-gray-500">
+                                                {player.birth_date ? new Date(player.birth_date).getFullYear() : '-'} • {player.height_cm ? `${player.height_cm}cm` : ''}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${player.main_position === 'L' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'
@@ -319,7 +332,17 @@ export function Players() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Género</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Fecha Nacimiento *</label>
+                                    <input
+                                        type="date"
+                                        required
+                                        value={formData.birth_date}
+                                        onChange={e => setFormData({ ...formData, birth_date: e.target.value })}
+                                        className="input w-full"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Género *</label>
                                     <select
                                         value={formData.gender}
                                         onChange={e => setFormData({ ...formData, gender: e.target.value })}
@@ -329,6 +352,32 @@ export function Players() {
                                         <option value="male">Masculino</option>
                                     </select>
                                 </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Altura (cm)</label>
+                                    <input
+                                        type="number"
+                                        value={formData.height_cm}
+                                        onChange={e => setFormData({ ...formData, height_cm: e.target.value })}
+                                        className="input w-full"
+                                        placeholder="175"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
+                                    <input
+                                        type="number"
+                                        value={formData.weight_kg}
+                                        onChange={e => setFormData({ ...formData, weight_kg: e.target.value })}
+                                        className="input w-full"
+                                        placeholder="65"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Posición *</label>
                                     <select
@@ -343,9 +392,6 @@ export function Players() {
                                         <option value="L">Líbero</option>
                                     </select>
                                 </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Mano Dominante</label>
                                     <select

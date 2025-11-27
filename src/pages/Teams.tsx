@@ -3,6 +3,7 @@ import { Plus, Edit, Trash2, Users, Loader2, Calendar } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { seasonService, SeasonDB } from '@/services/seasonService'
 import { teamService, TeamDB } from '@/services/teamService'
+import { clubService, ClubDB } from '@/services/clubService'
 import { TeamRosterManager } from '@/components/teams/TeamRosterManager'
 import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 import { toast } from 'sonner'
@@ -14,6 +15,7 @@ export function Teams() {
   // State
   const [currentSeason, setCurrentSeason] = useState<SeasonDB | null>(null)
   const [teams, setTeams] = useState<TeamDB[]>([])
+  const [club, setClub] = useState<ClubDB | null>(null)
   const [loading, setLoading] = useState(true)
 
   // Modal State
@@ -23,13 +25,14 @@ export function Teams() {
   const [formData, setFormData] = useState({
     name: '',
     category: '',
+    category_stage: 'Sénior',
     gender: 'female',
     competition_level: '',
     notes: ''
   })
   const [submitting, setSubmitting] = useState(false)
 
-  // Season Creation State
+  // ... (Season state remains same)
   const [showSeasonModal, setShowSeasonModal] = useState(false)
   const [seasonFormData, setSeasonFormData] = useState({
     name: '',
@@ -50,6 +53,10 @@ export function Teams() {
     if (!profile?.club_id) return
     setLoading(true)
     try {
+      // 0. Get Club Details
+      const clubData = await clubService.getClub(profile.club_id)
+      setClub(clubData)
+
       // 1. Get current season
       const season = await seasonService.getCurrentSeasonByClub(profile.club_id)
       setCurrentSeason(season)
@@ -84,6 +91,7 @@ export function Teams() {
       setFormData({
         name: team.name,
         category: team.category,
+        category_stage: team.category_stage || 'Sénior',
         gender: team.gender,
         competition_level: team.competition_level || '',
         notes: team.notes || ''
@@ -93,6 +101,7 @@ export function Teams() {
       setFormData({
         name: '',
         category: '',
+        category_stage: 'Sénior',
         gender: 'female',
         competition_level: '',
         notes: ''
@@ -103,10 +112,6 @@ export function Teams() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('handleSubmit called')
-    console.log('Profile:', profile)
-    console.log('Current Season:', currentSeason)
-    console.log('Form Data:', formData)
 
     if (!profile?.club_id) {
       toast.error('Error: No se ha identificado el club del usuario')
@@ -122,7 +127,8 @@ export function Teams() {
       if (editingTeam) {
         await teamService.updateTeam(editingTeam.id, {
           ...formData,
-          gender: formData.gender as any
+          gender: formData.gender as any,
+          category_stage: formData.category_stage as any
         })
         toast.success('Equipo actualizado')
       } else {
@@ -131,7 +137,8 @@ export function Teams() {
           season_id: currentSeason.id,
           ...formData,
           gender: formData.gender as any,
-          category_stage: 'Sénior', // Default or add to form
+          category_stage: formData.category_stage as any,
+          category: formData.category_stage, // Sync legacy field
           division_name: null,
           team_suffix: null,
           head_coach_id: null,
@@ -147,12 +154,12 @@ export function Teams() {
       console.error('Error saving team:', error)
       const errorMessage = (error as Error).message
       toast.error('Error al guardar el equipo: ' + errorMessage)
-      alert('Error al guardar el equipo: ' + errorMessage) // Fallback alert
     } finally {
       setSubmitting(false)
     }
   }
 
+  // ... (handleCreateSeason, handleDelete, getGenderLabel remain same)
   const handleCreateSeason = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!profile?.club_id) return
@@ -167,7 +174,6 @@ export function Teams() {
       setCurrentSeason(newSeason)
       setShowSeasonModal(false)
       toast.success('Temporada creada y establecida como actual')
-      // Reload data to ensure everything is in sync
       loadData()
     } catch (error) {
       toast.error('Error al crear la temporada')
@@ -183,7 +189,6 @@ export function Teams() {
     try {
       await teamService.deleteTeam(id)
       toast.success('Equipo eliminado')
-      // Reload teams
       const updatedTeams = await teamService.getTeamsByClubAndSeason(profile.club_id, currentSeason.id)
       setTeams(updatedTeams)
     } catch (error) {
@@ -191,7 +196,6 @@ export function Teams() {
     }
   }
 
-  // Helper for gender label
   const getGenderLabel = (gender: string) => {
     switch (gender) {
       case 'female': return 'Femenino'
@@ -211,7 +215,7 @@ export function Teams() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
+      {/* Header & Grid ... (Keep as is until Modal) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gestión de Equipos</h1>
@@ -232,14 +236,12 @@ export function Teams() {
         )}
       </div>
 
-      {/* No Season State */}
       {!currentSeason && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
           <h3 className="text-lg font-medium text-yellow-800 mb-2">No hay temporada activa</h3>
           <p className="text-yellow-600 mb-4">
             Necesitas configurar una temporada actual para poder gestionar equipos.
           </p>
-          {/* In a real app, link to settings or season management */}
           <button
             className="btn-secondary"
             onClick={() => setShowSeasonModal(true)}
@@ -249,7 +251,6 @@ export function Teams() {
         </div>
       )}
 
-      {/* Teams Grid */}
       {currentSeason && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {teams.map((team) => (
@@ -257,7 +258,7 @@ export function Teams() {
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">{team.name}</h3>
-                  <p className="text-sm text-gray-500">{team.category} - {getGenderLabel(team.gender)}</p>
+                  <p className="text-sm text-gray-500">{team.category_stage} - {getGenderLabel(team.gender)}</p>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -295,7 +296,7 @@ export function Teams() {
               </div>
             </div>
           ))}
-
+          {/* Empty state ... */}
           {teams.length === 0 && (
             <div className="col-span-full text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
               <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
@@ -325,35 +326,53 @@ export function Teams() {
                 onClick={() => setShowModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                {/* Close icon (X) needs to be imported if not already, using text for now if icon missing or just X icon */}
                 <span className="text-xl">×</span>
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del Equipo *</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className="input w-full"
-                  placeholder="Ej: Sénior A Femenino"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {editingTeam ? 'Nombre del Equipo' : 'Nombre del Equipo (Sufijo)'} *
+                </label>
+                <div className="flex items-center gap-2">
+                  {!editingTeam && club?.name && (
+                    <span className="text-gray-500 font-medium bg-gray-100 px-3 py-2 rounded-lg border border-gray-200">
+                      {club.name}
+                    </span>
+                  )}
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                    className="input w-full"
+                    placeholder={editingTeam ? "Nombre completo" : "Ej: Juvenil A"}
+                  />
+                </div>
+                {!editingTeam && club?.name && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    El nombre completo será: {club.name} {formData.name}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Categoría *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.category}
-                    onChange={e => setFormData({ ...formData, category: e.target.value })}
+                  <select
+                    value={formData.category_stage}
+                    onChange={e => setFormData({ ...formData, category_stage: e.target.value })}
                     className="input w-full"
-                    placeholder="Ej: Sénior"
-                  />
+                  >
+                    <option value="Benjamín">Benjamín</option>
+                    <option value="Alevín">Alevín</option>
+                    <option value="Infantil">Infantil</option>
+                    <option value="Cadete">Cadete</option>
+                    <option value="Juvenil">Juvenil</option>
+                    <option value="Júnior">Júnior</option>
+                    <option value="Sénior">Sénior</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Género *</label>

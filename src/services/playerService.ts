@@ -6,11 +6,12 @@ export interface PlayerDB {
     first_name: string
     last_name: string
     gender: 'female' | 'male'
-    birth_date: string | null
+    birth_date: string
     main_position: 'S' | 'OH' | 'MB' | 'OPP' | 'L' | string
     secondary_position: string | null
     dominant_hand: 'left' | 'right' | null
-    height_cm: number | null
+    height_cm?: number | null
+    weight_kg?: number | null
     notes: string | null
     is_active: boolean
     created_at: string
@@ -20,45 +21,44 @@ export interface PlayerDB {
 export const playerService = {
     getPlayersByClub: async (clubId: string): Promise<PlayerDB[]> => {
         const { data, error } = await supabase
-            .from('club_players')
+            .from('players')
             .select('*')
             .eq('club_id', clubId)
-            .order('last_name', { ascending: true })
+            .order('first_name', { ascending: true })
 
-        if (error) {
-            console.error('Error fetching players:', error)
-            throw error
-        }
-
-        return data || []
+        if (error) throw error
+        return data
     },
 
     createPlayer: async (player: Omit<PlayerDB, 'id' | 'created_at' | 'updated_at'>): Promise<PlayerDB> => {
         const { data, error } = await supabase
-            .from('club_players')
+            .from('players')
             .insert(player)
             .select()
             .single()
 
-        if (error) {
-            console.error('Error creating player:', error)
-            throw error
-        }
+        if (error) throw error
         return data
     },
 
-    updatePlayer: async (id: string, updates: Partial<Omit<PlayerDB, 'id' | 'created_at' | 'updated_at'>>): Promise<PlayerDB> => {
+    updatePlayer: async (id: string, player: Partial<PlayerDB>): Promise<PlayerDB> => {
         const { data, error } = await supabase
-            .from('club_players')
-            .update({ ...updates, updated_at: new Date().toISOString() })
+            .from('players')
+            .update(player)
             .eq('id', id)
             .select()
             .single()
 
-        if (error) {
-            console.error('Error updating player:', error)
-            throw error
-        }
+        if (error) throw error
         return data
     },
+
+    deletePlayer: async (id: string): Promise<void> => {
+        const { error } = await supabase
+            .from('players')
+            .delete()
+            .eq('id', id)
+
+        if (error) throw error
+    }
 }
