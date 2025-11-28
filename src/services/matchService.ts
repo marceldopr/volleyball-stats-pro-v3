@@ -14,6 +14,7 @@ export interface MatchDB {
     status: 'planned' | 'in_progress' | 'finished' | 'cancelled' | string
     result: string | null
     notes: string | null
+    actions: any[] | null
     created_at: string
     updated_at: string
 }
@@ -213,7 +214,7 @@ export const matchService = {
                 setsWonLocal: 0, // Would need to parse result
                 setsWonVisitor: 0, // Would need to parse result
                 sacadorInicialSet1: null,
-                acciones: [], // Not loading actions yet
+                acciones: matchData.actions || [], // Load actions from actions column
                 createdAt: matchData.created_at,
                 updatedAt: matchData.updated_at
             }

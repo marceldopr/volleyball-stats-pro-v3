@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect } from 'react'
 import { useBlocker } from 'react-router-dom'
-import { Undo2, Trophy, ArrowRightLeft, Zap, Hand, AlertTriangle, Target, Ban, TrendingDown, X, Users } from 'lucide-react'
+import { Undo2, Trophy, ArrowRightLeft, Zap, Hand, AlertTriangle, Target, Ban, TrendingDown, X, Users, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Match, Equipo } from '../stores/matchStore'
 import { useMatchStore } from '../stores/matchStore'
 import { StartersManagement } from './StartersManagement'
@@ -34,6 +35,7 @@ interface LiveMatchScoutingProps {
 
 export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, onNavigateToWizardStep, teamName }: LiveMatchScoutingProps) {
   const { hasUnsavedChanges, setHasUnsavedChanges } = useMatchStore()
+  const [isSaving, setIsSaving] = useState(false)
   const [homeScore, setHomeScore] = useState(0)
   const [awayScore, setAwayScore] = useState(0)
   const [estadoSaque, setEstadoSaque] = useState<'myTeamServing' | 'myTeamReceiving' | null>(null)
@@ -1412,128 +1414,12 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
       ]
     })
 
-    // 2. Actualizar el líbero en pista
+    // 2. Actualizar el lÃ­bero en pista
     const { updateLiberoOnCourt } = useMatchStore.getState()
     updateLiberoOnCourt(match.id, match.currentSet, playerId)
 
     setShowSubstitutionPopup(false)
   }
-
-  // NUEVO: Función para guardar estadísticas en Supabase al finalizar el partido
-  const handleSaveMatchStats = async () => {
-    if (!match.dbMatchId) {
-      console.warn('[Stats] No dbMatchId for current match, skipping Supabase stats persist.')
-      return
-    }
-
-    try {
-      console.log('[Stats] Starting stats persistence for match:', match.dbMatchId)
-
-      // Iterate over all sets that have been played (or started)
-      const setsToProcess = match.sets.map(s => s.number)
-
-      const statsPayloads = []
-
-      for (const setNumber of setsToProcess) {
-        for (const player of match.players) {
-          // Filter actions for this player in this set
-          const playerActions = match.acciones.filter(a =>
-            a.set === setNumber &&
-            (a.jugadoraId === player.playerId || a.recepcion?.jugadoraId === player.playerId)
-          )
-
-          // Calculate stats
-          const serves = playerActions.filter(a => ['punto_saque', 'error_saque'].includes(a.tipo)).length
-          const aces = playerActions.filter(a => a.tipo === 'punto_saque').length
-          const serveErrors = playerActions.filter(a => a.tipo === 'error_saque').length
-
-          const receptions = playerActions.filter(a => ['recepcion', 'error_recepcion'].includes(a.tipo)).length
-          const receptionErrors = playerActions.filter(a => a.tipo === 'error_recepcion' || (a.tipo === 'recepcion' && a.recepcion?.esError)).length
-
-          const attacks = playerActions.filter(a => ['punto_ataque', 'error_ataque', 'ataque_bloqueado'].includes(a.tipo)).length
-          const kills = playerActions.filter(a => a.tipo === 'punto_ataque').length
-          const attackErrors = playerActions.filter(a => ['error_ataque', 'ataque_bloqueado'].includes(a.tipo)).length
-
-          const blocks = playerActions.filter(a => a.tipo === 'punto_bloqueo').length
-          const blockErrors = playerActions.filter(a => a.tipo === 'error_bloqueo').length
-
-          // Only add if there's at least one stat or if they were on court (optional, but good for completeness)
-          // For now, we save if they have any recorded action in this set, or if we want to save 0s for everyone.
-          // Requirement: "1 fila = 1 jugadora en 1 partido en 1 set". Implies saving for everyone?
-          // Let's save for everyone to be safe, even with 0s.
-
-          statsPayloads.push({
-            match_id: match.dbMatchId,
-            player_id: player.playerId,
-            team_id: match.teamId || '', // Should be available
-            season_id: match.season_id || '', // Should be available
-            set_number: setNumber,
-            serves,
-            aces,
-            serve_errors: serveErrors,
-            receptions,
-            reception_errors: receptionErrors,
-            attacks,
-            kills,
-            attack_errors: attackErrors,
-            blocks,
-            block_errors: blockErrors,
-            digs: 0, // Not tracked yet
-            digs_errors: 0,
-            sets: 0, // Not tracked yet
-            set_errors: 0,
-            notes: undefined
-          })
-        }
-      }
-
-      // Execute upserts in parallel or sequential? Sequential is safer for rate limits, but parallel is faster.
-      // Supabase client handles batching? No, upsert accepts an array!
-      // matchStatsService.upsertStatsForMatchPlayerSet takes a single object.
-      // I should update the service to accept an array OR loop here.
-      // The service defined in Phase 8A takes a single object params.
-      // So I will loop and call it.
-
-      // Check if we have team_id and season_id
-      if (!match.teamId || !match.season_id) {
-        console.warn('[Stats] Missing team_id or season_id, cannot save stats.')
-        return
-      }
-
-      await Promise.all(statsPayloads.map(payload =>
-        matchStatsService.upsertStatsForMatchPlayerSet({
-          ...payload,
-          team_id: match.teamId!,
-          season_id: match.season_id!
-        })
-      ))
-
-      console.log('[Stats] Successfully persisted stats to Supabase')
-
-      // NUEVO: Update match status to 'finished' in Supabase
-      await matchService.updateMatch(match.dbMatchId, {
-        status: 'finished'
-      })
-
-      console.log('[Stats] Match status updated to finished')
-
-      // Reset unsaved changes flag
-      setHasUnsavedChanges(false)
-
-      // Proceed with navigation if blocked
-      if (blocker.state === 'blocked') {
-        blocker.proceed()
-      } else {
-        onNavigateToMatches()
-      }
-
-    } catch (err) {
-      console.error('[Stats] Error al guardar estadísticas en Supabase', err)
-      // No bloquear la UI ni romper el flujo del usuario
-    }
-  }
-
-
 
   // --- UNSAVED CHANGES GUARD ---
 
@@ -1561,6 +1447,98 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
       hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname
   )
 
+  // NUEVO: Función para guardar estadísticas en Supabase al finalizar el partido
+  const handleSaveMatchStats = async () => {
+    if (!match.dbMatchId) {
+      console.warn('[Stats] No dbMatchId for current match, skipping Supabase stats persist.')
+      return
+    }
+
+    setIsSaving(true)
+    const loadingToast = toast.loading('Guardando estadísticas...')
+
+    try {
+      console.log('[Stats] Starting stats persistence for match:', match.dbMatchId)
+
+      // 1. Preparar datos de estadísticas por set y jugador
+      const statsPayloads: any[] = []
+
+      // Iterar sobre todos los sets
+      match.sets.forEach(set => {
+        // Iterar sobre todos los jugadores
+        match.players.forEach(player => {
+          if (set.number === match.currentSet) {
+            statsPayloads.push({
+              match_id: match.dbMatchId,
+              player_id: player.playerId,
+              set_number: set.number,
+              serves: player.stats.serves,
+              aces: player.stats.aces,
+              serve_errors: player.stats.serveErrors,
+              receptions: player.stats.receptions,
+              reception_errors: player.stats.receptionErrors,
+              attacks: player.stats.attacks,
+              kills: player.stats.kills,
+              attack_errors: player.stats.attackErrors,
+              blocks: player.stats.blocks,
+              block_errors: player.stats.blockErrors,
+              digs: player.stats.digs,
+              digs_errors: player.stats.digsErrors,
+              sets: player.stats.sets,
+              set_errors: player.stats.setErrors
+            })
+          }
+        })
+      })
+
+      // Check if we have team_id and season_id
+      if (!match.teamId || !match.season_id) {
+        console.warn('[Stats] Missing team_id or season_id, cannot save stats.')
+        toast.dismiss(loadingToast)
+        toast.error('Error: Faltan datos del equipo o temporada.')
+        setIsSaving(false)
+        return
+      }
+
+      await Promise.all(statsPayloads.map(payload =>
+        matchStatsService.upsertStatsForMatchPlayerSet({
+          ...payload,
+          team_id: match.teamId!,
+          season_id: match.season_id!
+        })
+      ))
+
+      console.log('[Stats] Successfully persisted stats to Supabase')
+
+      // Persist match actions (timeline) to Supabase
+      await matchService.updateMatch(match.dbMatchId, {
+        actions: match.acciones
+      })
+
+      console.log('[Stats] Actions saved to Supabase')
+
+      toast.dismiss(loadingToast)
+      toast.success('Partido guardado correctamente')
+
+      // Reset unsaved changes flag
+      setHasUnsavedChanges(false)
+
+      // Proceed with navigation if blocked
+      if (blocker.state === 'blocked') {
+        blocker.proceed()
+      } else {
+        onNavigateToMatches()
+      }
+
+    } catch (err) {
+      console.error('[Stats] Error al guardar estadísticas en Supabase', err)
+      toast.dismiss(loadingToast)
+      toast.error('Error al guardar el partido. Inténtalo de nuevo.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 text-white pb-20">
       {/* Unsaved Changes Modal */}
@@ -1579,14 +1557,25 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
             <div className="flex flex-col gap-3">
               <button
                 onClick={handleSaveMatchStats}
-                className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                disabled={isSaving}
+                className={`w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
               >
-                <Trophy className="w-4 h-4" />
-                Guardar y salir
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <Trophy className="w-4 h-4" />
+                    Guardar y salir
+                  </>
+                )}
               </button>
 
               <button
                 onClick={() => blocker.proceed()}
+                disabled={isSaving}
                 className="w-full py-3 px-4 bg-red-600 hover:bg-red-500 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
               >
                 <X className="w-4 h-4" />
@@ -1595,6 +1584,7 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
 
               <button
                 onClick={() => blocker.reset()}
+                disabled={isSaving}
                 className="w-full py-3 px-4 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold transition-colors"
               >
                 Cancelar
