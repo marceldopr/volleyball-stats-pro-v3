@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from 'react'
+import { useBlocker } from 'react-router-dom'
 import { Undo2, Trophy, ArrowRightLeft, Zap, Hand, AlertTriangle, Target, Ban, TrendingDown, X, Users } from 'lucide-react'
 import { Match, Equipo } from '../stores/matchStore'
 import { useMatchStore } from '../stores/matchStore'
@@ -32,6 +33,7 @@ interface LiveMatchScoutingProps {
 }
 
 export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, onNavigateToWizardStep, teamName }: LiveMatchScoutingProps) {
+  const { hasUnsavedChanges, setHasUnsavedChanges } = useMatchStore()
   const [homeScore, setHomeScore] = useState(0)
   const [awayScore, setAwayScore] = useState(0)
   const [estadoSaque, setEstadoSaque] = useState<'myTeamServing' | 'myTeamReceiving' | null>(null)
@@ -74,6 +76,14 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
 
   // NUEVO: Estado para el popup de sustituciÃ³n
   const [showSubstitutionPopup, setShowSubstitutionPopup] = useState(false)
+
+  // NUEVO: Inicializar hasUnsavedChanges cuando el partido está en curso
+  useEffect(() => {
+    if (match.status === 'live') {
+      setHasUnsavedChanges(true)
+    }
+  }, [match.id, match.status, setHasUnsavedChanges])
+
 
   // NUEVO: Efecto Ãºnico y simplificado para controlar el popup de recepciÃ³n
   useEffect(() => {
@@ -1507,14 +1517,93 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
 
       console.log('[Stats] Match status updated to finished')
 
+      // Reset unsaved changes flag
+      setHasUnsavedChanges(false)
+
+      // Proceed with navigation if blocked
+      if (blocker.state === 'blocked') {
+        blocker.proceed()
+      } else {
+        onNavigateToMatches()
+      }
+
     } catch (err) {
       console.error('[Stats] Error al guardar estadísticas en Supabase', err)
       // No bloquear la UI ni romper el flujo del usuario
     }
   }
 
+
+
+  // --- UNSAVED CHANGES GUARD ---
+
+  // 1. Browser native dialog (refresh/close tab)
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+
+    if (hasUnsavedChanges) {
+      window.addEventListener('beforeunload', handleBeforeUnload)
+    }
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [hasUnsavedChanges])
+
+  // 2. Navigation blocker (React Router)
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }: { currentLocation: any; nextLocation: any }) =>
+      hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname
+  )
+
   return (
     <div className="min-h-screen bg-gray-900 text-white pb-20">
+      {/* Unsaved Changes Modal */}
+      {blocker.state === 'blocked' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-gray-800 rounded-xl shadow-2xl border border-gray-700 max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center gap-3 mb-4 text-amber-500">
+              <AlertTriangle className="w-8 h-8" />
+              <h3 className="text-xl font-bold text-white">¿Salir sin guardar?</h3>
+            </div>
+
+            <p className="text-gray-300 mb-6">
+              Tienes un partido en curso con cambios sin guardar. Si sales ahora, podrías perder los últimos datos registrados.
+            </p>
+
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={handleSaveMatchStats}
+                className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+              >
+                <Trophy className="w-4 h-4" />
+                Guardar y salir
+              </button>
+
+              <button
+                onClick={() => blocker.proceed()}
+                className="w-full py-3 px-4 bg-red-600 hover:bg-red-500 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+              >
+                <X className="w-4 h-4" />
+                Salir sin guardar
+              </button>
+
+              <button
+                onClick={() => blocker.reset()}
+                className="w-full py-3 px-4 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-semibold transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Only show main UI if starters are configured OR starters modal is not open */}
       {(match.startingLineup || !showStartersModal) && (
         <>

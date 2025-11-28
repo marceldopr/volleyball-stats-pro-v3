@@ -193,6 +193,9 @@ interface MatchState {
   getUpcomingMatches: () => Match[]
   getCompletedMatches: () => Match[]
   getLiveMatches: () => Match[]
+  // NUEVO: Flag de cambios sin guardar
+  hasUnsavedChanges: boolean
+  setHasUnsavedChanges: (value: boolean) => void
 }
 
 export const useMatchStore = create<MatchState>()(
@@ -200,6 +203,9 @@ export const useMatchStore = create<MatchState>()(
     (set, get) => ({
       matches: [],
       currentMatch: null,
+      hasUnsavedChanges: false,
+
+      setHasUnsavedChanges: (value) => set({ hasUnsavedChanges: value }),
 
       createMatch: (matchData) => {
         const newMatch: Match = {
@@ -272,6 +278,7 @@ export const useMatchStore = create<MatchState>()(
               ? { ...match, sets: [...match.sets, newSet] }
               : match
           ),
+          hasUnsavedChanges: true,
         }))
       },
 
@@ -289,6 +296,7 @@ export const useMatchStore = create<MatchState>()(
               }
               : match
           ),
+          hasUnsavedChanges: true,
         }))
       },
 
@@ -306,6 +314,7 @@ export const useMatchStore = create<MatchState>()(
               }
               : match
           ),
+          hasUnsavedChanges: true,
         }))
       },
 
@@ -323,6 +332,7 @@ export const useMatchStore = create<MatchState>()(
               }
               : match
           ),
+          hasUnsavedChanges: true,
         }))
       },
 
@@ -337,6 +347,7 @@ export const useMatchStore = create<MatchState>()(
               }
               : match
           ),
+          hasUnsavedChanges: true,
         }))
       },
 
@@ -351,6 +362,7 @@ export const useMatchStore = create<MatchState>()(
               }
               : match
           ),
+          hasUnsavedChanges: true,
         }))
       },
 
@@ -387,6 +399,7 @@ export const useMatchStore = create<MatchState>()(
               }
               : match
           ),
+          hasUnsavedChanges: true,
         }))
       },
 
@@ -408,6 +421,7 @@ export const useMatchStore = create<MatchState>()(
               }
               : match
           ),
+          hasUnsavedChanges: true,
         }))
       },
 
@@ -422,6 +436,7 @@ export const useMatchStore = create<MatchState>()(
               }
               : match
           ),
+          hasUnsavedChanges: true,
         }))
       },
 
@@ -436,6 +451,7 @@ export const useMatchStore = create<MatchState>()(
               }
               : match
           ),
+          hasUnsavedChanges: true,
         }))
       },
 
@@ -450,6 +466,7 @@ export const useMatchStore = create<MatchState>()(
               }
               : match
           ),
+          hasUnsavedChanges: true,
         }))
       },
 
@@ -467,6 +484,7 @@ export const useMatchStore = create<MatchState>()(
               }
               : match
           ),
+          hasUnsavedChanges: true,
         }))
       },
     }),
