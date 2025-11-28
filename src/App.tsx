@@ -18,7 +18,8 @@ import { PlayerDetail } from './pages/PlayerDetail'
 import PlayerReports from './pages/PlayerReports'
 import { PlayerReportsPage } from './pages/PlayerReportsPage'
 import { TeamSeasonPlanPage } from './pages/TeamSeasonPlanPage'
-import { TeamPlansListPage } from './pages/TeamPlansListPage'
+import { TeamSeasonSummaryPage } from '@/pages/TeamSeasonSummaryPage'
+import { TeamPlansListPage } from '@/pages/TeamPlansListPage'
 import { CoachReportsPage } from './pages/CoachReportsPage'
 import { CoachAssignments } from './pages/CoachAssignments'
 import { ProtectedRoute } from '@/components/routing/ProtectedRoute'
@@ -46,6 +47,7 @@ function App() {
                     <Route path="/teams/:teamId/context" element={<TeamSeasonContext />} />
                     <Route path="/reports/team-plans" element={<TeamPlansListPage />} />
                     <Route path="/reports/team-plan/:teamId" element={<TeamSeasonPlanPage />} />
+                    <Route path="/teams/:teamId/season/:seasonId/summary" element={<TeamSeasonSummaryPage />} />
                     <Route path="/players" element={<Players />} />
                     <Route path="/players/:id" element={<PlayerDetail />} />
                     <Route path="/players/:playerId/reports" element={<PlayerReports />} />
