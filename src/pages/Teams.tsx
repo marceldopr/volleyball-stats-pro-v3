@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, Users, Loader2, Calendar, FileText } from 'lucide-react'
+import { Plus, Edit, Trash2, Users, Loader2, Calendar, FileText, Target } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { seasonService, SeasonDB } from '@/services/seasonService'
@@ -265,6 +265,13 @@ export function Teams() {
                   <p className="text-sm text-gray-500">{getGenderLabel(team.gender)}</p>
                 </div>
                 <div className="flex gap-2">
+                  <button
+                    onClick={() => navigate(`/teams/${team.id}/context`)}
+                    className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                    title="Contexto de Temporada"
+                  >
+                    <Target className="w-4 h-4" />
+                  </button>
                   <button
                     onClick={() => navigate(`/reports/team-plan/${team.id}`)}
                     className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"

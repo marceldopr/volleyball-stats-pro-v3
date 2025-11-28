@@ -2,6 +2,7 @@ import { createBrowserRouter, RouterProvider, Route, createRoutesFromElements, R
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Dashboard } from '@/pages/Dashboard'
 import { Teams } from '@/pages/Teams'
+import { TeamSeasonContext } from '@/pages/TeamSeasonContext'
 import { Matches } from '@/pages/Matches'
 import { LiveMatch } from '@/pages/LiveMatch'
 import { MatchAnalysis } from '@/pages/MatchAnalysis'
@@ -42,6 +43,7 @@ function App() {
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
                     <Route path="/teams" element={<Teams />} />
+                    <Route path="/teams/:teamId/context" element={<TeamSeasonContext />} />
                     <Route path="/reports/team-plans" element={<TeamPlansListPage />} />
                     <Route path="/reports/team-plan/:teamId" element={<TeamSeasonPlanPage />} />
                     <Route path="/players" element={<Players />} />
