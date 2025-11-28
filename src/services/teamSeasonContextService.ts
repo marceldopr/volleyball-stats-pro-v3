@@ -38,18 +38,18 @@ export const teamSeasonContextService = {
                 .select('*')
                 .eq('team_id', teamId)
                 .eq('season_id', seasonId)
-                .single()
 
             if (error) {
-                if (error.code === 'PGRST116') {
-                    // No rows returned - context doesn't exist yet
-                    return null
-                }
                 console.error('Error fetching team season context:', error)
                 throw error
             }
 
-            return data
+            if (!data || data.length === 0) {
+                return null
+            }
+
+            // Return the first one if multiple exist (handling potential duplicates gracefully)
+            return data[0]
         } catch (error) {
             console.error('Error in getContextByTeamAndSeason:', error)
             throw error
