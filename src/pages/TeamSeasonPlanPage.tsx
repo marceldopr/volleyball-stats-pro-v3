@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, ChevronDown, ChevronUp, Target, List, Zap, AlertTriangle, BarChart3, FileCheck, Plus, X, Save } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Target, List, Zap, AlertTriangle, BarChart3, Plus, X, Save, FileCheck2 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 import { teamSeasonPhaseService, TeamSeasonPhaseDB } from '@/services/teamSeasonPhaseService'
+import { phaseEvaluationService, PhaseEvaluationDB } from '@/services/phaseEvaluationService'
 import { teamSeasonContextService } from '@/services/teamSeasonContextService'
 import { seasonService } from '@/services/seasonService'
 import { teamService } from '@/services/teamService'
+import { PhaseEvaluationModal } from '@/components/PhaseEvaluationModal'
 import { toast } from 'sonner'
 
 export function TeamSeasonPlanPage() {
@@ -20,8 +22,11 @@ export function TeamSeasonPlanPage() {
     const [currentSeason, setCurrentSeason] = useState<any>(null)
     const [context, setContext] = useState<any>(null)
     const [phases, setPhases] = useState<TeamSeasonPhaseDB[]>([])
+    const [evaluations, setEvaluations] = useState<Record<string, PhaseEvaluationDB>>({})
     const [expandedPhase, setExpandedPhase] = useState<number | null>(1)
     const [editingPhase, setEditingPhase] = useState<TeamSeasonPhaseDB | null>(null)
+    const [evaluationModalOpen, setEvaluationModalOpen] = useState(false)
+    const [selectedPhaseForEvaluation, setSelectedPhaseForEvaluation] = useState<TeamSeasonPhaseDB | null>(null)
 
     // Check permissions
     const canEdit = isDT || (isCoach && teamId && assignedTeamIds.includes(teamId))
@@ -84,6 +89,14 @@ export function TeamSeasonPlanPage() {
                     setPhases(existingPhases)
                 }
 
+                // Get evaluations for all phases
+                const allEvaluations = await phaseEvaluationService.getEvaluationsByTeamAndSeason(teamId, season.id)
+                const evaluationsMap: Record<string, PhaseEvaluationDB> = {}
+                allEvaluations.forEach(evaluation => {
+                    evaluationsMap[evaluation.phase_id] = evaluation
+                })
+                setEvaluations(evaluationsMap)
+
             } catch (error) {
                 console.error('Error fetching data:', error)
                 toast.error('Error al cargar los datos')
@@ -113,10 +126,6 @@ export function TeamSeasonPlanPage() {
                 technical_priorities: editingPhase.technical_priorities || undefined,
                 risks_weaknesses: editingPhase.risks_weaknesses || undefined,
                 kpi: editingPhase.kpi || undefined,
-                evaluation_status: editingPhase.evaluation_status || undefined,
-                evaluation_reason: editingPhase.evaluation_reason || undefined,
-                lessons_learned: editingPhase.lessons_learned || undefined,
-                adjustments_next_phase: editingPhase.adjustments_next_phase || undefined,
             })
 
             setPhases(phases.map(p => p.id === updated.id ? updated : p))
@@ -125,6 +134,40 @@ export function TeamSeasonPlanPage() {
         } catch (error) {
             console.error('Error saving phase:', error)
             toast.error('Error al guardar la fase')
+        }
+    }
+
+    const handleOpenEvaluationModal = (phase: TeamSeasonPhaseDB) => {
+        setSelectedPhaseForEvaluation(phase)
+        setEvaluationModalOpen(true)
+    }
+
+    const handleSaveEvaluation = async (evaluationData: {
+        status: 'Cumplido' | 'Parcial' | 'No Cumplido'
+        reasons: string
+        match_impact: string
+        next_adjustments: string
+    }) => {
+        if (!selectedPhaseForEvaluation) return
+
+        try {
+            const saved = await phaseEvaluationService.upsertEvaluation({
+                team_id: selectedPhaseForEvaluation.team_id,
+                season_id: selectedPhaseForEvaluation.season_id,
+                phase_id: selectedPhaseForEvaluation.id,
+                ...evaluationData
+            })
+
+            setEvaluations({
+                ...evaluations,
+                [selectedPhaseForEvaluation.id]: saved
+            })
+
+            toast.success('Evaluación guardada correctamente')
+        } catch (error) {
+            console.error('Error saving evaluation:', error)
+            toast.error('Error al guardar la evaluación')
+            throw error
         }
     }
 
@@ -169,6 +212,21 @@ export function TeamSeasonPlanPage() {
     const getPhaseIcon = (phaseNumber: number) => {
         const icons = ['📘', '📗', '📕']
         return icons[phaseNumber - 1] || '📙'
+    }
+
+    const getEvaluationBadge = (evaluation: PhaseEvaluationDB) => {
+        const badges = {
+            'Cumplido': { bg: 'bg-green-100', text: 'text-green-800', icon: '✔️' },
+            'Parcial': { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: '⚠️' },
+            'No Cumplido': { bg: 'bg-red-100', text: 'text-red-800', icon: '❌' }
+        }
+        const badge = badges[evaluation.status]
+        return (
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${badge.bg} ${badge.text}`}>
+                <span>{badge.icon}</span>
+                <span>{evaluation.status}</span>
+            </span>
+        )
     }
 
     if (loading) {
@@ -236,6 +294,7 @@ export function TeamSeasonPlanPage() {
                     const isEditing = editingPhase?.id === phase.id
                     const currentPhase = isEditing ? editingPhase : phase
                     const isExpanded = expandedPhase === phase.phase_number
+                    const evaluation = evaluations[phase.id]
 
                     return (
                         <div key={phase.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -252,6 +311,11 @@ export function TeamSeasonPlanPage() {
                                         </h3>
                                         {currentPhase.primary_objective && (
                                             <p className="text-sm text-gray-600 mt-1">{currentPhase.primary_objective}</p>
+                                        )}
+                                        {evaluation && (
+                                            <div className="mt-2">
+                                                {getEvaluationBadge(evaluation)}
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -395,93 +459,48 @@ export function TeamSeasonPlanPage() {
                                         )}
                                     </div>
 
-                                    {/* F) Autoevaluación */}
-                                    <div className="border-t border-gray-200 pt-6">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <FileCheck className="w-5 h-5 text-purple-600" />
-                                            <h4 className="font-semibold text-gray-900">¿Se ha cumplido el objetivo de la fase?</h4>
-                                        </div>
-
-                                        {isEditing ? (
-                                            <div className="space-y-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
-                                                    <select
-                                                        value={currentPhase.evaluation_status || ''}
-                                                        onChange={(e) => setEditingPhase({ ...editingPhase, evaluation_status: e.target.value as any })}
-                                                        className="input-field w-full"
+                                    {/* Evaluation Section */}
+                                    {!isEditing && (
+                                        <div className="border-t border-gray-200 pt-6">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <div className="flex items-center gap-2">
+                                                    <FileCheck2 className="w-5 h-5 text-purple-600" />
+                                                    <h4 className="font-semibold text-gray-900">Evaluación de la Fase</h4>
+                                                </div>
+                                                {canEdit && (
+                                                    <button
+                                                        onClick={() => handleOpenEvaluationModal(phase)}
+                                                        className="btn-secondary text-sm"
                                                     >
-                                                        <option value="">Sin evaluar</option>
-                                                        <option value="Cumplido">Cumplido</option>
-                                                        <option value="Parcial">Parcial</option>
-                                                        <option value="No Cumplido">No Cumplido</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Motivo</label>
-                                                    <textarea
-                                                        value={currentPhase.evaluation_reason || ''}
-                                                        onChange={(e) => setEditingPhase({ ...editingPhase, evaluation_reason: e.target.value })}
-                                                        className="input-field w-full"
-                                                        rows={2}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Lecciones aprendidas</label>
-                                                    <textarea
-                                                        value={currentPhase.lessons_learned || ''}
-                                                        onChange={(e) => setEditingPhase({ ...editingPhase, lessons_learned: e.target.value })}
-                                                        className="input-field w-full"
-                                                        rows={2}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Ajustes para la siguiente fase</label>
-                                                    <textarea
-                                                        value={currentPhase.adjustments_next_phase || ''}
-                                                        onChange={(e) => setEditingPhase({ ...editingPhase, adjustments_next_phase: e.target.value })}
-                                                        className="input-field w-full"
-                                                        rows={2}
-                                                    />
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-3">
-                                                {currentPhase.evaluation_status ? (
-                                                    <>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${currentPhase.evaluation_status === 'Cumplido' ? 'bg-green-100 text-green-800' :
-                                                                    currentPhase.evaluation_status === 'Parcial' ? 'bg-yellow-100 text-yellow-800' :
-                                                                        'bg-red-100 text-red-800'
-                                                                }`}>
-                                                                {currentPhase.evaluation_status}
-                                                            </span>
-                                                        </div>
-                                                        {currentPhase.evaluation_reason && (
-                                                            <div>
-                                                                <p className="text-sm font-medium text-gray-700">Motivo:</p>
-                                                                <p className="text-gray-600">{currentPhase.evaluation_reason}</p>
-                                                            </div>
-                                                        )}
-                                                        {currentPhase.lessons_learned && (
-                                                            <div>
-                                                                <p className="text-sm font-medium text-gray-700">Lecciones aprendidas:</p>
-                                                                <p className="text-gray-600">{currentPhase.lessons_learned}</p>
-                                                            </div>
-                                                        )}
-                                                        {currentPhase.adjustments_next_phase && (
-                                                            <div>
-                                                                <p className="text-sm font-medium text-gray-700">Ajustes para la siguiente fase:</p>
-                                                                <p className="text-gray-600">{currentPhase.adjustments_next_phase}</p>
-                                                            </div>
-                                                        )}
-                                                    </>
-                                                ) : (
-                                                    <p className="text-gray-500 italic">Fase sin evaluar</p>
+                                                        {evaluation ? 'Ver Evaluación' : 'Evaluar Fase'}
+                                                    </button>
                                                 )}
                                             </div>
-                                        )}
-                                    </div>
+                                            {evaluation ? (
+                                                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                                                    <div>
+                                                        {getEvaluationBadge(evaluation)}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-700">Motivos:</p>
+                                                        <p className="text-sm text-gray-600">{evaluation.reasons}</p>
+                                                    </div>
+                                                    {evaluation.match_impact && (
+                                                        <div>
+                                                            <p className="text-sm font-medium text-gray-700">Impacto en partido:</p>
+                                                            <p className="text-sm text-gray-600">{evaluation.match_impact}</p>
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-700">Ajustes para la siguiente fase:</p>
+                                                        <p className="text-sm text-gray-600">{evaluation.next_adjustments}</p>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm text-gray-500 italic">Esta fase aún no ha sido evaluada</p>
+                                            )}
+                                        </div>
+                                    )}
 
                                     {/* Edit/Save Buttons */}
                                     {canEdit && (
@@ -517,6 +536,20 @@ export function TeamSeasonPlanPage() {
                     </div>
                 )}
             </div>
+
+            {/* Evaluation Modal */}
+            {selectedPhaseForEvaluation && (
+                <PhaseEvaluationModal
+                    isOpen={evaluationModalOpen}
+                    onClose={() => {
+                        setEvaluationModalOpen(false)
+                        setSelectedPhaseForEvaluation(null)
+                    }}
+                    phase={selectedPhaseForEvaluation}
+                    existingEvaluation={evaluations[selectedPhaseForEvaluation.id] || null}
+                    onSave={handleSaveEvaluation}
+                />
+            )}
         </div>
     )
 }

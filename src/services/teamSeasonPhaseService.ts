@@ -11,10 +11,6 @@ export interface TeamSeasonPhaseDB {
     technical_priorities: string[] | null
     risks_weaknesses: string | null
     kpi: string | null
-    evaluation_status: 'Cumplido' | 'Parcial' | 'No Cumplido' | null
-    evaluation_reason: string | null
-    lessons_learned: string | null
-    adjustments_next_phase: string | null
     created_at: string
     updated_at: string
 }
@@ -29,10 +25,6 @@ export interface TeamSeasonPhaseInput {
     technical_priorities?: string[]
     risks_weaknesses?: string
     kpi?: string
-    evaluation_status?: 'Cumplido' | 'Parcial' | 'No Cumplido' | null
-    evaluation_reason?: string
-    lessons_learned?: string
-    adjustments_next_phase?: string
 }
 
 export const teamSeasonPhaseService = {
@@ -103,10 +95,6 @@ export const teamSeasonPhaseService = {
                     technical_priorities: data.technical_priorities || null,
                     risks_weaknesses: data.risks_weaknesses || null,
                     kpi: data.kpi || null,
-                    evaluation_status: data.evaluation_status || null,
-                    evaluation_reason: data.evaluation_reason || null,
-                    lessons_learned: data.lessons_learned || null,
-                    adjustments_next_phase: data.adjustments_next_phase || null,
                 }, {
                     onConflict: 'team_id,season_id,phase_number'
                 })
