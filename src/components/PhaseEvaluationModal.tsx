@@ -18,6 +18,8 @@ interface PhaseEvaluationModalProps {
         reasons: string
         match_impact: string
         next_adjustments: string
+        dominant_weakness: string
+        trend: 'improving' | 'declining' | 'stable'
     }) => Promise<void>
 }
 
@@ -34,12 +36,14 @@ export function PhaseEvaluationModal({
     const [reasons, setReasons] = useState(existingEvaluation?.reasons || '')
     const [matchImpact, setMatchImpact] = useState(existingEvaluation?.match_impact || '')
     const [nextAdjustments, setNextAdjustments] = useState(existingEvaluation?.next_adjustments || '')
+    const [dominantWeakness, setDominantWeakness] = useState(existingEvaluation?.dominant_weakness || '')
+    const [trend, setTrend] = useState<'improving' | 'declining' | 'stable' | ''>(existingEvaluation?.trend || '')
     const [saving, setSaving] = useState(false)
 
     if (!isOpen) return null
 
     const handleSave = async () => {
-        if (!status || !reasons.trim() || !nextAdjustments.trim()) {
+        if (!status || !reasons.trim() || !nextAdjustments.trim() || !dominantWeakness.trim() || !trend) {
             alert('Por favor, completa todos los campos obligatorios')
             return
         }
@@ -50,7 +54,9 @@ export function PhaseEvaluationModal({
                 status,
                 reasons: reasons.trim(),
                 match_impact: matchImpact.trim(),
-                next_adjustments: nextAdjustments.trim()
+                next_adjustments: nextAdjustments.trim(),
+                dominant_weakness: dominantWeakness.trim(),
+                trend
             })
             onClose()
         } catch (error) {
@@ -92,8 +98,8 @@ export function PhaseEvaluationModal({
                             <button
                                 onClick={() => setStatus('Cumplido')}
                                 className={`w-full flex items-center gap-3 p-4 border-2 rounded-lg transition-all ${status === 'Cumplido'
-                                        ? 'border-green-500 bg-green-50'
-                                        : 'border-gray-200 hover:border-green-300'
+                                    ? 'border-green-500 bg-green-50'
+                                    : 'border-gray-200 hover:border-green-300'
                                     }`}
                             >
                                 <CheckCircle className={`w-5 h-5 ${status === 'Cumplido' ? 'text-green-600' : 'text-gray-400'}`} />
@@ -104,8 +110,8 @@ export function PhaseEvaluationModal({
                             <button
                                 onClick={() => setStatus('Parcial')}
                                 className={`w-full flex items-center gap-3 p-4 border-2 rounded-lg transition-all ${status === 'Parcial'
-                                        ? 'border-yellow-500 bg-yellow-50'
-                                        : 'border-gray-200 hover:border-yellow-300'
+                                    ? 'border-yellow-500 bg-yellow-50'
+                                    : 'border-gray-200 hover:border-yellow-300'
                                     }`}
                             >
                                 <AlertCircle className={`w-5 h-5 ${status === 'Parcial' ? 'text-yellow-600' : 'text-gray-400'}`} />
@@ -116,8 +122,8 @@ export function PhaseEvaluationModal({
                             <button
                                 onClick={() => setStatus('No Cumplido')}
                                 className={`w-full flex items-center gap-3 p-4 border-2 rounded-lg transition-all ${status === 'No Cumplido'
-                                        ? 'border-red-500 bg-red-50'
-                                        : 'border-gray-200 hover:border-red-300'
+                                    ? 'border-red-500 bg-red-50'
+                                    : 'border-gray-200 hover:border-red-300'
                                     }`}
                             >
                                 <XCircle className={`w-5 h-5 ${status === 'No Cumplido' ? 'text-red-600' : 'text-gray-400'}`} />
@@ -184,6 +190,70 @@ export function PhaseEvaluationModal({
                         />
                         <p className="text-xs text-gray-400 mt-1">{nextAdjustments.length}/500 caracteres</p>
                     </div>
+
+                    {/* 5️⃣ Problema Dominante */}
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-900 mb-2">
+                            5️⃣ ¿Cuál es el problema dominante? *
+                        </label>
+                        <p className="text-xs text-gray-500 mb-2">
+                            Identifica la mayor limitación real en una frase concisa (máx. 100 caracteres)
+                        </p>
+                        <input
+                            type="text"
+                            value={dominantWeakness}
+                            onChange={(e) => setDominantWeakness(e.target.value)}
+                            placeholder="Ej: Recepción corta débil"
+                            className="input-field w-full"
+                            maxLength={100}
+                        />
+                        <p className="text-xs text-gray-400 mt-1">{dominantWeakness.length}/100 caracteres</p>
+                    </div>
+
+                    {/* 6️⃣ Tendencia */}
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-900 mb-3">
+                            6️⃣ ¿Cuál es la tendencia de evolución? *
+                        </label>
+                        <div className="grid grid-cols-3 gap-3">
+                            <button
+                                onClick={() => setTrend('improving')}
+                                className={`flex flex-col items-center gap-2 p-4 border-2 rounded-lg transition-all ${trend === 'improving'
+                                    ? 'border-green-500 bg-green-50'
+                                    : 'border-gray-200 hover:border-green-300'
+                                    }`}
+                            >
+                                <span className="text-2xl">↑</span>
+                                <span className={`text-sm font-medium ${trend === 'improving' ? 'text-green-900' : 'text-gray-700'}`}>
+                                    Mejorando
+                                </span>
+                            </button>
+                            <button
+                                onClick={() => setTrend('stable')}
+                                className={`flex flex-col items-center gap-2 p-4 border-2 rounded-lg transition-all ${trend === 'stable'
+                                    ? 'border-gray-500 bg-gray-50'
+                                    : 'border-gray-200 hover:border-gray-300'
+                                    }`}
+                            >
+                                <span className="text-2xl">—</span>
+                                <span className={`text-sm font-medium ${trend === 'stable' ? 'text-gray-900' : 'text-gray-700'}`}>
+                                    Estable
+                                </span>
+                            </button>
+                            <button
+                                onClick={() => setTrend('declining')}
+                                className={`flex flex-col items-center gap-2 p-4 border-2 rounded-lg transition-all ${trend === 'declining'
+                                    ? 'border-red-500 bg-red-50'
+                                    : 'border-gray-200 hover:border-red-300'
+                                    }`}
+                            >
+                                <span className="text-2xl">↓</span>
+                                <span className={`text-sm font-medium ${trend === 'declining' ? 'text-red-900' : 'text-gray-700'}`}>
+                                    Empeorando
+                                </span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Footer */}
@@ -200,7 +270,7 @@ export function PhaseEvaluationModal({
                         <button
                             onClick={handleSave}
                             className="btn-primary"
-                            disabled={saving || !status || !reasons.trim() || !nextAdjustments.trim()}
+                            disabled={saving || !status || !reasons.trim() || !nextAdjustments.trim() || !dominantWeakness.trim() || !trend}
                         >
                             {saving ? 'Guardando...' : 'Guardar Evaluación'}
                         </button>

@@ -9,6 +9,8 @@ export interface PhaseEvaluationDB {
     reasons: string
     match_impact: string | null
     next_adjustments: string
+    dominant_weakness: string | null
+    trend: 'improving' | 'declining' | 'stable' | null
     created_at: string
     updated_at: string
 }
@@ -21,6 +23,8 @@ export interface PhaseEvaluationInput {
     reasons: string
     match_impact?: string
     next_adjustments: string
+    dominant_weakness?: string
+    trend?: 'improving' | 'declining' | 'stable'
 }
 
 export const phaseEvaluationService = {
@@ -65,6 +69,8 @@ export const phaseEvaluationService = {
                     reasons: data.reasons,
                     match_impact: data.match_impact || null,
                     next_adjustments: data.next_adjustments,
+                    dominant_weakness: data.dominant_weakness || null,
+                    trend: data.trend || null,
                 }, {
                     onConflict: 'phase_id'
                 })
@@ -122,6 +128,32 @@ export const phaseEvaluationService = {
             return data || []
         } catch (error) {
             console.error('Error in getEvaluationsByTeamAndSeason:', error)
+            throw error
+        }
+    },
+
+    /**
+     * Get all evaluations for all teams in a club and season (for Club Dashboard)
+     */
+    getAllEvaluationsByClubAndSeason: async (clubId: string, seasonId: string): Promise<PhaseEvaluationDB[]> => {
+        try {
+            const { data, error } = await supabase
+                .from('training_phase_evaluation')
+                .select(`
+                    *,
+                    teams!inner(club_id)
+                `)
+                .eq('teams.club_id', clubId)
+                .eq('season_id', seasonId)
+
+            if (error) {
+                console.error('Error fetching club evaluations:', error)
+                throw error
+            }
+
+            return data || []
+        } catch (error) {
+            console.error('Error in getAllEvaluationsByClubAndSeason:', error)
             throw error
         }
     }

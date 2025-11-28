@@ -147,6 +147,8 @@ export function TeamSeasonPlanPage() {
         reasons: string
         match_impact: string
         next_adjustments: string
+        dominant_weakness: string
+        trend: 'improving' | 'declining' | 'stable'
     }) => {
         if (!selectedPhaseForEvaluation) return
 

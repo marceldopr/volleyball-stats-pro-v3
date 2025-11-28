@@ -65,6 +65,7 @@ const dtNavigation: NavSection[] = [
   {
     title: 'Club',
     items: [
+      { name: 'Dashboard Club', href: '/club/dashboard', icon: BarChart3 },
       { name: 'Entrenadores', href: '/coach-assignments', icon: UserCog },
       { name: 'Configuración del Club', href: '/settings', icon: Settings },
       { name: 'Sobre la App', href: '/about', icon: Info }

@@ -22,6 +22,7 @@ import { TeamSeasonSummaryPage } from '@/pages/TeamSeasonSummaryPage'
 import { TeamPlansListPage } from '@/pages/TeamPlansListPage'
 import { CoachReportsPage } from './pages/CoachReportsPage'
 import { CoachAssignments } from './pages/CoachAssignments'
+import { ClubDashboardPage } from '@/pages/ClubDashboardPage'
 import { ProtectedRoute } from '@/components/routing/ProtectedRoute'
 import { useThemeStore } from '@/stores/themeStore'
 import { Toaster } from 'sonner'
@@ -48,6 +49,7 @@ function App() {
                     <Route path="/reports/team-plans" element={<TeamPlansListPage />} />
                     <Route path="/reports/team-plan/:teamId" element={<TeamSeasonPlanPage />} />
                     <Route path="/teams/:teamId/season/:seasonId/summary" element={<TeamSeasonSummaryPage />} />
+                    <Route path="/club/dashboard" element={<ClubDashboardPage />} />
                     <Route path="/players" element={<Players />} />
                     <Route path="/players/:id" element={<PlayerDetail />} />
                     <Route path="/players/:playerId/reports" element={<PlayerReports />} />
