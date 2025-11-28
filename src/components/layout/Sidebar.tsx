@@ -109,9 +109,9 @@ export function Sidebar() {
   // Calculate display name and role label
   const displayName = profile?.full_name || 'Usuario'
 
-  let roleLabel = 'Usuari'
+  let roleLabel = 'Usuario'
   const roleStr = role as string
-  if (roleStr === 'dt' || roleStr === 'director_tecnic') roleLabel = 'Director/a Tècnic/a'
+  if (roleStr === 'dt' || roleStr === 'director_tecnic') roleLabel = 'Director/a Técnico/a'
   if (roleStr === 'coach' || roleStr === 'entrenador') roleLabel = 'Entrenador/a'
   if (roleStr === 'admin') roleLabel = 'Administrador/a'
 
@@ -230,7 +230,7 @@ export function Sidebar() {
         {/* User Profile Section */}
         {profile && (
           <div className="px-4 pt-4 pb-3 border-b border-slate-800">
-            <p className="text-xs text-slate-400">Sessió iniciada com</p>
+            <p className="text-xs text-slate-400">Sesión iniciada como</p>
             <p className="text-sm font-medium text-white truncate" title={displayName}>
               {displayName}
             </p>
