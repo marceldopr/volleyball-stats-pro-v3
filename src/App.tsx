@@ -20,6 +20,7 @@ import { PlayerReportsPage } from './pages/PlayerReportsPage'
 import { TeamSeasonPlanPage } from './pages/TeamSeasonPlanPage'
 import { TeamSeasonSummaryPage } from '@/pages/TeamSeasonSummaryPage'
 import { TeamPlansListPage } from '@/pages/TeamPlansListPage'
+import { TeamDashboardPage } from '@/pages/TeamDashboardPage'
 import { CoachReportsPage } from './pages/CoachReportsPage'
 import { CoachAssignments } from './pages/CoachAssignments'
 import { ClubDashboardPage } from '@/pages/ClubDashboardPage'
@@ -45,6 +46,7 @@ function App() {
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
                     <Route path="/teams" element={<Teams />} />
+                    <Route path="/teams/:teamId" element={<TeamDashboardPage />} />
                     <Route path="/teams/:teamId/context" element={<TeamSeasonContext />} />
                     <Route path="/reports/team-plans" element={<TeamPlansListPage />} />
                     <Route path="/reports/team-plan/:teamId" element={<TeamSeasonPlanPage />} />

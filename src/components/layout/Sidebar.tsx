@@ -37,37 +37,31 @@ interface NavSection {
 const dtNavigation: NavSection[] = [
   {
     items: [
-      { name: 'Home', href: '/', icon: Home }
-    ]
-  },
-  {
-    title: 'Deportistas',
-    items: [
-      { name: 'Jugadoras', href: '/players', icon: Users },
-      { name: 'Equipos', href: '/teams', icon: Users }
-    ]
-  },
-  {
-    title: 'Competición',
-    items: [
-      { name: 'Partidos', href: '/matches', icon: Trophy },
-      { name: 'Estadísticas', href: '/analytics', icon: BarChart3, placeholder: true }
-    ]
-  },
-  {
-    title: 'Informes',
-    items: [
-      { name: 'Informes de Jugadoras', href: '/reports/players', icon: FileText },
-      { name: 'Planificación de Equipos', href: '/reports/team-plans', icon: FileText },
-      { name: 'Informes de Entrenadores', href: '/reports/coaches', icon: FileText }
+      { name: 'Inicio', href: '/', icon: Home }
     ]
   },
   {
     title: 'Club',
     items: [
-      { name: 'Dashboard Club', href: '/club/dashboard', icon: BarChart3 },
+      { name: 'Jugadoras', href: '/players', icon: Users },
+      { name: 'Equipos', href: '/teams', icon: Users },
+      { name: 'Partidos', href: '/matches', icon: Trophy }
+    ]
+  },
+  {
+    title: 'Gestión',
+    items: [
+      { name: 'Planificación', href: '/reports/team-plans', icon: FileText },
+      { name: 'Informes', href: '/reports/players', icon: BarChart3 },
+      { name: 'Dashboard Club', href: '/club/dashboard', icon: BarChart3 }
+    ]
+  },
+  {
+    title: 'Administración',
+    items: [
       { name: 'Entrenadores', href: '/coach-assignments', icon: UserCog },
-      { name: 'Configuración del Club', href: '/settings', icon: Settings },
+      { name: 'Configuración', href: '/settings', icon: Settings },
+      { name: 'Importar / Exportar', href: '/import-export', icon: FileText, placeholder: true },
       { name: 'Sobre la App', href: '/about', icon: Info }
     ]
   }
@@ -77,19 +71,15 @@ const dtNavigation: NavSection[] = [
 const coachNavigation: NavSection[] = [
   {
     items: [
-      { name: 'Home', href: '/', icon: Home }
+      { name: 'Inicio', href: '/', icon: Home }
     ]
   },
   {
+    title: 'Mi Gestión',
     items: [
-      { name: 'Jugadoras', href: '/players', icon: Users },
-      { name: 'Equipos', href: '/teams', icon: Users },
-      { name: 'Partidos', href: '/matches', icon: Trophy }
-    ]
-  },
-  {
-    items: [
-      { name: 'Informes', href: '/reports/players', icon: FileText }
+      { name: 'Mis Equipos', href: '/teams', icon: Users },
+      { name: 'Próximos Partidos', href: '/matches', icon: Trophy },
+      { name: 'Últimas Evaluaciones', href: '/evaluations', icon: FileText, placeholder: true }
     ]
   },
   {

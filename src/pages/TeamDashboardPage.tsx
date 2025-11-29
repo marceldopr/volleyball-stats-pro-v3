@@ -1,0 +1,170 @@
+import { useState, useEffect } from 'react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { Users, Target, FileText, Trophy, BarChart3, ArrowLeft, Loader2 } from 'lucide-react'
+import { useAuthStore } from '@/stores/authStore'
+import { teamService, TeamDB } from '@/services/teamService'
+import { seasonService, SeasonDB } from '@/services/seasonService'
+import { TeamRosterManager } from '@/components/teams/TeamRosterManager'
+import { TeamSeasonContext } from '@/pages/TeamSeasonContext'
+import { TeamSeasonPlanPage } from '@/pages/TeamSeasonPlanPage'
+import { Matches } from '@/pages/Matches'
+import { toast } from 'sonner'
+import { clsx } from 'clsx'
+
+type TabId = 'roster' | 'context' | 'planning' | 'matches' | 'stats'
+
+export function TeamDashboardPage() {
+    const { teamId } = useParams<{ teamId: string }>()
+    const navigate = useNavigate()
+    const [searchParams, setSearchParams] = useSearchParams()
+    const { profile } = useAuthStore()
+
+    const activeTab = (searchParams.get('tab') as TabId) || 'roster'
+
+    const setActiveTab = (tab: TabId) => {
+        setSearchParams({ tab })
+    }
+
+    const [team, setTeam] = useState<TeamDB | null>(null)
+    const [currentSeason, setCurrentSeason] = useState<SeasonDB | null>(null)
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        const loadData = async () => {
+            if (!teamId || !profile?.club_id) return
+
+            try {
+                setLoading(true)
+                const [teamData, seasonData] = await Promise.all([
+                    teamService.getTeamById(teamId),
+                    seasonService.getCurrentSeasonByClub(profile.club_id)
+                ])
+
+                setTeam(teamData)
+                setCurrentSeason(seasonData)
+            } catch (error) {
+                console.error('Error loading team dashboard:', error)
+                toast.error('Error al cargar los datos del equipo')
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        loadData()
+    }, [teamId, profile?.club_id])
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-screen bg-gray-50 dark:bg-gray-900">
+                <Loader2 className="w-12 h-12 animate-spin text-orange-500" />
+            </div>
+        )
+    }
+
+    if (!team || !currentSeason) {
+        return (
+            <div className="p-6 text-center">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Equipo no encontrado</h2>
+                <button onClick={() => navigate('/teams')} className="btn-primary mt-4">
+                    Volver a Mis Equipos
+                </button>
+            </div>
+        )
+    }
+
+    const tabs = [
+        { id: 'roster', label: 'Plantilla', icon: Users },
+        { id: 'context', label: 'Contexto', icon: Target },
+        { id: 'planning', label: 'Planificación', icon: FileText },
+        { id: 'matches', label: 'Partidos', icon: Trophy },
+        { id: 'stats', label: 'Estadísticas', icon: BarChart3, disabled: true },
+    ]
+
+    return (
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+            {/* Header */}
+            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="py-4 flex items-center gap-4">
+                        <button
+                            onClick={() => navigate('/teams')}
+                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                        >
+                            <ArrowLeft className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                        </button>
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                {team.name}
+                                <span className="text-sm font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full">
+                                    {team.category_stage}
+                                </span>
+                            </h1>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                Temporada {currentSeason.name}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Tabs */}
+                    <div className="flex space-x-1 overflow-x-auto no-scrollbar mt-2">
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => !tab.disabled && setActiveTab(tab.id as TabId)}
+                                disabled={tab.disabled}
+                                className={clsx(
+                                    'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
+                                    activeTab === tab.id
+                                        ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
+                                    tab.disabled && 'opacity-50 cursor-not-allowed'
+                                )}
+                            >
+                                <tab.icon className="w-4 h-4" />
+                                {tab.label}
+                                {tab.disabled && <span className="text-[10px] bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded ml-1">Pronto</span>}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Content */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                {activeTab === 'roster' && (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                        <TeamRosterManager
+                            team={team}
+                            season={currentSeason}
+                            onClose={() => { }} // No-op as it's not a modal here
+                        />
+                    </div>
+                )}
+
+                {activeTab === 'context' && (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        <div className="[&>div>div:first-child]:hidden">
+                            <TeamSeasonContext />
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'planning' && (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        <div className="[&>div>div:first-child]:hidden">
+                            <TeamSeasonPlanPage />
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'matches' && (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        <div className="[&>div>div:first-child]:hidden">
+                            <Matches teamId={team.id} />
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+}

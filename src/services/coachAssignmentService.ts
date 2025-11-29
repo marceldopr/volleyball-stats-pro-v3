@@ -136,6 +136,8 @@ export const coachAssignmentService = {
      * @returns Array of team IDs assigned to the coach
      */
     getAssignedTeamsByUser: async (userId: string, seasonId?: string): Promise<string[]> => {
+        console.log('[coachAssignmentService] getAssignedTeamsByUser called with:', { userId, seasonId })
+
         let query = supabase
             .from('coach_team_assignments')
             .select('team_id')
@@ -147,12 +149,16 @@ export const coachAssignmentService = {
 
         const { data, error } = await query
 
+        console.log('[coachAssignmentService] Query result:', { data, error, dataLength: data?.length })
+
         if (error) {
-            console.error('Error fetching coach assignments:', error)
+            console.error('[coachAssignmentService] Error fetching coach assignments:', error)
             throw error
         }
 
-        return data?.map(assignment => assignment.team_id) || []
+        const teamIds = data?.map(assignment => assignment.team_id) || []
+        console.log('[coachAssignmentService] Returning team IDs:', teamIds)
+        return teamIds
     },
 
     /**

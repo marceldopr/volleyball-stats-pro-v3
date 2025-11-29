@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, Plus, Search, Target, FileText, BookOpen, Edit, Trash2, UserCog, Loader2 } from 'lucide-react'
+import { Users, Plus, Search, Target, FileText, BookOpen, Edit, Trash2, UserCog, Loader2, Trophy } from 'lucide-react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { seasonService, SeasonDB } from '@/services/seasonService'
@@ -8,6 +8,7 @@ import { clubService, ClubDB } from '@/services/clubService'
 import { TeamRosterManager } from '@/components/teams/TeamRosterManager'
 import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 import { toast } from 'sonner'
+import { EntityCard } from '@/components/base/EntityCard'
 
 export function Teams() {
   const { profile } = useAuthStore()
@@ -215,6 +216,16 @@ export function Teams() {
     }
   }
 
+
+  console.log('[Teams Debug] Before filtering:', {
+    isCoach,
+    assignedTeamIds,
+    assignedTeamIdsType: typeof assignedTeamIds,
+    assignedTeamIdsIsArray: Array.isArray(assignedTeamIds),
+    teamsCount: teams.length,
+    roleLoading
+  })
+
   const filteredTeams = teams.filter(team => {
     const matchesSearch = team.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       team.category_stage.toLowerCase().includes(searchTerm.toLowerCase())
@@ -224,6 +235,7 @@ export function Teams() {
 
     // Filter by role
     if (isCoach && !assignedTeamIds.includes(team.id)) {
+      console.log('[Teams Debug] Filtering out team:', team.name, 'ID:', team.id, 'not in', assignedTeamIds)
       return false
     }
 
@@ -365,7 +377,9 @@ export function Teams() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Gestión de Equipos</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                {isCoach ? 'Mis Equipos' : 'Gestión de Equipos'}
+              </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Temporada {currentSeason.name}</p>
             </div>
             {!isCoach && (
@@ -383,160 +397,263 @@ export function Teams() {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          {/* Search Bar */}
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Buscar equipo..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
+        {isCoach ? (
+          // Coach View: Direct grid without wrapper
+          <>
+            {/* Search Bar */}
+            <div className="mb-6">
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Buscar equipo..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Table */}
-          {filteredTeams.length === 0 ? (
-            <div className="text-center py-12 bg-gray-800/30 dark:bg-gray-800/30 rounded-lg border-2 border-dashed border-gray-700/50 dark:border-gray-700/50">
-              <Users className="w-16 h-16 text-gray-500 dark:text-gray-500 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-200 dark:text-white mb-2">
-                {isCoach ? 'No tienes equipos asignados' : 'No hay equipos'}
-              </h3>
-              <p className="text-gray-400 dark:text-gray-400 mb-4">
-                {searchTerm ? 'Intenta con otra búsqueda' : isCoach
-                  ? 'Todavía no tienes equipos asignados en esta temporada. Contacta con Dirección Técnica para que te asignen equipos.'
-                  : 'Crea tu primer equipo para esta temporada'
-                }
-              </p>
-              {(isDT || isAdmin) && !searchTerm && (
-                <Link
-                  to="/entrenadores"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-                >
-                  <UserCog className="w-4 h-4" />
-                  Gestionar Asignaciones de Entrenadores
-                </Link>
-              )}
+            {/* Teams Grid or Empty State */}
+            {filteredTeams.length === 0 ? (
+              <div className="text-center py-12 bg-gray-800/30 dark:bg-gray-800/30 rounded-lg border-2 border-dashed border-gray-700/50 dark:border-gray-700/50">
+                <Users className="w-16 h-16 text-gray-500 dark:text-gray-500 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-200 dark:text-white mb-2">
+                  No tienes equipos asignados
+                </h3>
+                <p className="text-gray-400 dark:text-gray-400 mb-4">
+                  {searchTerm
+                    ? 'Intenta con otra búsqueda'
+                    : 'Todavía no tienes equipos asignados en esta temporada. Contacta con Dirección Técnica para que te asignen equipos.'
+                  }
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredTeams.map((team) => (
+                  <EntityCard
+                    key={team.id}
+                    title={team.name}
+                    subtitle={team.category_stage}
+                    onClick={() => navigate(`/teams/${team.id}`)}
+                    meta={
+                      <div className="flex flex-col gap-1 mt-2">
+                        <div className="flex items-center gap-2 text-sm text-gray-400">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                          {getGenderLabel(team.gender)}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {team.competition_level || 'Nivel no especificado'}
+                        </div>
+                      </div>
+                    }
+                    actions={
+                      <div className="grid grid-cols-4 gap-2 mt-4 pt-4 border-t border-gray-700/50">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigate(`/teams/${team.id}?tab=roster`)
+                          }}
+                          className="flex flex-col items-center gap-1 p-2 rounded hover:bg-gray-700/50 transition-colors text-gray-400 hover:text-blue-400"
+                          title="Plantilla"
+                        >
+                          <Users className="w-5 h-5" />
+                          <span className="text-[10px]">Plantilla</span>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigate(`/teams/${team.id}?tab=planning`)
+                          }}
+                          className="flex flex-col items-center gap-1 p-2 rounded hover:bg-gray-700/50 transition-colors text-gray-400 hover:text-green-400"
+                          title="Planificación"
+                        >
+                          <FileText className="w-5 h-5" />
+                          <span className="text-[10px]">Plan</span>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigate(`/teams/${team.id}?tab=matches`)
+                          }}
+                          className="flex flex-col items-center gap-1 p-2 rounded hover:bg-gray-700/50 transition-colors text-gray-400 hover:text-orange-400"
+                          title="Partidos"
+                        >
+                          <Trophy className="w-5 h-5" />
+                          <span className="text-[10px]">Partidos</span>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigate(`/teams/${team.id}?tab=context`)
+                          }}
+                          className="flex flex-col items-center gap-1 p-2 rounded hover:bg-gray-700/50 transition-colors text-gray-400 hover:text-indigo-400"
+                          title="Contexto"
+                        >
+                          <Target className="w-5 h-5" />
+                          <span className="text-[10px]">Contexto</span>
+                        </button>
+                      </div>
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          // DT/Admin View: Table with wrapper
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            {/* Search Bar */}
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Buscar equipo..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-900">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Equipo
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Categoría
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Género
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Nivel
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Acción
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredTeams.map((team) => (
-                    <tr
-                      key={team.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
-                      onClick={() => navigate(`/reports/team-plan/${team.id}`)}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {team.name}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                          {team.category_stage}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {getGenderLabel(team.gender)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {team.competition_level || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              navigate(`/teams/${team.id}/context`)
-                            }}
-                            className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
-                            title="Contexto de Temporada"
-                          >
-                            <Target className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              navigate(`/reports/team-plan/${team.id}`)
-                            }}
-                            className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-                            title="Planificación"
-                          >
-                            <FileText className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              navigate(`/teams/${team.id}/season/${currentSeason.id}/summary`)
-                            }}
-                            className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
-                            title="Resumen de Temporada"
-                          >
-                            <BookOpen className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setManagingRosterTeam(team)
-                            }}
-                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                            title="Gestionar Plantilla"
-                          >
-                            <Users className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleOpenModal(team)
-                            }}
-                            className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
-                            title="Editar"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDelete(team.id)
-                            }}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
+
+            {/* Table or Empty State */}
+            {filteredTeams.length === 0 ? (
+              <div className="text-center py-12 bg-gray-800/30 dark:bg-gray-800/30 rounded-lg border-2 border-dashed border-gray-700/50 dark:border-gray-700/50">
+                <Users className="w-16 h-16 text-gray-500 dark:text-gray-500 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-200 dark:text-white mb-2">
+                  No hay equipos
+                </h3>
+                <p className="text-gray-400 dark:text-gray-400 mb-4">
+                  {searchTerm ? 'Intenta con otra búsqueda' : 'Crea tu primer equipo para esta temporada'}
+                </p>
+                {!searchTerm && (
+                  <Link
+                    to="/entrenadores"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                  >
+                    <UserCog className="w-4 h-4" />
+                    Gestionar Asignaciones de Entrenadores
+                  </Link>
+                )}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-900">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Equipo
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Categoría
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Género
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Nivel
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Acción
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {filteredTeams.map((team) => (
+                      <tr
+                        key={team.id}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                        onClick={() => navigate(`/reports/team-plan/${team.id}`)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {team.name}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                            {team.category_stage}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {getGenderLabel(team.gender)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {team.competition_level || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/teams/${team.id}/context`)
+                              }}
+                              className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
+                              title="Contexto de Temporada"
+                            >
+                              <Target className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/reports/team-plan/${team.id}`)
+                              }}
+                              className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                              title="Planificación"
+                            >
+                              <FileText className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/teams/${team.id}/season/${currentSeason.id}/summary`)
+                              }}
+                              className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                              title="Resumen de Temporada"
+                            >
+                              <BookOpen className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setManagingRosterTeam(team)
+                              }}
+                              className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                              title="Gestionar Plantilla"
+                            >
+                              <Users className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleOpenModal(team)
+                              }}
+                              className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
+                              title="Editar"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDelete(team.id)
+                              }}
+                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Team Modal */}
@@ -654,20 +771,23 @@ export function Teams() {
             </form>
           </div>
         </div>
-      )}
+      )
+      }
 
       {/* Roster Manager Modal */}
-      {managingRosterTeam && currentSeason && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <TeamRosterManager
-              team={managingRosterTeam}
-              season={currentSeason}
-              onClose={() => setManagingRosterTeam(null)}
-            />
+      {
+        managingRosterTeam && currentSeason && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <TeamRosterManager
+                team={managingRosterTeam}
+                season={currentSeason}
+                onClose={() => setManagingRosterTeam(null)}
+              />
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   )
 }

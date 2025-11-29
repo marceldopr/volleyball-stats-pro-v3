@@ -12,7 +12,7 @@ import { useCurrentUserRole } from '../hooks/useCurrentUserRole'
 import { Plus, Calendar, Trophy, Clock, Trash2, Eye } from 'lucide-react'
 
 
-export function Matches() {
+export function Matches({ teamId }: { teamId?: string } = {}) {
   const [isWizardOpen, setIsWizardOpen] = useState(false)
   const [selectedMatch, setSelectedMatch] = useState<any>(null)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
@@ -41,17 +41,23 @@ export function Matches() {
           // Load matches from Supabase
           const allMatches = await matchService.getMatchesByClubAndSeason(profile.club_id, season.id)
 
-          // Filter matches based on role
+          // Filter matches based on role and prop
+          let filteredMatches = allMatches
+
+          // 1. Filter by teamId prop if provided
+          if (teamId) {
+            filteredMatches = filteredMatches.filter(match => match.team_id === teamId)
+          }
+
+          // 2. Filter by role (Coach)
           if (isCoach) {
             // Coaches only see matches from their assigned teams
-            const filteredMatches = allMatches.filter(match =>
+            filteredMatches = filteredMatches.filter(match =>
               assignedTeamIds.includes(match.team_id)
             )
-            setSupabaseMatches(filteredMatches)
-          } else {
-            // DT and Admin see all matches
-            setSupabaseMatches(allMatches)
           }
+
+          setSupabaseMatches(filteredMatches)
         }
       } catch (err) {
         console.error('Error loading season/teams/matches', err)
@@ -60,7 +66,7 @@ export function Matches() {
       }
     }
     fetchData()
-  }, [profile?.club_id, isCoach, assignedTeamIds])
+  }, [profile?.club_id, isCoach, assignedTeamIds, teamId])
 
   // Map team IDs to names for quick lookup
   const teamMap = availableTeams.reduce((acc, team) => {
