@@ -138,12 +138,12 @@ export function Matches() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 min-h-screen bg-gray-900">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Partidos</h1>
-          <p className="text-sm text-gray-500 mt-1">Gestiona tu calendario y resultados</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Partidos</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Gestiona tu calendario y resultados</p>
         </div>
         {!isCoach && (
           <button onClick={() => setIsWizardOpen(true)} className="btn-primary flex items-center gap-2">
@@ -156,18 +156,18 @@ export function Matches() {
       {/* Loading state */}
       {(loading || roleLoading) && (
         <div className="text-center py-12">
-          <div className="text-gray-500">Cargando partidos...</div>
+          <div className="text-gray-500 dark:text-gray-400">Cargando partidos...</div>
         </div>
       )}
 
       {/* Empty state */}
       {!loading && !roleLoading && supabaseMatches.length === 0 && (
-        <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-          <Trophy className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-600 mb-2">
+        <div className="text-center py-12 bg-gray-800/30 rounded-lg border-2 border-dashed border-gray-700/50">
+          <Trophy className="w-12 h-12 text-gray-500 dark:text-gray-500 mx-auto mb-3" />
+          <p className="text-gray-200 dark:text-gray-200 mb-2">
             {isCoach ? 'No tienes partidos asignados' : 'No hay partidos registrados'}
           </p>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-400 dark:text-gray-400">
             {isCoach
               ? 'Todavía no tienes equipos asignados. Contacta con Dirección Técnica.'
               : 'Crea tu primer partido usando el botón "Nuevo Partido"'
@@ -180,11 +180,11 @@ export function Matches() {
       {!loading && supabaseMatches.length > 0 && (
         <div className="space-y-4">
           {supabaseMatches.map((match) => (
-            <div key={match.id} className="card hover:shadow-md transition-all duration-200">
+            <div key={match.id} className="bg-gray-800/30 rounded-xl p-6 border border-gray-700/50 hover:shadow-md transition-all duration-200">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-xl font-bold text-gray-900">{match.opponent_name}</h3>
+                    <h3 className="text-xl font-bold text-gray-100 dark:text-white">{match.opponent_name}</h3>
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${match.home_away === 'home'
                       ? 'bg-green-100 text-green-800 border border-green-200'
                       : 'bg-blue-100 text-blue-800 border border-blue-200'
@@ -193,9 +193,9 @@ export function Matches() {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                  <div className="flex items-center gap-4 text-sm text-gray-400 dark:text-gray-400">
                     <div className="flex items-center gap-1.5">
-                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <Calendar className="w-4 h-4 text-gray-500 dark:text-gray-500" />
                       <span>{new Date(match.match_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                     </div>
                     <div className="flex items-center gap-1.5">

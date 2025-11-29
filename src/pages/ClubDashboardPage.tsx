@@ -128,7 +128,7 @@ export function ClubDashboardPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-slate-800">
+            <div className="flex items-center justify-center h-screen bg-gray-900">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
                     <p className="text-gray-500 font-medium">Cargando dashboard...</p>
@@ -138,7 +138,7 @@ export function ClubDashboardPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-slate-800 p-6">
+        <div className="min-h-screen bg-gray-900 p-6">
             {/* Header */}
             <div className="mb-8">
                 <div className="flex items-center gap-3 mb-2">
@@ -151,9 +151,9 @@ export function ClubDashboardPage() {
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto bg-slate-800/20 rounded-lg border border-slate-700/50">
+            <div className="overflow-x-auto bg-gray-800/20 rounded-lg border border-gray-700/50">
                 <table className="w-full">
-                    <thead className="bg-slate-800/30 dark:bg-slate-900/30 border-b border-slate-700/50">
+                    <thead className="bg-gray-800/30 dark:bg-gray-900/30 border-b border-gray-700/50">
                         <tr>
                             <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">
                                 Equipo
@@ -175,7 +175,7 @@ export function ClubDashboardPage() {
                             </th>
                         </tr>
                     </thead>
-                    <tbody className="bg-slate-800/20 dark:bg-slate-800/20 divide-y divide-slate-700/30">
+                    <tbody className="bg-gray-800/20 divide-y divide-gray-700/30">
                         {teamsData.map(({ team, phases, evaluations, latestEvaluation }) => {
                             // Get evaluations for first 3 phases
                             const phase1 = phases.find(p => p.phase_number === 1)
@@ -228,7 +228,7 @@ export function ClubDashboardPage() {
             </div>
 
             {teamsData.length === 0 && (
-                <div className="text-center py-12 bg-slate-800/30 rounded-lg border border-slate-700/50">
+                <div className="text-center py-12 bg-gray-800/30 rounded-lg border border-gray-700/50">
                     <BarChart3 className="w-12 h-12 text-gray-500 dark:text-gray-600 mx-auto mb-3" />
                     <h3 className="text-lg font-medium text-gray-200 dark:text-white">No hay equipos</h3>
                     <p className="text-gray-400 dark:text-gray-400 mt-1">Crea equipos para ver el dashboard del club.</p>
@@ -236,7 +236,7 @@ export function ClubDashboardPage() {
             )}
 
             {/* Legend */}
-            <div className="mt-6 bg-slate-800/30 rounded-lg border border-slate-700/50 p-4">
+            <div className="mt-6 bg-gray-800/30 rounded-lg border border-gray-700/50 p-4">
                 <h3 className="text-sm font-bold text-gray-200 dark:text-gray-200 mb-3">Leyenda</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div className="flex items-center gap-2">
@@ -256,7 +256,7 @@ export function ClubDashboardPage() {
                         <span className="text-gray-300 dark:text-gray-300">Sin evaluar</span>
                     </div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mt-3 pt-3 border-t border-slate-700/50">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mt-3 pt-3 border-t border-gray-700/50">
                     <div className="flex items-center gap-2">
                         <TrendingUp className="w-5 h-5 text-green-600" />
                         <span className="text-gray-300 dark:text-gray-300">Mejorando ↑</span>
@@ -274,3 +274,4 @@ export function ClubDashboardPage() {
         </div>
     )
 }
+

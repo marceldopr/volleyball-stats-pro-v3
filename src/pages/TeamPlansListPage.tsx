@@ -103,7 +103,7 @@ export function TeamPlansListPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-slate-800">
+        <div className="min-h-screen bg-gray-900">
             {/* Header */}
             <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -126,7 +126,7 @@ export function TeamPlansListPage() {
             {/* Content */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Search Bar */}
-                <div className="p-4 mb-4 bg-slate-700/30 dark:bg-slate-900/50 rounded-lg border border-slate-600/30 dark:border-slate-700/50">
+                <div className="p-4 mb-4 bg-slate-700/30 dark:bg-slate-900/50 rounded-lg border border-gray-600/30">
                     <div className="relative max-w-md">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                         <input
@@ -134,13 +134,13 @@ export function TeamPlansListPage() {
                             placeholder="Buscar equipo..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-600 dark:border-gray-600 rounded-lg bg-slate-800/50 dark:bg-slate-800/50 text-gray-100 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                            className="w-full pl-10 pr-4 py-2 border border-gray-600 dark:border-gray-600 rounded-lg bg-gray-800/50 text-gray-100 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                         />
                     </div>
                 </div>
 
                 {filteredTeams.length === 0 ? (
-                    <div className="text-center py-12 bg-slate-800/30 rounded-lg border border-slate-700/50">
+                    <div className="text-center py-12 bg-gray-800/30 rounded-lg border border-gray-700/50">
                         <FileText className="w-16 h-16 text-gray-500 dark:text-gray-600 mx-auto mb-4" />
                         <h3 className="text-lg font-medium text-gray-200 dark:text-white mb-2">
                             No se encontraron equipos
@@ -150,9 +150,9 @@ export function TeamPlansListPage() {
                         </p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto bg-slate-800/20 rounded-lg border border-slate-700/50">
+                    <div className="overflow-x-auto bg-gray-800/20 rounded-lg border border-gray-700/50">
                         <table className="min-w-full divide-y divide-slate-700/50 dark:divide-gray-700">
-                            <thead className="bg-slate-800/30 dark:bg-slate-900/30">
+                            <thead className="bg-gray-800/30 dark:bg-gray-900/30">
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 dark:text-gray-400 uppercase tracking-wider">
                                         Equipo
@@ -171,7 +171,7 @@ export function TeamPlansListPage() {
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-slate-800/20 dark:bg-slate-800/20 divide-y divide-slate-700/30 dark:divide-gray-700">
+                            <tbody className="bg-gray-800/20 divide-y divide-gray-700/30">
                                 {filteredTeams.map((team) => {
                                     const plan = plansMap[team.id]
                                     return (
@@ -229,3 +229,4 @@ export function TeamPlansListPage() {
         </div>
     )
 }
+
