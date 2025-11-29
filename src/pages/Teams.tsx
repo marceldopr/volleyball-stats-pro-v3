@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Plus, Users, Loader2, Search, Target, FileText, BookOpen, Edit, Trash2 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Users, Plus, Search, Target, FileText, BookOpen, Edit, Trash2, UserCog, Loader2 } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { seasonService, SeasonDB } from '@/services/seasonService'
 import { teamService, TeamDB } from '@/services/teamService'
@@ -11,7 +11,7 @@ import { toast } from 'sonner'
 
 export function Teams() {
   const { profile } = useAuthStore()
-  const { isCoach, assignedTeamIds, loading: roleLoading } = useCurrentUserRole()
+  const { isCoach, isDT, isAdmin, assignedTeamIds, loading: roleLoading } = useCurrentUserRole()
   const navigate = useNavigate()
 
   // State
@@ -52,6 +52,24 @@ export function Teams() {
     }
   }, [profile?.club_id])
 
+  const loadTeams = async (clubId: string, seasonId: string) => {
+    try {
+      setLoading(true)
+      console.log('[Teams Debug] Loading teams for club:', clubId, 'season:', seasonId)
+      const teamsData = await teamService.getTeamsByClubAndSeason(clubId, seasonId)
+      console.log('[Teams Debug] Teams loaded:', teamsData)
+      return teamsData
+    } catch (error) {
+      console.error('Error loading teams:', error)
+      toast.error('Error al cargar los equipos')
+      return []
+    } finally {
+      setLoading(false)
+    }
+  }
+
+
+
   const loadData = async () => {
     if (!profile?.club_id) return
     setLoading(true)
@@ -66,15 +84,8 @@ export function Teams() {
 
       // If season exists, get teams
       if (season) {
-        const allTeams = await teamService.getTeamsByClubAndSeason(profile.club_id, season.id)
-
-        // Filter teams based on role
-        if (isCoach) {
-          const filteredTeams = allTeams.filter(team => assignedTeamIds.includes(team.id))
-          setTeams(filteredTeams)
-        } else {
-          setTeams(allTeams)
-        }
+        const teamsToSet = await loadTeams(profile.club_id, season.id)
+        setTeams(teamsToSet)
       } else {
         setTeams([])
       }
@@ -204,10 +215,28 @@ export function Teams() {
     }
   }
 
-  const filteredTeams = teams.filter(team =>
-    team.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    team.category_stage.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredTeams = teams.filter(team => {
+    const matchesSearch = team.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      team.category_stage.toLowerCase().includes(searchTerm.toLowerCase())
+
+    // Filter by season if selected
+    const matchesSeason = !currentSeason || true // For now show all, or filter by active season relationship
+
+    // Filter by role
+    if (isCoach && !assignedTeamIds.includes(team.id)) {
+      return false
+    }
+
+    return matchesSearch && matchesSeason
+  })
+
+  console.log('[Teams Debug] Filtering:', {
+    totalTeams: teams.length,
+    assignedIds: assignedTeamIds,
+    isCoach,
+    filteredCount: filteredTeams.length,
+    teamsInList: teams.map(t => ({ id: t.id, name: t.name }))
+  })
 
   if (loading || roleLoading) {
     return (
@@ -371,17 +400,26 @@ export function Teams() {
 
           {/* Table */}
           {filteredTeams.length === 0 ? (
-            <div className="text-center py-12">
-              <Users className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            <div className="text-center py-12 bg-gray-800/30 dark:bg-gray-800/30 rounded-lg border-2 border-dashed border-gray-700/50 dark:border-gray-700/50">
+              <Users className="w-16 h-16 text-gray-500 dark:text-gray-500 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-200 dark:text-white mb-2">
                 {isCoach ? 'No tienes equipos asignados' : 'No hay equipos'}
               </h3>
-              <p className="text-gray-500 dark:text-gray-400">
+              <p className="text-gray-400 dark:text-gray-400 mb-4">
                 {searchTerm ? 'Intenta con otra búsqueda' : isCoach
-                  ? 'Todavía no tienes equipos asignados en esta temporada.'
+                  ? 'Todavía no tienes equipos asignados en esta temporada. Contacta con Dirección Técnica para que te asignen equipos.'
                   : 'Crea tu primer equipo para esta temporada'
                 }
               </p>
+              {(isDT || isAdmin) && !searchTerm && (
+                <Link
+                  to="/entrenadores"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                >
+                  <UserCog className="w-4 h-4" />
+                  Gestionar Asignaciones de Entrenadores
+                </Link>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
