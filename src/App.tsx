@@ -1,6 +1,5 @@
 import { createBrowserRouter, RouterProvider, Route, createRoutesFromElements, Routes } from 'react-router-dom'
 import { Sidebar } from '@/components/layout/Sidebar'
-import { Dashboard } from '@/pages/Dashboard'
 import { Teams } from '@/pages/Teams'
 import { TeamSeasonContext } from '@/pages/TeamSeasonContext'
 import { Matches } from '@/pages/Matches'
@@ -27,6 +26,7 @@ import { ClubDashboardPage } from '@/pages/ClubDashboardPage'
 import { ProtectedRoute } from '@/components/routing/ProtectedRoute'
 import { useThemeStore } from '@/stores/themeStore'
 import { Toaster } from 'sonner'
+import { DashboardRedirect } from '@/components/routing/DashboardRedirect'
 
 function App() {
   const { isDarkMode } = useThemeStore()
@@ -44,7 +44,8 @@ function App() {
                 <Sidebar />
                 <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
                   <Routes>
-                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/" element={<DashboardRedirect />} />
+                    <Route path="/" element={<DashboardRedirect />} />
                     <Route path="/teams" element={<Teams />} />
                     <Route path="/teams/:teamId" element={<TeamDashboardPage />} />
                     <Route path="/teams/:teamId/context" element={<TeamSeasonContext />} />

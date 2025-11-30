@@ -71,7 +71,7 @@ const dtNavigation: NavSection[] = [
 const coachNavigation: NavSection[] = [
   {
     items: [
-      { name: 'Inicio', href: '/', icon: Home }
+      // Home removed for coaches - landing page is now Teams
     ]
   },
   {

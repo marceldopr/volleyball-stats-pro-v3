@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, Plus, Search, Target, FileText, BookOpen, Edit, Trash2, UserCog, Loader2, Trophy } from 'lucide-react'
+import { Users, Plus, Search, Target, FileText, BookOpen, Edit, Trash2, UserCog, Loader2 } from 'lucide-react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { seasonService, SeasonDB } from '@/services/seasonService'
@@ -8,7 +8,7 @@ import { clubService, ClubDB } from '@/services/clubService'
 import { TeamRosterManager } from '@/components/teams/TeamRosterManager'
 import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 import { toast } from 'sonner'
-import { EntityCard } from '@/components/base/EntityCard'
+import { CoachTeamCard } from '@/components/teams/CoachTeamCard'
 
 export function Teams() {
   const { profile } = useAuthStore()
@@ -431,70 +431,11 @@ export function Teams() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredTeams.map((team) => (
-                  <EntityCard
+                  <CoachTeamCard
                     key={team.id}
-                    title={team.name}
-                    subtitle={team.category_stage}
+                    team={team}
+                    seasonId={currentSeason?.id || ''}
                     onClick={() => navigate(`/teams/${team.id}`)}
-                    meta={
-                      <div className="flex flex-col gap-1 mt-2">
-                        <div className="flex items-center gap-2 text-sm text-gray-400">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                          {getGenderLabel(team.gender)}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {team.competition_level || 'Nivel no especificado'}
-                        </div>
-                      </div>
-                    }
-                    actions={
-                      <div className="grid grid-cols-4 gap-2 mt-4 pt-4 border-t border-gray-700/50">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            navigate(`/teams/${team.id}?tab=roster`)
-                          }}
-                          className="flex flex-col items-center gap-1 p-2 rounded hover:bg-gray-700/50 transition-colors text-gray-400 hover:text-blue-400"
-                          title="Plantilla"
-                        >
-                          <Users className="w-5 h-5" />
-                          <span className="text-[10px]">Plantilla</span>
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            navigate(`/teams/${team.id}?tab=planning`)
-                          }}
-                          className="flex flex-col items-center gap-1 p-2 rounded hover:bg-gray-700/50 transition-colors text-gray-400 hover:text-green-400"
-                          title="Planificación"
-                        >
-                          <FileText className="w-5 h-5" />
-                          <span className="text-[10px]">Plan</span>
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            navigate(`/teams/${team.id}?tab=matches`)
-                          }}
-                          className="flex flex-col items-center gap-1 p-2 rounded hover:bg-gray-700/50 transition-colors text-gray-400 hover:text-orange-400"
-                          title="Partidos"
-                        >
-                          <Trophy className="w-5 h-5" />
-                          <span className="text-[10px]">Partidos</span>
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            navigate(`/teams/${team.id}?tab=context`)
-                          }}
-                          className="flex flex-col items-center gap-1 p-2 rounded hover:bg-gray-700/50 transition-colors text-gray-400 hover:text-indigo-400"
-                          title="Contexto"
-                        >
-                          <Target className="w-5 h-5" />
-                          <span className="text-[10px]">Contexto</span>
-                        </button>
-                      </div>
-                    }
                   />
                 ))}
               </div>

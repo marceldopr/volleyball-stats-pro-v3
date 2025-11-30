@@ -115,17 +115,22 @@ export const teamStatsService = {
                 }
 
                 const opponentId = lastMatch.local_team_id === teamId ? lastMatch.visitor_team_id : lastMatch.local_team_id
+                let opponentName = 'Equipo desconocido'
 
-                // Get opponent name
-                const { data: opponentTeam } = await supabase
-                    .from('teams')
-                    .select('name')
-                    .eq('id', opponentId)
-                    .single()
+                if (opponentId) {
+                    // Get opponent name
+                    const { data: opponentTeam } = await supabase
+                        .from('teams')
+                        .select('name')
+                        .eq('id', opponentId)
+                        .single()
+
+                    if (opponentTeam) opponentName = opponentTeam.name
+                }
 
                 lastMatchInfo = {
                     date: lastMatch.match_date,
-                    opponent: opponentTeam?.name || 'Equipo desconocido',
+                    opponent: opponentName,
                     result,
                     score
                 }
@@ -134,16 +139,21 @@ export const teamStatsService = {
             let nextMatchInfo = null
             if (nextMatch) {
                 const opponentId = nextMatch.local_team_id === teamId ? nextMatch.visitor_team_id : nextMatch.local_team_id
+                let opponentName = 'Equipo desconocido'
 
-                const { data: opponentTeam } = await supabase
-                    .from('teams')
-                    .select('name')
-                    .eq('id', opponentId)
-                    .single()
+                if (opponentId) {
+                    const { data: opponentTeam } = await supabase
+                        .from('teams')
+                        .select('name')
+                        .eq('id', opponentId)
+                        .single()
+
+                    if (opponentTeam) opponentName = opponentTeam.name
+                }
 
                 nextMatchInfo = {
                     date: nextMatch.match_date,
-                    opponent: opponentTeam?.name || 'Equipo desconocido'
+                    opponent: opponentName
                 }
             }
 
