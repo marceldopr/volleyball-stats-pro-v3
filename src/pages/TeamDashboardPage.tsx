@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { Users, Target, FileText, Trophy, BarChart3, ArrowLeft, Loader2 } from 'lucide-react'
+import { Users, Target, FileText, Trophy, BarChart3, ArrowLeft, Loader2, Home } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { teamService, TeamDB } from '@/services/teamService'
 import { seasonService, SeasonDB } from '@/services/seasonService'
+import { TeamHomePage } from '@/pages/TeamHomePage'
 import { TeamRosterManager } from '@/components/teams/TeamRosterManager'
 import { TeamSeasonContext } from '@/pages/TeamSeasonContext'
 import { TeamSeasonPlanPage } from '@/pages/TeamSeasonPlanPage'
@@ -11,7 +12,7 @@ import { Matches } from '@/pages/Matches'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
 
-type TabId = 'roster' | 'context' | 'planning' | 'matches' | 'stats'
+type TabId = 'home' | 'roster' | 'context' | 'planning' | 'matches' | 'stats'
 
 export function TeamDashboardPage() {
     const { teamId } = useParams<{ teamId: string }>()
@@ -19,7 +20,7 @@ export function TeamDashboardPage() {
     const [searchParams, setSearchParams] = useSearchParams()
     const { profile } = useAuthStore()
 
-    const activeTab = (searchParams.get('tab') as TabId) || 'roster'
+    const activeTab = (searchParams.get('tab') as TabId) || 'home'
 
     const setActiveTab = (tab: TabId) => {
         setSearchParams({ tab })
@@ -73,6 +74,7 @@ export function TeamDashboardPage() {
     }
 
     const tabs = [
+        { id: 'home', label: 'Inicio', icon: Home },
         { id: 'roster', label: 'Plantilla', icon: Users },
         { id: 'context', label: 'Contexto', icon: Target },
         { id: 'planning', label: 'Planificación', icon: FileText },
@@ -131,6 +133,10 @@ export function TeamDashboardPage() {
 
             {/* Content */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                {activeTab === 'home' && (
+                    <TeamHomePage />
+                )}
+
                 {activeTab === 'roster' && (
                     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                         <TeamRosterManager

@@ -12,7 +12,7 @@ import { EntityCard } from '@/components/base/EntityCard'
 
 export function Teams() {
   const { profile } = useAuthStore()
-  const { isCoach, isDT, isAdmin, assignedTeamIds, loading: roleLoading } = useCurrentUserRole()
+  const { isCoach, assignedTeamIds, loading: roleLoading } = useCurrentUserRole()
   const navigate = useNavigate()
 
   // State
