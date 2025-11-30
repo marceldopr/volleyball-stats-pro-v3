@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { Calendar, TrendingUp, Users, Trophy, Plus, Loader2 } from 'lucide-react'
+import { useParams } from 'react-router-dom'
+import { TrendingUp, Activity, Users, Loader2, AlertCircle } from 'lucide-react'
 import { teamStatsService, CurrentPhaseInfo, RecentActivity, TeamStats } from '@/services/teamStatsService'
 import { seasonService } from '@/services/seasonService'
 import { useAuthStore } from '@/stores/authStore'
@@ -8,7 +8,6 @@ import { toast } from 'sonner'
 
 export function TeamHomePage() {
     const { teamId } = useParams<{ teamId: string }>()
-    const navigate = useNavigate()
     const { profile } = useAuthStore()
 
     const [loading, setLoading] = useState(true)
@@ -51,15 +50,6 @@ export function TeamHomePage() {
         }
     }
 
-    const handleCreateMatch = () => {
-        navigate('/matches/new')
-    }
-
-    const handleCreateTraining = () => {
-        // TODO: Implement training creation flow
-        toast.info('Funcionalidad de entrenamientos próximamente')
-    }
-
     if (loading) {
         return (
             <div className="flex justify-center items-center h-64">
@@ -81,162 +71,141 @@ export function TeamHomePage() {
 
     return (
         <div className="space-y-6">
-            {/* 1️⃣ Current Phase Status */}
-            {currentPhase && (
-                <div className={`bg-${phaseColor}-500/10 border border-${phaseColor}-500/30 rounded-xl p-6`}>
-                    <div className="flex items-start gap-4">
-                        <div className={`w-12 h-12 rounded-full bg-${phaseColor}-500/20 flex items-center justify-center flex-shrink-0`}>
-                            <TrendingUp className={`w-6 h-6 text-${phaseColor}-400`} />
-                        </div>
-                        <div className="flex-1">
-                            <h2 className={`text-xl font-bold text-${phaseColor}-400 mb-2`}>
-                                🟢 Fase {currentPhase.phaseNumber} — {currentPhase.phaseName}
-                            </h2>
-                            <p className="text-gray-300 mb-1">
-                                <span className="font-medium">Prioridad:</span> {currentPhase.technicalPriority}
-                            </p>
-                            <p className="text-gray-300">
-                                <span className="font-medium">KPI:</span> {currentPhase.kpiTarget}
-                                {currentPhase.kpiCurrent && (
-                                    <span className="ml-2 text-sm text-gray-400">
-                                        (Actual: {currentPhase.kpiCurrent}%)
-                                    </span>
-                                )}
+            {/* 1️⃣ Estado Actual */}
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                    <TrendingUp className="w-6 h-6 text-primary-500" />
+                    Estado Actual
+                </h2>
+                {currentPhase ? (
+                    <div className="space-y-3">
+                        <div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Fase</p>
+                            <p className={`text-lg font-semibold text-${phaseColor}-600 dark:text-${phaseColor}-400`}>
+                                {currentPhase.phaseName}
                             </p>
                         </div>
+                        <div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Prioridad Principal</p>
+                            <p className="text-base text-gray-900 dark:text-white">
+                                {currentPhase.technicalPriority || 'Pendiente de definir'}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">KPI de la Fase</p>
+                            <p className="text-base text-gray-900 dark:text-white">
+                                {currentPhase.kpiTarget || 'Pendiente de definir'}
+                            </p>
+                        </div>
                     </div>
-                </div>
-            )}
-
-            {/* 2️⃣ Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button
-                    onClick={handleCreateTraining}
-                    className="group relative overflow-hidden bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl p-6 transition-all duration-200 shadow-lg hover:shadow-xl"
-                >
-                    <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                            <Calendar className="w-7 h-7" />
-                        </div>
-                        <div className="text-left">
-                            <h3 className="text-lg font-bold mb-1">Crear Entrenamiento</h3>
-                            <p className="text-sm text-blue-100">Registrar nueva sesión</p>
-                        </div>
-                        <Plus className="w-6 h-6 ml-auto opacity-50 group-hover:opacity-100 transition-opacity" />
+                ) : (
+                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 py-4">
+                        <AlertCircle className="w-5 h-5" />
+                        <p>No hay planificación activa para este equipo</p>
                     </div>
-                </button>
-
-                <button
-                    onClick={handleCreateMatch}
-                    className="group relative overflow-hidden bg-gradient-to-br from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 text-white rounded-xl p-6 transition-all duration-200 shadow-lg hover:shadow-xl"
-                >
-                    <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                            <Trophy className="w-7 h-7" />
-                        </div>
-                        <div className="text-left">
-                            <h3 className="text-lg font-bold mb-1">Crear Partido</h3>
-                            <p className="text-sm text-orange-100">Programar nuevo encuentro</p>
-                        </div>
-                        <Plus className="w-6 h-6 ml-auto opacity-50 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                </button>
+                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* 3️⃣ Recent Activity */}
-                {recentActivity && (
-                    <div className="bg-gray-800 border border-gray-700/50 rounded-xl p-6">
-                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                            <Calendar className="w-5 h-5 text-gray-400" />
-                            Actividad Reciente
-                        </h3>
-                        <div className="space-y-4">
-                            {recentActivity.lastMatch && (
-                                <div className="flex items-start gap-3 pb-4 border-b border-gray-700/50">
-                                    <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
-                                        <Trophy className="w-4 h-4 text-orange-400" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-sm text-gray-400">{new Date(recentActivity.lastMatch.date).toLocaleDateString('es-ES')}</p>
-                                        <p className="text-white font-medium">
-                                            vs {recentActivity.lastMatch.opponent}
-                                        </p>
-                                        <p className={`text-sm ${recentActivity.lastMatch.result === 'win' ? 'text-emerald-400' : 'text-red-400'}`}>
-                                            {recentActivity.lastMatch.score}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {recentActivity.lastTraining && (
-                                <div className="flex items-start gap-3 pb-4 border-b border-gray-700/50">
-                                    <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                                        <Calendar className="w-4 h-4 text-blue-400" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-sm text-gray-400">{new Date(recentActivity.lastTraining.date).toLocaleDateString('es-ES')}</p>
-                                        <p className="text-white font-medium">Entrenamiento</p>
-                                        <p className="text-sm text-gray-400">
-                                            {recentActivity.lastTraining.attendance}/{recentActivity.lastTraining.totalPlayers} jugadoras — {Math.round((recentActivity.lastTraining.attendance / recentActivity.lastTraining.totalPlayers) * 100)}% asistencia
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {recentActivity.nextMatch && (
-                                <div className="flex items-start gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
-                                        <Trophy className="w-4 h-4 text-purple-400" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-sm text-gray-400">{new Date(recentActivity.nextMatch.date).toLocaleDateString('es-ES')}</p>
-                                        <p className="text-white font-medium">
-                                            Próximo partido
-                                        </p>
-                                        <p className="text-sm text-gray-400">
-                                            vs {recentActivity.nextMatch.opponent}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {!recentActivity.lastMatch && !recentActivity.lastTraining && !recentActivity.nextMatch && (
-                                <p className="text-gray-400 text-center py-4">No hay actividad reciente</p>
-                            )}
+                {/* 2️⃣ Rendimiento Deportivo Simple */}
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-primary-500" />
+                        Rendimiento Deportivo
+                    </h3>
+                    {teamStats && (teamStats.pointsErrorRatio > 0 || teamStats.receptionEffectiveness > 0) ? (
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                                <span className="text-sm text-gray-600 dark:text-gray-300">Ratio puntos/error</span>
+                                <span className="text-xl font-bold text-gray-900 dark:text-white">
+                                    {teamStats.pointsErrorRatio.toFixed(2)}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                                <span className="text-sm text-gray-600 dark:text-gray-300">Recepción efectiva</span>
+                                <span className="text-xl font-bold text-gray-900 dark:text-white">
+                                    {teamStats.receptionEffectiveness}%
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                                <span className="text-sm text-gray-600 dark:text-gray-300">Ataque efectivo</span>
+                                <span className="text-xl font-bold text-gray-900 dark:text-white">
+                                    —
+                                </span>
+                            </div>
                         </div>
-                    </div>
-                )}
-
-                {/* 4️⃣ Team Stats */}
-                {teamStats && (
-                    <div className="bg-gray-800 border border-gray-700/50 rounded-xl p-6">
-                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                            <Users className="w-5 h-5 text-gray-400" />
-                            Estadísticas Esenciales
-                        </h3>
-                        <div className="space-y-4">
-                            {teamStats.attendanceAverage > 0 ? (
-                                <>
-                                    <div className="flex items-center justify-between p-4 bg-gray-700/30 rounded-lg">
-                                        <span className="text-gray-300">Asistencia</span>
-                                        <span className="text-2xl font-bold text-white">{teamStats.attendanceAverage}%</span>
-                                    </div>
-                                    <div className="flex items-center justify-between p-4 bg-gray-700/30 rounded-lg">
-                                        <span className="text-gray-300">Ratio puntos/error</span>
-                                        <span className="text-2xl font-bold text-white">{teamStats.pointsErrorRatio.toFixed(2)}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between p-4 bg-gray-700/30 rounded-lg">
-                                        <span className="text-gray-300">Recepción efectiva</span>
-                                        <span className="text-2xl font-bold text-white">{teamStats.receptionEffectiveness}%</span>
-                                    </div>
-                                </>
-                            ) : (
-                                <p className="text-gray-400 text-center py-4">No hay estadísticas disponibles</p>
-                            )}
+                    ) : (
+                        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 py-4">
+                            <AlertCircle className="w-5 h-5" />
+                            <p>No hay estadísticas disponibles</p>
                         </div>
+                    )}
+                </div>
+
+                {/* 3️⃣ Tendencia Reciente */}
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-primary-500" />
+                        Tendencia Reciente
+                    </h3>
+                    {recentActivity?.lastMatch ? (
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                                <div className="flex-1">
+                                    <span className={`font-semibold ${recentActivity.lastMatch.result === 'win'
+                                            ? 'text-emerald-600 dark:text-emerald-400'
+                                            : recentActivity.lastMatch.result === 'loss'
+                                                ? 'text-red-600 dark:text-red-400'
+                                                : 'text-gray-600 dark:text-gray-400'
+                                        }`}>
+                                        {recentActivity.lastMatch.score}
+                                    </span>
+                                    <span className="text-sm text-gray-600 dark:text-gray-300 ml-2">
+                                        vs {recentActivity.lastMatch.opponent}
+                                    </span>
+                                </div>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    {new Date(recentActivity.lastMatch.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}
+                                </span>
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
+                                Últimos 3 partidos próximamente
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 py-4">
+                            <AlertCircle className="w-5 h-5" />
+                            <p>No hay partidos registrados</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* 4️⃣ Volumen del Equipo */}
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                    <Users className="w-5 h-5 text-primary-500" />
+                    Volumen del Equipo
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Asistencia media</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {teamStats?.attendanceAverage ? `${teamStats.attendanceAverage}%` : '—'}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Últimos entrenamientos</p>
                     </div>
-                )}
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Partidos jugados</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">—</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Últimos 30 días</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Jugadoras en baja</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">—</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Lesiones o ausencias</p>
+                    </div>
+                </div>
             </div>
         </div>
     )
