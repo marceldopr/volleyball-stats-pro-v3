@@ -20,6 +20,18 @@ export interface TeamDB {
 }
 
 export const teamService = {
+    // Fetch all teams for a club (regardless of season)
+    getTeamsByClub: async (clubId: string): Promise<TeamDB[]> => {
+        const { data, error } = await supabase
+            .from('teams')
+            .select('*')
+            .eq('club_id', clubId)
+            .order('name', { ascending: true })
+
+        if (error) throw error
+        return data
+    },
+
     // Fetch teams for a club in a specific season
     getTeamsByClubAndSeason: async (clubId: string, seasonId: string): Promise<TeamDB[]> => {
         const { data, error } = await supabase

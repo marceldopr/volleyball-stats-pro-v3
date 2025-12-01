@@ -1,41 +1,51 @@
--- Migration: Player Team Season Evaluations
--- Description: Create table for storing player evaluations (3 per season: start, mid, end)
+-- Migration: Unified Player Team Season Evaluations (Refactored)
+-- Description: Create unified evaluation table with numeric ratings (1-3) for performance metrics
 -- Date: 2025-12-01
+-- Breaking Change: This replaces the previous qualitative text-based evaluation system
 
--- Create player_team_season_evaluations table
-CREATE TABLE IF NOT EXISTS player_team_season_evaluations (
+-- Drop existing table if it exists (WARNING: This will delete all existing evaluations)
+DROP TABLE IF EXISTS player_team_season_evaluations CASCADE;
+
+-- Create unified player_team_season_evaluations table
+CREATE TABLE player_team_season_evaluations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     player_id UUID NOT NULL REFERENCES club_players(id) ON DELETE CASCADE,
     team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     season_id UUID NOT NULL REFERENCES seasons(id) ON DELETE CASCADE,
-    evaluation_type TEXT NOT NULL CHECK (evaluation_type IN ('start', 'mid', 'end')),
+    phase TEXT NOT NULL CHECK (phase IN ('start', 'mid', 'end')),
     
-    -- Overall assessment
-    level_overall TEXT CHECK (level_overall IN ('below', 'in_line', 'above')),
+    -- Block 1: Performance Ratings (1-3 scale)
+    -- 1 = Needs improvement, 2 = Adequate, 3 = Excellent
+    service_rating SMALLINT CHECK (service_rating IS NULL OR (service_rating BETWEEN 1 AND 3)),
+    reception_rating SMALLINT CHECK (reception_rating IS NULL OR (reception_rating BETWEEN 1 AND 3)),
+    attack_rating SMALLINT CHECK (attack_rating IS NULL OR (attack_rating BETWEEN 1 AND 3)),
+    block_rating SMALLINT CHECK (block_rating IS NULL OR (block_rating BETWEEN 1 AND 3)),
+    defense_rating SMALLINT CHECK (defense_rating IS NULL OR (defense_rating BETWEEN 1 AND 3)),
+    error_impact_rating SMALLINT CHECK (error_impact_rating IS NULL OR (error_impact_rating BETWEEN 1 AND 3)),
     
-    -- Detailed comments (short, 1-2 sentences each)
-    tech_comment TEXT,
-    tactic_comment TEXT,
-    physical_comment TEXT,
-    mental_comment TEXT,
+    -- Block 2: Role in Team
+    role_in_team TEXT CHECK (role_in_team IN ('starter', 'rotation', 'specialist', 'development')),
     
-    -- Role and recommendations
-    role_in_team TEXT CHECK (role_in_team IN ('key_player', 'rotation', 'development')),
-    coach_recommendation TEXT,
+    -- Block 3: Competitive Mindset (short text, 150-200 chars)
+    competitive_mindset VARCHAR(200),
+    
+    -- Block 4: Coach Recommendation (short text, 250 chars)
+    coach_recommendation VARCHAR(250),
     
     -- Metadata
     created_by UUID REFERENCES profiles(id),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     
-    -- Ensure one evaluation per type per player-team-season
-    UNIQUE(player_id, team_id, season_id, evaluation_type)
+    -- Ensure one evaluation per phase per player-team-season
+    UNIQUE(player_id, team_id, season_id, phase)
 );
 
 -- Create indexes for efficient querying
 CREATE INDEX IF NOT EXISTS idx_player_evaluations_player ON player_team_season_evaluations(player_id);
 CREATE INDEX IF NOT EXISTS idx_player_evaluations_team_season ON player_team_season_evaluations(team_id, season_id);
-CREATE INDEX IF NOT EXISTS idx_player_evaluations_type ON player_team_season_evaluations(evaluation_type);
+CREATE INDEX IF NOT EXISTS idx_player_evaluations_phase ON player_team_season_evaluations(phase);
+CREATE INDEX IF NOT EXISTS idx_player_evaluations_created_by ON player_team_season_evaluations(created_by);
 
 -- Create updated_at trigger
 CREATE OR REPLACE FUNCTION update_player_evaluation_updated_at()
@@ -46,6 +56,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_player_evaluation_updated_at ON player_team_season_evaluations;
 CREATE TRIGGER trigger_update_player_evaluation_updated_at
     BEFORE UPDATE ON player_team_season_evaluations
     FOR EACH ROW
@@ -57,6 +68,7 @@ ALTER TABLE player_team_season_evaluations ENABLE ROW LEVEL SECURITY;
 -- RLS Policies
 
 -- Policy: Users can view evaluations for their club
+DROP POLICY IF EXISTS "Users can view evaluations for their club" ON player_team_season_evaluations;
 CREATE POLICY "Users can view evaluations for their club"
     ON player_team_season_evaluations
     FOR SELECT
@@ -71,6 +83,7 @@ CREATE POLICY "Users can view evaluations for their club"
     );
 
 -- Policy: DT and Admin can insert/update/delete any evaluation in their club
+DROP POLICY IF EXISTS "DT and Admin can manage evaluations" ON player_team_season_evaluations;
 CREATE POLICY "DT and Admin can manage evaluations"
     ON player_team_season_evaluations
     FOR ALL
@@ -86,6 +99,7 @@ CREATE POLICY "DT and Admin can manage evaluations"
     );
 
 -- Policy: Coaches can insert/update evaluations for their assigned teams
+DROP POLICY IF EXISTS "Coaches can manage evaluations for assigned teams" ON player_team_season_evaluations;
 CREATE POLICY "Coaches can manage evaluations for assigned teams"
     ON player_team_season_evaluations
     FOR ALL
@@ -101,4 +115,15 @@ CREATE POLICY "Coaches can manage evaluations for assigned teams"
     );
 
 -- Add comment to table
-COMMENT ON TABLE player_team_season_evaluations IS 'Stores player evaluations for each season (start, mid, end). Used by coaches to track player development and provide feedback.';
+COMMENT ON TABLE player_team_season_evaluations IS 'Unified player evaluation system with numeric ratings (1-3) for performance metrics. Used by coaches to create evaluations and DT to view/analyze player development across teams.';
+
+-- Add comments to rating columns
+COMMENT ON COLUMN player_team_season_evaluations.service_rating IS 'Service performance: 1=Needs improvement, 2=Adequate, 3=Excellent';
+COMMENT ON COLUMN player_team_season_evaluations.reception_rating IS 'Reception performance: 1=Needs improvement, 2=Adequate, 3=Excellent';
+COMMENT ON COLUMN player_team_season_evaluations.attack_rating IS 'Attack performance: 1=Needs improvement, 2=Adequate, 3=Excellent';
+COMMENT ON COLUMN player_team_season_evaluations.block_rating IS 'Block performance: 1=Needs improvement, 2=Adequate, 3=Excellent';
+COMMENT ON COLUMN player_team_season_evaluations.defense_rating IS 'Defense performance: 1=Needs improvement, 2=Adequate, 3=Excellent';
+COMMENT ON COLUMN player_team_season_evaluations.error_impact_rating IS 'Error impact: 1=High impact, 2=Moderate, 3=Low impact';
+COMMENT ON COLUMN player_team_season_evaluations.phase IS 'Evaluation phase: start (inicio), mid (mitad), end (final)';
+COMMENT ON COLUMN player_team_season_evaluations.competitive_mindset IS 'Short description of player competitive mindset and attitude (max 200 chars)';
+COMMENT ON COLUMN player_team_season_evaluations.coach_recommendation IS 'Coach recommendations for future development or category changes (max 250 chars)';

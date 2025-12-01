@@ -15,7 +15,7 @@ import { Register } from '@/pages/Register'
 import { Players } from './pages/Players'
 import { PlayerDetail } from './pages/PlayerDetail'
 import PlayerReports from './pages/PlayerReports'
-import { PlayerReportsPage } from './pages/PlayerReportsPage'
+import { DTReportsPage } from './pages/DTReportsPage'
 import { TeamSeasonPlanPage } from './pages/TeamSeasonPlanPage'
 import { TeamSeasonSummaryPage } from '@/pages/TeamSeasonSummaryPage'
 import { TeamPlansListPage } from '@/pages/TeamPlansListPage'
@@ -56,7 +56,7 @@ function App() {
                     <Route path="/players" element={<Players />} />
                     <Route path="/players/:id" element={<PlayerDetail />} />
                     <Route path="/players/:playerId/reports" element={<PlayerReports />} />
-                    <Route path="/reports/players" element={<PlayerReportsPage />} />
+                    <Route path="/reports/players" element={<DTReportsPage />} />
                     <Route path="/reports/coaches" element={<CoachReportsPage />} />
                     <Route path="/matches" element={<Matches />} />
                     <Route path="/matches/new" element={<NewMatch />} />

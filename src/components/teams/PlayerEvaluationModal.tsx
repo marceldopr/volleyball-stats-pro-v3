@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { X, Save } from 'lucide-react'
+import { X, Save, Eye } from 'lucide-react'
 import type { PlayerDB } from '@/services/playerService'
 import type { TeamDB } from '@/services/teamService'
 import type { SeasonDB } from '@/services/seasonService'
 import type { PlayerEvaluationDB, PlayerEvaluationInput } from '@/services/playerEvaluationService'
+import { RatingInput } from './RatingInput'
 
 interface PlayerEvaluationModalProps {
     isOpen: boolean
@@ -11,27 +12,23 @@ interface PlayerEvaluationModalProps {
     player: PlayerDB
     team: TeamDB
     season: SeasonDB
-    evaluationType: 'start' | 'mid' | 'end'
+    phase: 'start' | 'mid' | 'end'
     existingEvaluation?: PlayerEvaluationDB | null
     onSave: (data: PlayerEvaluationInput) => Promise<void>
+    mode?: 'edit' | 'view'  // NEW: Determines if form is editable
 }
 
-const EVALUATION_TYPE_LABELS = {
+const PHASE_LABELS = {
     start: 'Inicio de Temporada',
     mid: 'Mitad de Temporada',
     end: 'Final de Temporada'
 }
 
-const LEVEL_OPTIONS = [
-    { value: 'below', label: 'Por debajo del nivel de la categoría' },
-    { value: 'in_line', label: 'En línea con la categoría' },
-    { value: 'above', label: 'Por encima de la categoría' }
-]
-
 const ROLE_OPTIONS = [
-    { value: 'key_player', label: 'Pieza clave' },
-    { value: 'rotation', label: 'Rotación importante' },
-    { value: 'development', label: 'En desarrollo / soporte' }
+    { value: 'starter', label: 'Titular' },
+    { value: 'rotation', label: 'Rotación' },
+    { value: 'specialist', label: 'Especialista' },
+    { value: 'development', label: 'En desarrollo' }
 ]
 
 export function PlayerEvaluationModal({
@@ -40,40 +37,49 @@ export function PlayerEvaluationModal({
     player,
     team,
     season,
-    evaluationType,
+    phase,
     existingEvaluation,
-    onSave
+    onSave,
+    mode = 'edit'
 }: PlayerEvaluationModalProps) {
     const [saving, setSaving] = useState(false)
     const [formData, setFormData] = useState<Partial<PlayerEvaluationInput>>({
-        level_overall: undefined,
-        tech_comment: '',
-        tactic_comment: '',
-        physical_comment: '',
-        mental_comment: '',
+        service_rating: undefined,
+        reception_rating: undefined,
+        attack_rating: undefined,
+        block_rating: undefined,
+        defense_rating: undefined,
+        error_impact_rating: undefined,
         role_in_team: undefined,
+        competitive_mindset: '',
         coach_recommendation: ''
     })
+
+    const isViewMode = mode === 'view'
 
     useEffect(() => {
         if (existingEvaluation) {
             setFormData({
-                level_overall: existingEvaluation.level_overall,
-                tech_comment: existingEvaluation.tech_comment || '',
-                tactic_comment: existingEvaluation.tactic_comment || '',
-                physical_comment: existingEvaluation.physical_comment || '',
-                mental_comment: existingEvaluation.mental_comment || '',
+                service_rating: existingEvaluation.service_rating,
+                reception_rating: existingEvaluation.reception_rating,
+                attack_rating: existingEvaluation.attack_rating,
+                block_rating: existingEvaluation.block_rating,
+                defense_rating: existingEvaluation.defense_rating,
+                error_impact_rating: existingEvaluation.error_impact_rating,
                 role_in_team: existingEvaluation.role_in_team,
+                competitive_mindset: existingEvaluation.competitive_mindset || '',
                 coach_recommendation: existingEvaluation.coach_recommendation || ''
             })
         } else {
             setFormData({
-                level_overall: undefined,
-                tech_comment: '',
-                tactic_comment: '',
-                physical_comment: '',
-                mental_comment: '',
+                service_rating: undefined,
+                reception_rating: undefined,
+                attack_rating: undefined,
+                block_rating: undefined,
+                defense_rating: undefined,
+                error_impact_rating: undefined,
                 role_in_team: undefined,
+                competitive_mindset: '',
                 coach_recommendation: ''
             })
         }
@@ -81,6 +87,8 @@ export function PlayerEvaluationModal({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (isViewMode) return
+
         setSaving(true)
 
         try {
@@ -88,7 +96,7 @@ export function PlayerEvaluationModal({
                 player_id: player.id,
                 team_id: team.id,
                 season_id: season.id,
-                evaluation_type: evaluationType,
+                phase: phase,
                 ...formData
             } as PlayerEvaluationInput)
             onClose()
@@ -103,16 +111,23 @@ export function PlayerEvaluationModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                            Evaluación: {EVALUATION_TYPE_LABELS[evaluationType]}
-                        </h2>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            {player.first_name} {player.last_name} • {team.name} • {season.name}
-                        </p>
+                    <div className="flex items-center gap-3">
+                        {isViewMode && (
+                            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                                <Eye className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            </div>
+                        )}
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                {isViewMode ? 'Ver Evaluación' : 'Evaluación'}: {PHASE_LABELS[phase]}
+                            </h2>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                {player.first_name} {player.last_name} • {team.name} • {season.name}
+                            </p>
+                        </div>
                     </div>
                     <button
                         onClick={onClose}
@@ -123,91 +138,62 @@ export function PlayerEvaluationModal({
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
-                    {/* Level Overall */}
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                            Nivel General
-                        </label>
-                        <select
-                            value={formData.level_overall || ''}
-                            onChange={(e) => setFormData({ ...formData, level_overall: e.target.value as any })}
-                            className="input-field w-full"
-                        >
-                            <option value="">Selecciona un nivel</option>
-                            {LEVEL_OPTIONS.map(option => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </select>
+                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-8">
+                    {/* Block 1: Performance Ratings */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                            Rendimiento (1-3)
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <RatingInput
+                                label="Saque"
+                                value={formData.service_rating}
+                                onChange={(val) => setFormData({ ...formData, service_rating: val })}
+                                disabled={isViewMode}
+                            />
+                            <RatingInput
+                                label="Recepción"
+                                value={formData.reception_rating}
+                                onChange={(val) => setFormData({ ...formData, reception_rating: val })}
+                                disabled={isViewMode}
+                            />
+                            <RatingInput
+                                label="Ataque"
+                                value={formData.attack_rating}
+                                onChange={(val) => setFormData({ ...formData, attack_rating: val })}
+                                disabled={isViewMode}
+                            />
+                            <RatingInput
+                                label="Bloqueo"
+                                value={formData.block_rating}
+                                onChange={(val) => setFormData({ ...formData, block_rating: val })}
+                                disabled={isViewMode}
+                            />
+                            <RatingInput
+                                label="Defensa"
+                                value={formData.defense_rating}
+                                onChange={(val) => setFormData({ ...formData, defense_rating: val })}
+                                disabled={isViewMode}
+                            />
+                            <RatingInput
+                                label="Impacto de Errores"
+                                value={formData.error_impact_rating}
+                                onChange={(val) => setFormData({ ...formData, error_impact_rating: val })}
+                                disabled={isViewMode}
+                            />
+                        </div>
                     </div>
 
-                    {/* Technical Comment */}
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                            Técnica
-                        </label>
-                        <textarea
-                            value={formData.tech_comment}
-                            onChange={(e) => setFormData({ ...formData, tech_comment: e.target.value })}
-                            placeholder="Ej: Buen saque flotante, mejorar recepción en línea 5"
-                            className="input-field w-full"
-                            rows={2}
-                        />
-                    </div>
-
-                    {/* Tactical Comment */}
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                            Táctica / Lectura de Juego
-                        </label>
-                        <textarea
-                            value={formData.tactic_comment}
-                            onChange={(e) => setFormData({ ...formData, tactic_comment: e.target.value })}
-                            placeholder="Ej: Buena lectura de bloqueo, mejorar cobertura"
-                            className="input-field w-full"
-                            rows={2}
-                        />
-                    </div>
-
-                    {/* Physical Comment */}
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                            Físico / Condición
-                        </label>
-                        <textarea
-                            value={formData.physical_comment}
-                            onChange={(e) => setFormData({ ...formData, physical_comment: e.target.value })}
-                            placeholder="Ej: Buena explosividad, trabajar resistencia"
-                            className="input-field w-full"
-                            rows={2}
-                        />
-                    </div>
-
-                    {/* Mental Comment */}
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                            Mentalidad / Actitud Competitiva
-                        </label>
-                        <textarea
-                            value={formData.mental_comment}
-                            onChange={(e) => setFormData({ ...formData, mental_comment: e.target.value })}
-                            placeholder="Ej: Muy competitiva, gestionar mejor la frustración"
-                            className="input-field w-full"
-                            rows={2}
-                        />
-                    </div>
-
-                    {/* Role in Team */}
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                    {/* Block 2: Role */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
                             Rol en el Equipo
-                        </label>
+                        </h3>
                         <select
                             value={formData.role_in_team || ''}
                             onChange={(e) => setFormData({ ...formData, role_in_team: e.target.value as any })}
                             className="input-field w-full"
+                            disabled={isViewMode}
                         >
                             <option value="">Selecciona un rol</option>
                             {ROLE_OPTIONS.map(option => (
@@ -218,18 +204,46 @@ export function PlayerEvaluationModal({
                         </select>
                     </div>
 
-                    {/* Coach Recommendation */}
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                    {/* Block 3: Competitive Mindset */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                            Mentalidad / Actitud Competitiva
+                        </h3>
+                        <div className="relative">
+                            <textarea
+                                value={formData.competitive_mindset}
+                                onChange={(e) => setFormData({ ...formData, competitive_mindset: e.target.value })}
+                                placeholder="Describe la mentalidad competitiva de la jugadora..."
+                                className="input-field w-full"
+                                rows={3}
+                                maxLength={200}
+                                disabled={isViewMode}
+                            />
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right">
+                                {formData.competitive_mindset?.length || 0} / 200
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Block 4: Coach Recommendation */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
                             Recomendaciones para Próximo Entrenador
-                        </label>
-                        <textarea
-                            value={formData.coach_recommendation}
-                            onChange={(e) => setFormData({ ...formData, coach_recommendation: e.target.value })}
-                            placeholder="Ej: Tiene potencial para subir a Juvenil si mantiene constancia en recepción"
-                            className="input-field w-full"
-                            rows={3}
-                        />
+                        </h3>
+                        <div className="relative">
+                            <textarea
+                                value={formData.coach_recommendation}
+                                onChange={(e) => setFormData({ ...formData, coach_recommendation: e.target.value })}
+                                placeholder="Ej: Tiene potencial para subir a Juvenil si mantiene constancia en recepción"
+                                className="input-field w-full"
+                                rows={3}
+                                maxLength={250}
+                                disabled={isViewMode}
+                            />
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right">
+                                {formData.coach_recommendation?.length || 0} / 250
+                            </div>
+                        </div>
                     </div>
                 </form>
 
@@ -241,16 +255,18 @@ export function PlayerEvaluationModal({
                         className="btn-outline"
                         disabled={saving}
                     >
-                        Cancelar
+                        {isViewMode ? 'Cerrar' : 'Cancelar'}
                     </button>
-                    <button
-                        onClick={handleSubmit}
-                        className="btn-primary flex items-center gap-2"
-                        disabled={saving}
-                    >
-                        <Save className="w-4 h-4" />
-                        {saving ? 'Guardando...' : 'Guardar Evaluación'}
-                    </button>
+                    {!isViewMode && (
+                        <button
+                            onClick={handleSubmit}
+                            className="btn-primary flex items-center gap-2"
+                            disabled={saving}
+                        >
+                            <Save className="w-4 h-4" />
+                            {saving ? 'Guardando...' : 'Guardar Evaluación'}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

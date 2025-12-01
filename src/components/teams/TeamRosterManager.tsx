@@ -58,7 +58,7 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
     // Evaluation Modal State
     const [evaluationModalOpen, setEvaluationModalOpen] = useState(false)
     const [selectedPlayer, setSelectedPlayer] = useState<PlayerDB | null>(null)
-    const [selectedEvaluationType, setSelectedEvaluationType] = useState<'start' | 'mid' | 'end'>('start')
+    const [selectedPhase, setSelectedPhase] = useState<'start' | 'mid' | 'end'>('start')
     const [selectedEvaluation, setSelectedEvaluation] = useState<PlayerEvaluationDB | null>(null)
 
     useEffect(() => {
@@ -87,9 +87,9 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                     ...item,
                     player,
                     evaluations: {
-                        start: playerEvals.find(e => e.evaluation_type === 'start'),
-                        mid: playerEvals.find(e => e.evaluation_type === 'mid'),
-                        end: playerEvals.find(e => e.evaluation_type === 'end')
+                        start: playerEvals.find(e => e.phase === 'start'),
+                        mid: playerEvals.find(e => e.phase === 'mid'),
+                        end: playerEvals.find(e => e.phase === 'end')
                     }
                 }
             })
@@ -171,9 +171,9 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
         }
     }
 
-    const handleEvaluationClick = (player: PlayerDB, type: 'start' | 'mid' | 'end', existingEvaluation?: PlayerEvaluationDB) => {
+    const handleEvaluationClick = (player: PlayerDB, phase: 'start' | 'mid' | 'end', existingEvaluation?: PlayerEvaluationDB) => {
         setSelectedPlayer(player)
-        setSelectedEvaluationType(type)
+        setSelectedPhase(phase)
         setSelectedEvaluation(existingEvaluation || null)
         setEvaluationModalOpen(true)
     }
@@ -450,9 +450,10 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                     player={selectedPlayer}
                     team={team}
                     season={season}
-                    evaluationType={selectedEvaluationType}
+                    phase={selectedPhase}
                     existingEvaluation={selectedEvaluation}
                     onSave={handleSaveEvaluation}
+                    mode="edit"
                 />
             )}
         </div>

@@ -5,14 +5,24 @@ export interface PlayerEvaluationDB {
     player_id: string
     team_id: string
     season_id: string
-    evaluation_type: 'start' | 'mid' | 'end'
-    level_overall?: 'below' | 'in_line' | 'above'
-    tech_comment?: string
-    tactic_comment?: string
-    physical_comment?: string
-    mental_comment?: string
-    role_in_team?: 'key_player' | 'rotation' | 'development'
+    phase: 'start' | 'mid' | 'end'
+
+    // Performance ratings (1-3)
+    service_rating?: number
+    reception_rating?: number
+    attack_rating?: number
+    block_rating?: number
+    defense_rating?: number
+    error_impact_rating?: number
+
+    // Role
+    role_in_team?: 'starter' | 'rotation' | 'specialist' | 'development'
+
+    // Text fields
+    competitive_mindset?: string
     coach_recommendation?: string
+
+    // Metadata
     created_by?: string
     created_at: string
     updated_at: string
@@ -22,13 +32,15 @@ export interface PlayerEvaluationInput {
     player_id: string
     team_id: string
     season_id: string
-    evaluation_type: 'start' | 'mid' | 'end'
-    level_overall?: 'below' | 'in_line' | 'above'
-    tech_comment?: string
-    tactic_comment?: string
-    physical_comment?: string
-    mental_comment?: string
-    role_in_team?: 'key_player' | 'rotation' | 'development'
+    phase: 'start' | 'mid' | 'end'
+    service_rating?: number
+    reception_rating?: number
+    attack_rating?: number
+    block_rating?: number
+    defense_rating?: number
+    error_impact_rating?: number
+    role_in_team?: 'starter' | 'rotation' | 'specialist' | 'development'
+    competitive_mindset?: string
     coach_recommendation?: string
 }
 
@@ -59,7 +71,7 @@ export const playerEvaluationService = {
         playerId: string,
         teamId: string,
         seasonId: string,
-        evaluationType: 'start' | 'mid' | 'end'
+        phase: 'start' | 'mid' | 'end'
     ): Promise<PlayerEvaluationDB | null> => {
         const { data, error } = await supabase
             .from('player_team_season_evaluations')
@@ -67,7 +79,7 @@ export const playerEvaluationService = {
             .eq('player_id', playerId)
             .eq('team_id', teamId)
             .eq('season_id', seasonId)
-            .eq('evaluation_type', evaluationType)
+            .eq('phase', phase)
             .maybeSingle()
 
         if (error) {
@@ -101,6 +113,29 @@ export const playerEvaluationService = {
     },
 
     /**
+     * Get all evaluations across all teams (for DT Reports view)
+     */
+    getAllEvaluations: async (clubId: string): Promise<PlayerEvaluationDB[]> => {
+        const { data, error } = await supabase
+            .from('player_team_season_evaluations')
+            .select(`
+                *,
+                player:player_id(first_name, last_name),
+                team:team_id(name, club_id),
+                season:season_id(name)
+            `)
+            .eq('team.club_id', clubId)
+            .order('created_at', { ascending: false })
+
+        if (error) {
+            console.error('[playerEvaluationService] Error fetching all evaluations:', error)
+            throw error
+        }
+
+        return data || []
+    },
+
+    /**
      * Create or update an evaluation (upsert)
      */
     upsertEvaluation: async (evaluation: PlayerEvaluationInput): Promise<PlayerEvaluationDB> => {
@@ -114,7 +149,7 @@ export const playerEvaluationService = {
         const { data, error } = await supabase
             .from('player_team_season_evaluations')
             .upsert(evaluationData, {
-                onConflict: 'player_id,team_id,season_id,evaluation_type'
+                onConflict: 'player_id,team_id,season_id,phase'
             })
             .select()
             .single()
@@ -158,16 +193,16 @@ export const playerEvaluationService = {
             .eq('team_id', teamId)
             .eq('season_id', seasonId)
 
-        // Get evaluation counts by type
+        // Get evaluation counts by phase
         const { data: evaluations } = await supabase
             .from('player_team_season_evaluations')
-            .select('evaluation_type')
+            .select('phase')
             .eq('team_id', teamId)
             .eq('season_id', seasonId)
 
-        const startCompleted = evaluations?.filter((e: { evaluation_type: string }) => e.evaluation_type === 'start').length || 0
-        const midCompleted = evaluations?.filter((e: { evaluation_type: string }) => e.evaluation_type === 'mid').length || 0
-        const endCompleted = evaluations?.filter((e: { evaluation_type: string }) => e.evaluation_type === 'end').length || 0
+        const startCompleted = evaluations?.filter((e: { phase: string }) => e.phase === 'start').length || 0
+        const midCompleted = evaluations?.filter((e: { phase: string }) => e.phase === 'mid').length || 0
+        const endCompleted = evaluations?.filter((e: { phase: string }) => e.phase === 'end').length || 0
 
         return {
             total_players: totalPlayers || 0,
