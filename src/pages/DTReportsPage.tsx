@@ -5,6 +5,7 @@ import { playerEvaluationService, PlayerEvaluationDB } from '@/services/playerEv
 import { seasonService } from '@/services/seasonService'
 import { teamService } from '@/services/teamService'
 import { PlayerEvaluationModal } from '@/components/teams/PlayerEvaluationModal'
+import { useRoleScope } from '@/hooks/useRoleScope'
 import { toast } from 'sonner'
 
 const PHASE_LABELS = {
@@ -21,6 +22,7 @@ const PHASE_COLORS = {
 
 export function DTReportsPage() {
     const { profile } = useAuthStore()
+    const { isCoach, isDT, assignedTeamIds } = useRoleScope()
 
     const [evaluations, setEvaluations] = useState<PlayerEvaluationDB[]>([])
     const [filteredEvaluations, setFilteredEvaluations] = useState<PlayerEvaluationDB[]>([])
@@ -53,7 +55,12 @@ export function DTReportsPage() {
                 setSeasons(seasonsData)
 
                 // Get teams
-                const teamsData = await teamService.getTeamsByClub(profile.club_id)
+                let teamsData = await teamService.getTeamsByClub(profile.club_id)
+
+                if (isCoach) {
+                    teamsData = teamsData.filter(team => assignedTeamIds.includes(team.id))
+                }
+
                 setTeams(teamsData)
 
                 // Get current season
@@ -71,7 +78,12 @@ export function DTReportsPage() {
                 }
 
                 // Fetch all evaluations
-                const evaluationsData = await playerEvaluationService.getAllEvaluations(profile.club_id)
+                let evaluationsData = await playerEvaluationService.getAllEvaluations(profile.club_id)
+
+                if (isCoach) {
+                    evaluationsData = evaluationsData.filter(evaluation => assignedTeamIds.includes(evaluation.team_id))
+                }
+
                 setEvaluations(evaluationsData)
                 setFilteredEvaluations(evaluationsData)
 
@@ -84,7 +96,7 @@ export function DTReportsPage() {
         }
 
         fetchData()
-    }, [profile?.club_id])
+    }, [profile?.club_id, isCoach, isDT, assignedTeamIds])
 
     // Apply filters
     useEffect(() => {

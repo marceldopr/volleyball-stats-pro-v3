@@ -27,6 +27,7 @@ import { ProtectedRoute } from '@/components/routing/ProtectedRoute'
 import { useThemeStore } from '@/stores/themeStore'
 import { Toaster } from 'sonner'
 import { DashboardRedirect } from '@/components/routing/DashboardRedirect'
+import { RoleGuard } from '@/components/routing/RoleGuard'
 
 function App() {
   const { isDarkMode } = useThemeStore()
@@ -46,27 +47,122 @@ function App() {
                   <Routes>
                     <Route path="/" element={<DashboardRedirect />} />
                     <Route path="/" element={<DashboardRedirect />} />
-                    <Route path="/teams" element={<Teams />} />
-                    <Route path="/teams/:teamId" element={<TeamDashboardPage />} />
-                    <Route path="/teams/:teamId/context" element={<TeamSeasonContext />} />
-                    <Route path="/reports/team-plans" element={<TeamPlansListPage />} />
-                    <Route path="/reports/team-plan/:teamId" element={<TeamSeasonPlanPage />} />
-                    <Route path="/teams/:teamId/season/:seasonId/summary" element={<TeamSeasonSummaryPage />} />
-                    <Route path="/club/dashboard" element={<ClubDashboardPage />} />
-                    <Route path="/players" element={<Players />} />
-                    <Route path="/players/:id" element={<PlayerDetail />} />
-                    <Route path="/players/:playerId/reports" element={<PlayerReports />} />
-                    <Route path="/reports/players" element={<DTReportsPage />} />
-                    <Route path="/reports/coaches" element={<CoachReportsPage />} />
-                    <Route path="/matches" element={<Matches />} />
-                    <Route path="/matches/new" element={<NewMatch />} />
-                    <Route path="/matches/:id" element={<Matches />} />
-                    <Route path="/matches/:id/live" element={<LiveMatch />} />
-                    <Route path="/matches/:id/analysis" element={<MatchAnalysis />} />
-                    <Route path="/analytics" element={<Analytics />} />
-                    <Route path="/coach-assignments" element={<CoachAssignments />} />
-                    <Route path="/settings" element={<SettingsPage />} />
-                    <Route path="/exports" element={<Exports />} />
+
+                    {/* Shared Routes (DT & Coach) */}
+                    <Route path="/teams" element={
+                      <RoleGuard allowedForDT allowedForCoach>
+                        <Teams />
+                      </RoleGuard>
+                    } />
+                    <Route path="/teams/:teamId" element={
+                      <RoleGuard allowedForDT allowedForCoach>
+                        <TeamDashboardPage />
+                      </RoleGuard>
+                    } />
+                    <Route path="/teams/:teamId/context" element={
+                      <RoleGuard allowedForDT allowedForCoach>
+                        <TeamSeasonContext />
+                      </RoleGuard>
+                    } />
+                    <Route path="/reports/team-plans" element={
+                      <RoleGuard allowedForDT>
+                        <TeamPlansListPage />
+                      </RoleGuard>
+                    } />
+                    <Route path="/reports/team-plan/:teamId" element={
+                      <RoleGuard allowedForDT>
+                        <TeamSeasonPlanPage />
+                      </RoleGuard>
+                    } />
+                    <Route path="/teams/:teamId/season/:seasonId/summary" element={
+                      <RoleGuard allowedForDT allowedForCoach>
+                        <TeamSeasonSummaryPage />
+                      </RoleGuard>
+                    } />
+
+                    {/* DT Only Routes */}
+                    <Route path="/club/dashboard" element={
+                      <RoleGuard allowedForDT>
+                        <ClubDashboardPage />
+                      </RoleGuard>
+                    } />
+                    <Route path="/players" element={
+                      <RoleGuard allowedForDT>
+                        <Players />
+                      </RoleGuard>
+                    } />
+                    <Route path="/players/:id" element={
+                      <RoleGuard allowedForDT>
+                        <PlayerDetail />
+                      </RoleGuard>
+                    } />
+                    <Route path="/players/:playerId/reports" element={
+                      <RoleGuard allowedForDT allowedForCoach>
+                        <PlayerReports />
+                      </RoleGuard>
+                    } />
+                    <Route path="/reports/players" element={
+                      <RoleGuard allowedForDT allowedForCoach>
+                        <DTReportsPage />
+                      </RoleGuard>
+                    } />
+                    <Route path="/reports/coaches" element={
+                      <RoleGuard allowedForDT>
+                        <CoachReportsPage />
+                      </RoleGuard>
+                    } />
+
+                    {/* Matches Routes (Shared) */}
+                    <Route path="/matches" element={
+                      <RoleGuard allowedForDT allowedForCoach>
+                        <Matches />
+                      </RoleGuard>
+                    } />
+                    <Route path="/matches/new" element={
+                      <RoleGuard allowedForDT allowedForCoach>
+                        <NewMatch />
+                      </RoleGuard>
+                    } />
+                    <Route path="/matches/:id" element={
+                      <RoleGuard allowedForDT allowedForCoach>
+                        <Matches />
+                      </RoleGuard>
+                    } />
+                    <Route path="/matches/:id/live" element={
+                      <RoleGuard allowedForDT allowedForCoach>
+                        <LiveMatch />
+                      </RoleGuard>
+                    } />
+                    <Route path="/matches/:id/analysis" element={
+                      <RoleGuard allowedForDT allowedForCoach>
+                        <MatchAnalysis />
+                      </RoleGuard>
+                    } />
+
+                    <Route path="/analytics" element={
+                      <RoleGuard allowedForDT allowedForCoach>
+                        <Analytics />
+                      </RoleGuard>
+                    } />
+
+                    {/* Admin Routes */}
+                    <Route path="/coach-assignments" element={
+                      <RoleGuard allowedForDT>
+                        <CoachAssignments />
+                      </RoleGuard>
+                    } />
+                    <Route path="/settings" element={
+                      <RoleGuard allowedForDT>
+                        <SettingsPage />
+                      </RoleGuard>
+                    } />
+                    <Route path="/exports" element={
+                      <RoleGuard allowedForDT>
+                        <Exports />
+                      </RoleGuard>
+                    } />
+
+                    {/* Public/Shared */}
                     <Route path="/about" element={<About />} />
                   </Routes>
                 </div>

@@ -6,13 +6,13 @@ import { seasonService, SeasonDB } from '@/services/seasonService'
 import { teamService, TeamDB } from '@/services/teamService'
 import { clubService, ClubDB } from '@/services/clubService'
 import { TeamRosterManager } from '@/components/teams/TeamRosterManager'
-import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
+import { useRoleScope } from '@/hooks/useRoleScope'
 import { toast } from 'sonner'
 import { CoachTeamCard } from '@/components/teams/CoachTeamCard'
 
 export function Teams() {
   const { profile } = useAuthStore()
-  const { isCoach, assignedTeamIds, loading: roleLoading } = useCurrentUserRole()
+  const { isCoach, isDT, assignedTeamIds } = useRoleScope()
   const navigate = useNavigate()
 
   // State
@@ -51,13 +51,26 @@ export function Teams() {
     if (profile?.club_id) {
       loadData()
     }
-  }, [profile?.club_id])
+  }, [profile?.club_id, isCoach, isDT, assignedTeamIds])
 
   const loadTeams = async (clubId: string, seasonId: string) => {
     try {
       setLoading(true)
       console.log('[Teams Debug] Loading teams for club:', clubId, 'season:', seasonId)
-      const teamsData = await teamService.getTeamsByClubAndSeason(clubId, seasonId)
+
+      let teamsData: TeamDB[] = []
+
+      if (isDT) {
+        // DT sees all teams
+        teamsData = await teamService.getTeamsByClubAndSeason(clubId, seasonId)
+      } else if (isCoach) {
+        // Coach sees only assigned teams
+        // We fetch all and filter client-side or use a specific service method if available
+        // Since we have assignedTeamIds, we can filter
+        const allTeams = await teamService.getTeamsByClubAndSeason(clubId, seasonId)
+        teamsData = allTeams.filter(team => assignedTeamIds.includes(team.id))
+      }
+
       console.log('[Teams Debug] Teams loaded:', teamsData)
       return teamsData
     } catch (error) {
@@ -68,8 +81,6 @@ export function Teams() {
       setLoading(false)
     }
   }
-
-
 
   const loadData = async () => {
     if (!profile?.club_id) return
@@ -222,8 +233,7 @@ export function Teams() {
     assignedTeamIds,
     assignedTeamIdsType: typeof assignedTeamIds,
     assignedTeamIdsIsArray: Array.isArray(assignedTeamIds),
-    teamsCount: teams.length,
-    roleLoading
+    teamsCount: teams.length
   })
 
   const filteredTeams = teams.filter(team => {
@@ -250,7 +260,7 @@ export function Teams() {
     teamsInList: teams.map(t => ({ id: t.id, name: t.name }))
   })
 
-  if (loading || roleLoading) {
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50 dark:bg-gray-900">
         <div className="flex flex-col items-center gap-4">

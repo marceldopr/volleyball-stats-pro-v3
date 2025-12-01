@@ -17,7 +17,7 @@ import {
 import { useState } from 'react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '@/stores/authStore'
-import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
+import { useRoleScope } from '@/hooks/useRoleScope'
 
 // Navigation item types
 interface NavItem {
@@ -33,71 +33,68 @@ interface NavSection {
   items: NavItem[]
 }
 
-// Navigation structure for Director Técnico
-const dtNavigation: NavSection[] = [
-  {
-    items: [
-      { name: 'Inicio', href: '/', icon: Home }
-    ]
-  },
-  {
-    title: 'Club',
-    items: [
-      { name: 'Jugadoras', href: '/players', icon: Users },
-      { name: 'Equipos', href: '/teams', icon: Users },
-      { name: 'Partidos', href: '/matches', icon: Trophy }
-    ]
-  },
-  {
-    title: 'Gestión',
-    items: [
-      { name: 'Planificación', href: '/reports/team-plans', icon: FileText },
-      { name: 'Informes', href: '/reports/players', icon: BarChart3 },
-      { name: 'Dashboard Club', href: '/club/dashboard', icon: BarChart3 }
-    ]
-  },
-  {
-    title: 'Administración',
-    items: [
-      { name: 'Entrenadores', href: '/coach-assignments', icon: UserCog },
-      { name: 'Configuración', href: '/settings', icon: Settings },
-      { name: 'Importar / Exportar', href: '/import-export', icon: FileText, placeholder: true },
-      { name: 'Sobre la App', href: '/about', icon: Info }
-    ]
-  }
-]
-
-// Navigation structure for Coach
-const coachNavigation: NavSection[] = [
-  {
-    items: [
-      // Home removed for coaches - landing page is now Teams
-    ]
-  },
-  {
-    title: 'Mi Gestión',
-    items: [
-      { name: 'Mis Equipos', href: '/teams', icon: Users },
-      { name: 'Próximos Partidos', href: '/matches', icon: Trophy },
-      { name: 'Últimas Evaluaciones', href: '/evaluations', icon: FileText, placeholder: true }
-    ]
-  },
-  {
-    items: [
-      { name: 'Sobre la App', href: '/about', icon: Info }
-    ]
-  }
-]
-
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   const location = useLocation()
   const navigate = useNavigate()
   const { profile, logout } = useAuthStore()
-  const { role } = useCurrentUserRole()
+  const { isDT, isCoach, role } = useRoleScope()
 
-  // Calculate display name and role label
+  // Navigation structure based on role
+  const navigation: NavSection[] = []
+
+  if (isDT) {
+    navigation.push(
+      {
+        items: [
+          { name: 'Inicio', href: '/', icon: Home }
+        ]
+      },
+      {
+        title: 'Club',
+        items: [
+          { name: 'Jugadoras', href: '/players', icon: Users },
+          { name: 'Equipos', href: '/teams', icon: Users },
+          { name: 'Partidos', href: '/matches', icon: Trophy }
+        ]
+      },
+      {
+        title: 'Gestión',
+        items: [
+          { name: 'Planificación', href: '/reports/team-plans', icon: FileText },
+          { name: 'Informes', href: '/reports/players', icon: BarChart3 },
+          { name: 'Dashboard Club', href: '/club/dashboard', icon: BarChart3 }
+        ]
+      },
+      {
+        title: 'Administración',
+        items: [
+          { name: 'Entrenadores', href: '/coach-assignments', icon: UserCog },
+          { name: 'Configuración', href: '/settings', icon: Settings },
+          { name: 'Importar / Exportar', href: '/import-export', icon: FileText, placeholder: true },
+          { name: 'Sobre la App', href: '/about', icon: Info }
+        ]
+      }
+    )
+  } else if (isCoach) {
+    navigation.push(
+      {
+        title: 'Mi Gestión',
+        items: [
+          { name: 'Mis Equipos', href: '/teams', icon: Users },
+          { name: 'Partidos', href: '/matches', icon: Trophy },
+          { name: 'Informes', href: '/reports/players', icon: BarChart3 }
+        ]
+      },
+      {
+        items: [
+          { name: 'Sobre la App', href: '/about', icon: Info }
+        ]
+      }
+    )
+  }
+
   const displayName = profile?.full_name || 'Usuario'
 
   let roleLabel = 'Usuario'
@@ -106,9 +103,7 @@ export function Sidebar() {
   if (roleStr === 'coach' || roleStr === 'entrenador') roleLabel = 'Entrenador/a'
   if (roleStr === 'admin') roleLabel = 'Administrador/a'
 
-  // Determine which navigation to use
-  const isDT = roleStr === 'dt' || roleStr === 'director_tecnic' || roleStr === 'admin'
-  const navigationSections = isDT ? dtNavigation : coachNavigation
+  const navigationSections = navigation
 
   const toggleSection = (title: string) => {
     const newExpanded = new Set(expandedSections)

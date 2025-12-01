@@ -8,7 +8,7 @@ import { useAuthStore } from '../stores/authStore'
 import { seasonService } from '../services/seasonService'
 import { teamService } from '../services/teamService'
 import { matchService } from '../services/matchService'
-import { useCurrentUserRole } from '../hooks/useCurrentUserRole'
+import { useRoleScope } from '@/hooks/useRoleScope'
 import { Plus, Calendar, Trophy, Clock, Trash2, Eye } from 'lucide-react'
 
 
@@ -19,7 +19,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
   const [matchToDelete, setMatchToDelete] = useState<any>(null)
   const { deleteMatch } = useMatchStore()
   const { profile } = useAuthStore()
-  const { isCoach, assignedTeamIds, loading: roleLoading } = useCurrentUserRole()
+  const { isCoach, assignedTeamIds, loading: roleLoading } = useRoleScope()
 
   const [currentSeason, setCurrentSeason] = useState<any>(null)
   const [availableTeams, setAvailableTeams] = useState<any[]>([])
