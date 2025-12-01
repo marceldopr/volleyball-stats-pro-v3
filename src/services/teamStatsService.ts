@@ -1,196 +1,179 @@
 import { supabase } from '@/lib/supabaseClient'
 
-export interface CurrentPhaseInfo {
-    phaseNumber: number
-    phaseName: string
-    primaryGoal: string
-    technicalPriority: string
-    kpiTarget: string
-    kpiCurrent?: number
-}
-
-export interface RecentActivity {
-    lastTraining: {
+export interface TeamHomeSummary {
+    teamId: string
+    attendance: number | null  // percentage
+    lastMatchText: string | null
+    pointsErrorRatio: number | null
+    nextEvent: {
+        type: 'match' | 'training'
+        label: string
         date: string
-        attendance: number
-        totalPlayers: number
     } | null
-    lastMatch: {
-        date: string
-        opponent: string
-        result: 'win' | 'loss' | 'draw'
-        score: string
-    } | null
-    nextMatch: {
-        date: string
-        opponent: string
-    } | null
-}
-
-export interface TeamStats {
-    attendanceAverage: number
-    pointsErrorRatio: number
-    receptionEffectiveness: number
+    alerts: Array<{
+        id: string
+        type: 'warning' | 'info'
+        message: string
+    }>
 }
 
 export const teamStatsService = {
     /**
-     * Get current phase information for a team
+     * Get comprehensive home page summary for a team
      */
-    getCurrentPhase: async (teamId: string, seasonId: string): Promise<CurrentPhaseInfo | null> => {
+    async getTeamHomeSummary(teamId: string): Promise<TeamHomeSummary> {
+        const [attendance, lastMatch, nextEvent, alerts] = await Promise.all([
+            this.getTeamAttendance(teamId, 30),
+            this.getLastMatchSummary(teamId),
+            this.getNextEvent(teamId),
+            this.getTeamAlerts(teamId)
+        ])
+
+        return {
+            teamId,
+            attendance,
+            lastMatchText: lastMatch,
+            pointsErrorRatio: null, // TODO: Implement when match stats are available
+            nextEvent,
+            alerts
+        }
+    },
+
+    /**
+     * Calculate team attendance percentage for last N days
+     */
+    async getTeamAttendance(teamId: string, days: number = 30): Promise<number | null> {
+        // TODO: Implement when training attendance tracking is available
+        // For now, return null
+        return null
+    },
+
+    /**
+     * Get summary text of last match
+     */
+    async getLastMatchSummary(teamId: string): Promise<string | null> {
         try {
-            // Get the current active phase
-            const { data: phases, error } = await supabase
-                .from('team_season_phases')
-                .select('*')
+            const { data, error } = await supabase
+                .from('matches')
+                .select('match_date, opponent_name, result, home_away')
                 .eq('team_id', teamId)
-                .eq('season_id', seasonId)
-                .order('phase_number', { ascending: false })
+                .eq('status', 'finished')
+                .order('match_date', { ascending: false })
                 .limit(1)
+                .single()
 
-            if (error) {
-                console.error('[teamStatsService] Error fetching current phase:', error)
-                return null
-            }
+            if (error || !data) return null
 
-            if (!phases || phases.length === 0) {
-                return null
-            }
+            const location = data.home_away === 'home' ? 'Local' : 'Visitante'
+            const result = data.result || 'Sin resultado'
 
-            const phase = phases[0]
-
-            return {
-                phaseNumber: phase.phase_number,
-                phaseName: phase.phase_name || `Fase ${phase.phase_number}`,
-                primaryGoal: phase.primary_goal || 'Sin objetivo definido',
-                technicalPriority: phase.technical_priorities || 'Sin prioridades definidas',
-                kpiTarget: phase.kpi_target || 'Sin KPI definido',
-                kpiCurrent: undefined // TODO: Calculate from match statistics
-            }
+            return `${location} vs ${data.opponent_name} - ${result}`
         } catch (error) {
-            console.error('[teamStatsService] Error in getCurrentPhase:', error)
+            console.error('Error fetching last match:', error)
             return null
         }
     },
 
     /**
-     * Get recent activity for a team (last training, last match, next match)
+     * Get next upcoming event (training or match)
      */
-    getRecentActivity: async (teamId: string, seasonId: string): Promise<RecentActivity> => {
+    async getNextEvent(teamId: string): Promise<TeamHomeSummary['nextEvent']> {
         try {
-            // Get last 10 matches (to find last played and next upcoming)
-            const { data: matches, error: matchesError } = await supabase
+            // Get next match
+            const { data: nextMatch } = await supabase
                 .from('matches')
-                .select('*')
+                .select('match_date, opponent_name, location, home_away')
                 .eq('team_id', teamId)
-                .eq('season_id', seasonId)
-                .order('match_date', { ascending: false })
-                .limit(10)
+                .in('status', ['planned', 'in_progress'])
+                .gte('match_date', new Date().toISOString())
+                .order('match_date', { ascending: true })
+                .limit(1)
+                .single()
 
-            if (matchesError) {
-                console.error('[teamStatsService] Error fetching matches:', matchesError)
-            }
-
-            const now = new Date()
-            const pastMatches = matches?.filter(m => new Date(m.match_date) <= now) || []
-            const futureMatches = matches?.filter(m => new Date(m.match_date) > now) || []
-
-            const lastMatch = pastMatches[0]
-            const nextMatch = futureMatches[futureMatches.length - 1] // Closest upcoming
-
-            let lastMatchInfo = null
-            if (lastMatch) {
-                // Determine result
-                let result: 'win' | 'loss' | 'draw' = 'draw'
-                let score = '-'
-
-                if (lastMatch.local_team_id === teamId) {
-                    if (lastMatch.local_score > lastMatch.visitor_score) result = 'win'
-                    else if (lastMatch.local_score < lastMatch.visitor_score) result = 'loss'
-                    score = `${lastMatch.local_score}-${lastMatch.visitor_score}`
-                } else {
-                    if (lastMatch.visitor_score > lastMatch.local_score) result = 'win'
-                    else if (lastMatch.visitor_score < lastMatch.local_score) result = 'loss'
-                    score = `${lastMatch.visitor_score}-${lastMatch.local_score}`
-                }
-
-                const opponentId = lastMatch.local_team_id === teamId ? lastMatch.visitor_team_id : lastMatch.local_team_id
-                let opponentName = 'Equipo desconocido'
-
-                if (opponentId) {
-                    // Get opponent name
-                    const { data: opponentTeam } = await supabase
-                        .from('teams')
-                        .select('name')
-                        .eq('id', opponentId)
-                        .single()
-
-                    if (opponentTeam) opponentName = opponentTeam.name
-                }
-
-                lastMatchInfo = {
-                    date: lastMatch.match_date,
-                    opponent: opponentName,
-                    result,
-                    score
-                }
-            }
-
-            let nextMatchInfo = null
             if (nextMatch) {
-                const opponentId = nextMatch.local_team_id === teamId ? nextMatch.visitor_team_id : nextMatch.local_team_id
-                let opponentName = 'Equipo desconocido'
+                const matchDate = new Date(nextMatch.match_date)
+                const dateStr = matchDate.toLocaleDateString('es-ES', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long'
+                })
+                const timeStr = matchDate.toLocaleTimeString('es-ES', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                })
+                const location = nextMatch.location || 'Por definir'
 
-                if (opponentId) {
-                    const { data: opponentTeam } = await supabase
-                        .from('teams')
-                        .select('name')
-                        .eq('id', opponentId)
-                        .single()
-
-                    if (opponentTeam) opponentName = opponentTeam.name
-                }
-
-                nextMatchInfo = {
-                    date: nextMatch.match_date,
-                    opponent: opponentName
+                return {
+                    type: 'match',
+                    label: `Partido vs ${nextMatch.opponent_name} - ${dateStr} ${timeStr} · ${location}`,
+                    date: nextMatch.match_date
                 }
             }
 
-            return {
-                lastTraining: null, // TODO: Implement when training_sessions table exists
-                lastMatch: lastMatchInfo,
-                nextMatch: nextMatchInfo
-            }
+            // TODO: Check for next training when training system is implemented
+
+            return null
         } catch (error) {
-            console.error('[teamStatsService] Error in getRecentActivity:', error)
-            return {
-                lastTraining: null,
-                lastMatch: null,
-                nextMatch: null
-            }
+            console.error('Error fetching next event:', error)
+            return null
         }
     },
 
     /**
-     * Get aggregated team statistics
+     * Get team alerts (low attendance, pending evaluations, etc.)
      */
-    getTeamStats: async (_teamId: string, _seasonId: string): Promise<TeamStats> => {
+    async getTeamAlerts(teamId: string): Promise<TeamHomeSummary['alerts']> {
+        const alerts: TeamHomeSummary['alerts'] = []
+
         try {
-            // TODO: Implement real statistics aggregation from match_statistics
-            // For now, return mock data
-            return {
-                attendanceAverage: 0,
-                pointsErrorRatio: 0,
-                receptionEffectiveness: 0
+            // Check for pending evaluations
+            const { data: evaluations } = await supabase
+                .from('player_team_season_evaluations')
+                .select('id, phase')
+                .eq('team_id', teamId)
+
+            // Check if mid-season evaluations are missing
+            const currentMonth = new Date().getMonth()
+            const isMidSeason = currentMonth >= 2 && currentMonth <= 4 // March to May
+
+            if (isMidSeason && evaluations) {
+                const hasMidEval = evaluations.some(e => e.phase === 'mid')
+                if (!hasMidEval) {
+                    alerts.push({
+                        id: 'mid-eval-pending',
+                        type: 'warning',
+                        message: 'Evaluaciones de mitad de temporada pendientes'
+                    })
+                }
             }
+
+            // Check for upcoming matches without roster
+            const { data: upcomingMatches } = await supabase
+                .from('matches')
+                .select('id, match_date, opponent_name')
+                .eq('team_id', teamId)
+                .eq('status', 'planned')
+                .gte('match_date', new Date().toISOString())
+                .lte('match_date', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString())
+                .order('match_date', { ascending: true })
+                .limit(1)
+
+            if (upcomingMatches && upcomingMatches.length > 0) {
+                const match = upcomingMatches[0]
+                const matchDate = new Date(match.match_date)
+                const daysUntil = Math.ceil((matchDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+
+                alerts.push({
+                    id: 'upcoming-match',
+                    type: 'info',
+                    message: `Partido vs ${match.opponent_name} en ${daysUntil} día${daysUntil !== 1 ? 's' : ''}`
+                })
+            }
+
         } catch (error) {
-            console.error('[teamStatsService] Error in getTeamStats:', error)
-            return {
-                attendanceAverage: 0,
-                pointsErrorRatio: 0,
-                receptionEffectiveness: 0
-            }
+            console.error('Error fetching team alerts:', error)
         }
+
+        return alerts
     }
 }

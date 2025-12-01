@@ -48,6 +48,23 @@ export const teamService = {
         return data || []
     },
 
+    // Fetch specific teams by their IDs
+    getTeamsByIds: async (teamIds: string[]): Promise<TeamDB[]> => {
+        if (!teamIds || teamIds.length === 0) return []
+
+        const { data, error } = await supabase
+            .from('teams')
+            .select('*')
+            .in('id', teamIds)
+            .order('name', { ascending: true })
+
+        if (error) {
+            console.error('Error fetching teams by IDs:', error)
+            throw error
+        }
+        return data || []
+    },
+
     // Create a new team for a club/season
     createTeam: async (team: Omit<TeamDB, 'id' | 'created_at' | 'updated_at'>): Promise<TeamDB> => {
         // 1. Fetch club to get name/acronym

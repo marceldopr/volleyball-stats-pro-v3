@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Trophy, Calendar, Clock, Loader2 } from 'lucide-react'
+import { ArrowLeft, Trophy, Calendar, Clock, Loader2, MapPin } from 'lucide-react'
 import { useMatchStore } from '../stores/matchStore'
 import { useTeamStore } from '../stores/teamStore'
 import { AccionPartido, Equipo, Match } from '../stores/matchStore'
 import { matchService } from '../services/matchService'
+import { cn } from '@/lib/utils'
 
 export function MatchAnalysis() {
   const { id } = useParams<{ id: string }>()
@@ -19,15 +20,7 @@ export function MatchAnalysis() {
     const loadMatch = async () => {
       if (!id) return
 
-      // If match exists in store and has data, use it
-      const storeMatch = matches.find(m => m.id === id)
-      if (storeMatch && storeMatch.players?.length > 0 && storeMatch.sets?.length > 0) {
-        setMatch(storeMatch)
-        setLoading(false)
-        return
-      }
-
-      // Otherwise fetch from Supabase
+      // Always fetch fresh data to ensure we have the latest stats and details
       setLoading(true)
       try {
         const fetchedMatch = await matchService.getMatchFullDetails(id)
@@ -41,7 +34,7 @@ export function MatchAnalysis() {
       }
     }
     loadMatch()
-  }, [id, matches])
+  }, [id])
 
   if (loading) {
     return (
@@ -75,29 +68,41 @@ export function MatchAnalysis() {
   const localTeamName = isHomeTeam ? myTeam?.name || 'Mi Equipo' : match.opponent
   const visitorTeamName = isHomeTeam ? match.opponent : myTeam?.name || 'Mi Equipo'
 
-  // Set ending logic (same as live): 25/15 con diferencia ≥2
-  const shouldEndSet = (setNumber: number, homeScore: number, awayScore: number): boolean => {
-    const targetScore = setNumber === 5 ? 15 : 25
-    const maxScore = Math.max(homeScore, awayScore)
-    const diff = Math.abs(homeScore - awayScore)
-    return maxScore >= targetScore && diff >= 2
+  // Determine sets won if not explicit
+  let setsWonLocal = match.setsWonLocal || 0
+  let setsWonVisitor = match.setsWonVisitor || 0
+
+  if (setsWonLocal === 0 && setsWonVisitor === 0 && match.sets.length > 0) {
+    match.sets.forEach(set => {
+      if (set.homeScore > set.awayScore) setsWonLocal++
+      if (set.awayScore > set.homeScore) setsWonVisitor++
+    })
   }
 
-  // Calcular resultado global solo a partir de sets válidos y completos
-  const setsValidos = (match.sets || []).filter(set => {
-    const totalPuntos = (set.homeScore || 0) + (set.awayScore || 0)
-    const esMarcadorValido = totalPuntos > 0 && shouldEndSet(set.number, set.homeScore, set.awayScore)
-    return set.status === 'completed' || esMarcadorValido
-  })
-
-  // If no valid sets found from scores (e.g. loaded from Supabase without scores), try to use result string
-  let finalResult = `${setsValidos.filter(s => s.homeScore > s.awayScore).length} – ${setsValidos.filter(s => s.awayScore > s.homeScore).length}`
-
-  if (setsValidos.length === 0 && match.result) {
-    finalResult = match.result
+  // If still 0-0 but we have a result string like "3-1", parse it
+  if (setsWonLocal === 0 && setsWonVisitor === 0 && match.result) {
+    const parts = match.result.split('-')
+    if (parts.length === 2) {
+      setsWonLocal = parseInt(parts[0]) || 0
+      setsWonVisitor = parseInt(parts[1]) || 0
+    }
   }
 
-  // Function to calculate action summary
+  // Action type labels for display
+  const actionLabels: Record<string, string> = {
+    'punto_saque': 'Ace',
+    'error_saque': 'Error Saque',
+    'punto_ataque': 'Ataque',
+    'ataque_bloqueado': 'Bloqueado',
+    'error_ataque': 'Error Ataque',
+    'punto_bloqueo': 'Bloqueo',
+    'error_recepcion': 'Error Recep',
+    'error_generico': 'Error',
+    'error_rival': 'Error Rival',
+    'punto_rival': 'Punto Rival'
+  }
+
+  // Calculate action summary
   const calcularResumen = (acciones: AccionPartido[]) => {
     const resumen = {
       local: {} as Record<string, number>,
@@ -106,67 +111,16 @@ export function MatchAnalysis() {
 
     for (const accion of acciones) {
       const bucket = resumen[accion.equipo as Equipo]
-      bucket[accion.tipo] = (bucket[accion.tipo] || 0) + 1
+      if (bucket) {
+        bucket[accion.tipo] = (bucket[accion.tipo] || 0) + 1
+      }
     }
 
     return resumen
   }
 
-  // Action type labels for display
-  const actionLabels: Record<string, string> = {
-    'punto_saque': 'Punto de saque',
-    'error_saque': 'Error de saque',
-    'punto_ataque': 'Punto de ataque',
-    'ataque_bloqueado': 'Ataque bloqueado',
-    'error_ataque': 'Error de ataque',
-    'punto_bloqueo': 'Punto de bloqueo',
-    'error_recepcion': 'Error de recepción',
-    'error_generico': 'Error genérico',
-    'error_rival': 'Error rival',
-    'punto_rival': 'Punto rival'
-  }
-
-  // Calculate action summary
   const resumenAcciones = calcularResumen(match.acciones || [])
   const hasActionData = match.acciones && match.acciones.length > 0
-
-  // Function to calculate player participation
-  const calcularParticipacionJugadoras = (acciones: AccionPartido[]) => {
-    const puntosJugadosPorJugadora: Record<string, number> = {}
-
-    for (const accion of acciones) {
-      if (!accion.jugadorasEnCanchaIds || accion.jugadorasEnCanchaIds.length === 0) continue
-
-      for (const playerId of accion.jugadorasEnCanchaIds) {
-        puntosJugadosPorJugadora[playerId] = (puntosJugadosPorJugadora[playerId] || 0) + 1
-      }
-    }
-
-    return puntosJugadosPorJugadora
-  }
-
-  // Calculate player participation
-  const participacionJugadoras = calcularParticipacionJugadoras(match.acciones || [])
-
-  // Calculate sets played by each player
-  const calcularSetsJugados = (acciones: AccionPartido[]) => {
-    const setsJugadosPorJugadora: Record<string, Set<number>> = {}
-
-    for (const accion of acciones) {
-      if (!accion.jugadorasEnCanchaIds || accion.jugadorasEnCanchaIds.length === 0) continue
-
-      for (const playerId of accion.jugadorasEnCanchaIds) {
-        if (!setsJugadosPorJugadora[playerId]) {
-          setsJugadosPorJugadora[playerId] = new Set<number>()
-        }
-        setsJugadosPorJugadora[playerId].add(accion.set)
-      }
-    }
-
-    return setsJugadosPorJugadora
-  }
-
-  const setsJugadosPorJugadora = calcularSetsJugados(match.acciones || [])
 
   // Calculate individual player statistics
   const calcularEstadisticasJugadora = (acciones: AccionPartido[], playerId: string) => {
@@ -211,6 +165,24 @@ export function MatchAnalysis() {
     const recepcionesPorJugadora: Record<string, number[]> = {}
     let totalRecepciones = 0
     let sumaCalificaciones = 0
+
+    // If no actions, try to use aggregated stats if available (limited accuracy for average)
+    if (!acciones || acciones.length === 0) {
+      const playerAverages = match.players
+        .filter(p => p.stats.receptions > 0)
+        .map(p => ({
+          playerId: p.playerId,
+          name: p.name,
+          receptions: p.stats.receptions,
+          average: 0 // Cannot calculate average without individual ratings
+        }))
+        .sort((a, b) => b.receptions - a.receptions)
+
+      return {
+        teamAverage: null,
+        playerAverages
+      }
+    }
 
     for (const accion of acciones) {
       // Recepciones registradas (calificaciones 1-4)
@@ -261,8 +233,8 @@ export function MatchAnalysis() {
           average: media
         }
       })
-      .filter(jugadora => jugadora.receptions > 0) // incluir jugadoras con al menos 1 recepción (incluye 0)
-      .sort((a, b) => b.average - a.average) // Sort by average (highest first)
+      .filter(jugadora => jugadora.receptions > 0)
+      .sort((a, b) => b.average - a.average)
 
     return {
       teamAverage: mediaEquipo,
@@ -270,274 +242,266 @@ export function MatchAnalysis() {
     }
   }
 
-  // For participation list, if we don't have actions, we iterate over players
-  let jugadorasConParticipacion: any[] = []
+  // Prepare player list for table
+  const jugadorasConParticipacion = match.players.map(player => {
+    const estadisticas = calcularEstadisticasJugadora(match.acciones || [], player.playerId)
 
-  if (match.acciones && match.acciones.length > 0) {
-    jugadorasConParticipacion = Object.entries(participacionJugadoras)
-      .map(([playerId, puntosJugados]) => {
-        const player = match.players.find(p => p.playerId === playerId)
-        const setsJugados = setsJugadosPorJugadora[playerId]?.size ?? 0
-        const estadisticas = calcularEstadisticasJugadora(match.acciones || [], playerId)
-        return {
-          playerId,
-          name: player?.name || 'Jugadora desconocida',
-          number: player?.number || 0,
-          position: player?.position || '',
-          puntosJugados,
-          setsJugados,
-          ...estadisticas
+    // Calculate sets played if actions available, otherwise use stats
+    let setsJugados = player.stats.sets || 0
+    if (match.acciones && match.acciones.length > 0) {
+      const sets = new Set<number>()
+      match.acciones.forEach(a => {
+        if (a.jugadorasEnCanchaIds?.includes(player.playerId)) {
+          sets.add(a.set)
         }
       })
-      .sort((a, b) => b.puntosJugados - a.puntosJugados)
-  } else {
-    // Fallback for Supabase matches without actions
-    jugadorasConParticipacion = match.players.map(player => {
-      const estadisticas = calcularEstadisticasJugadora([], player.playerId)
-      return {
-        playerId: player.playerId,
-        name: player.name,
-        number: player.number,
-        position: player.position,
-        puntosJugados: 0, // Cannot calculate without actions
-        setsJugados: player.stats.sets || 0,
-        ...estadisticas
-      }
-    }).filter(p => p.puntosAFavor > 0 || p.erroresPropios > 0 || p.setsJugados > 0) // Only show active players
-      .sort((a, b) => b.puntosAFavor - a.puntosAFavor)
-  }
+      setsJugados = sets.size
+    }
 
-  // Calculate reception statistics
+    // Calculate points played if actions available
+    let puntosJugados = 0
+    if (match.acciones && match.acciones.length > 0) {
+      match.acciones.forEach(a => {
+        if (a.jugadorasEnCanchaIds?.includes(player.playerId)) {
+          puntosJugados++
+        }
+      })
+    }
+
+    return {
+      playerId: player.playerId,
+      name: player.name,
+      number: player.number,
+      position: player.position,
+      puntosJugados, // Only accurate with actions
+      setsJugados,
+      ...estadisticas
+    }
+  })
+    .filter(p => p.puntosAFavor > 0 || p.erroresPropios > 0 || p.setsJugados > 0 || p.puntosJugados > 0)
+    .sort((a, b) => b.puntosAFavor - a.puntosAFavor)
+
   const estadisticasRecepcion = calcularEstadisticasRecepcion(match.acciones || [])
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-6">
           <button
             onClick={() => navigate('/matches')}
-            className="btn-outline flex items-center space-x-2"
+            className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Volver a la lista de partidos</span>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Volver a partidos
           </button>
-        </div>
-
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Análisis del partido</h1>
-
-          <div className="flex items-center justify-center space-x-4 text-lg mb-4">
-            <div className="text-center">
-              <div className="font-semibold">{localTeamName}</div>
+          <div className="flex items-center space-x-4 text-sm text-gray-500">
+            <div className="flex items-center">
+              <Calendar className="w-4 h-4 mr-1.5" />
+              {new Date(match.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
             </div>
-
-            <div className="text-4xl font-bold text-primary-600">
-              {finalResult}
+            <div className="flex items-center">
+              <Clock className="w-4 h-4 mr-1.5" />
+              {match.time}
             </div>
-
-            <div className="text-center">
-              <div className="font-semibold">{visitorTeamName}</div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-center space-x-4 text-sm text-gray-600">
-            <div className="flex items-center space-x-1">
-              <Calendar className="w-4 h-4" />
-              <span>{new Date(match.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <Clock className="w-4 h-4" />
-              <span>{match.time}</span>
-            </div>
-            <div className="text-gray-500">•</div>
-            <span>{match.location}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Sets Score Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-          <Trophy className="w-5 h-5 mr-2 text-yellow-500" />
-          Marcador por sets
-        </h2>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-medium text-gray-900">Set</th>
-                <th className="text-center py-3 px-4 font-medium text-gray-900">{localTeamName}</th>
-                <th className="text-center py-3 px-4 font-medium text-gray-900">{visitorTeamName}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {match.sets.map((set) => (
-                <tr key={set.id} className="border-b border-gray-100 last:border-b-0">
-                  <td className="py-3 px-4 font-medium">Set {set.number}</td>
-                  <td className="py-3 px-4 text-center font-semibold">{set.homeScore}</td>
-                  <td className="py-3 px-4 text-center font-semibold">{set.awayScore}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Actions Summary */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">
-          Resumen de acciones del partido
-        </h2>
-
-        {!hasActionData ? (
-          <div className="text-center py-8">
-            <div className="text-gray-500 mb-2">
-              No hay acciones detalladas registradas para este partido (importado de base de datos).
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Local Team Actions */}
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-3">{localTeamName}</h3>
-              <div className="space-y-2">
-                {Object.entries(resumenAcciones.local).length === 0 ? (
-                  <div className="text-gray-500 text-sm">Sin acciones registradas</div>
-                ) : (
-                  Object.entries(resumenAcciones.local).map(([tipo, count]) => (
-                    <div key={tipo} className="flex justify-between items-center py-1">
-                      <span className="text-gray-700">{actionLabels[tipo] || tipo}</span>
-                      <span className="font-semibold text-gray-900">{count}</span>
-                    </div>
-                  ))
-                )}
+            {match.location && (
+              <div className="flex items-center">
+                <MapPin className="w-4 h-4 mr-1.5" />
+                {match.location}
               </div>
-            </div>
+            )}
+          </div>
+        </div>
 
-            {/* Visitor Team Actions */}
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-3">{visitorTeamName}</h3>
-              <div className="space-y-2">
-                {Object.entries(resumenAcciones.visitante).length === 0 ? (
-                  <div className="text-gray-500 text-sm">Sin acciones registradas</div>
-                ) : (
-                  Object.entries(resumenAcciones.visitante).map(([tipo, count]) => (
-                    <div key={tipo} className="flex justify-between items-center py-1">
-                      <span className="text-gray-700">{actionLabels[tipo] || tipo}</span>
-                      <span className="font-semibold text-gray-900">{count}</span>
-                    </div>
-                  ))
-                )}
-              </div>
+        <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 py-4">
+          {/* Local Team */}
+          <div className="text-center flex-1">
+            <div className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">{localTeamName}</div>
+            <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">Local</div>
+          </div>
+
+          {/* Score */}
+          <div className="flex items-center gap-6">
+            <div className="text-5xl md:text-6xl font-bold text-primary-600 tabular-nums">
+              {setsWonLocal}
+            </div>
+            <div className="text-3xl text-gray-300 font-light">-</div>
+            <div className="text-5xl md:text-6xl font-bold text-gray-900 tabular-nums">
+              {setsWonVisitor}
             </div>
           </div>
-        )}
+
+          {/* Visitor Team */}
+          <div className="text-center flex-1">
+            <div className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">{visitorTeamName}</div>
+            <div className="text-sm font-medium text-gray-500 uppercase tracking-wider">Visitante</div>
+          </div>
+        </div>
       </div>
 
-      {/* Reception Analysis */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">
-          Análisis de recepción
-        </h2>
-
-        {!hasActionData || estadisticasRecepcion.playerAverages.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="text-gray-500 mb-2">
-              No hay datos detallados de recepción para este partido.
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: Sets & Actions */}
+        <div className="space-y-6 lg:col-span-1">
+          {/* Sets Score Table */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+              <h2 className="font-semibold text-gray-900 flex items-center">
+                <Trophy className="w-4 h-4 mr-2 text-yellow-500" />
+                Marcador por Sets
+              </h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="text-left py-3 px-4 font-medium text-gray-500">Set</th>
+                    <th className="text-center py-3 px-4 font-medium text-gray-900">{localTeamName}</th>
+                    <th className="text-center py-3 px-4 font-medium text-gray-900">{visitorTeamName}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {match.sets.map((set) => (
+                    <tr key={set.id} className="border-b border-gray-50 last:border-b-0">
+                      <td className="py-3 px-4 font-medium text-gray-500">Set {set.number}</td>
+                      <td className="py-3 px-4 text-center font-semibold">{set.homeScore}</td>
+                      <td className="py-3 px-4 text-center font-semibold">{set.awayScore}</td>
+                    </tr>
+                  ))}
+                  {match.sets.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="py-4 text-center text-gray-500 italic">
+                        No hay detalles de sets disponibles
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Team Reception Average */}
-            {estadisticasRecepcion.teamAverage !== null && (
-              <div className="bg-blue-50 rounded-lg p-4">
-                <h3 className="font-semibold text-blue-900 mb-2">Media de recepción del equipo</h3>
-                <div className="text-2xl font-bold text-blue-800">
-                  {estadisticasRecepcion.teamAverage.toFixed(2)}
+
+          {/* Actions Summary */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+              <h2 className="font-semibold text-gray-900">Resumen de Acciones</h2>
+            </div>
+
+            {!hasActionData ? (
+              <div className="p-6 text-center text-gray-500 text-sm">
+                No hay acciones detalladas registradas.
+              </div>
+            ) : (
+              <div className="p-4 grid grid-cols-2 gap-4">
+                {/* Local */}
+                <div>
+                  <div className="text-xs font-semibold text-gray-400 uppercase mb-2 text-center">{localTeamName}</div>
+                  <div className="space-y-1">
+                    {Object.entries(resumenAcciones.local).map(([tipo, count]) => (
+                      <div key={tipo} className="flex justify-between text-sm">
+                        <span className="text-gray-600">{actionLabels[tipo] || tipo}</span>
+                        <span className="font-medium text-gray-900">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Visitor */}
+                <div>
+                  <div className="text-xs font-semibold text-gray-400 uppercase mb-2 text-center">{visitorTeamName}</div>
+                  <div className="space-y-1">
+                    {Object.entries(resumenAcciones.visitante).map(([tipo, count]) => (
+                      <div key={tipo} className="flex justify-between text-sm">
+                        <span className="text-gray-600">{actionLabels[tipo] || tipo}</span>
+                        <span className="font-medium text-gray-900">{count}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
+          </div>
+        </div>
 
-            {/* Individual Player Reception Averages */}
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-3">Media de recepción por jugadora</h3>
-              <div className="space-y-2">
+        {/* Right Column: Player Stats */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Player Participation Table */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+              <h2 className="font-semibold text-gray-900">Estadísticas Individuales</h2>
+            </div>
+
+            {jugadorasConParticipacion.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                No hay estadísticas de jugadoras disponibles.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100">
+                      <th className="text-left py-3 px-4 font-medium text-gray-500">#</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-500">Jugadora</th>
+                      <th className="text-center py-3 px-2 font-medium text-gray-500">Sets</th>
+                      <th className="text-center py-3 px-2 font-medium text-green-600">Pts</th>
+                      <th className="text-center py-3 px-2 font-medium text-red-600">Err</th>
+                      <th className="text-center py-3 px-2 font-medium text-gray-900">Net</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {jugadorasConParticipacion.map((jugadora) => (
+                      <tr key={jugadora.playerId} className="border-b border-gray-50 last:border-b-0 hover:bg-gray-50/50 transition-colors">
+                        <td className="py-3 px-4 font-medium text-gray-400">{jugadora.number}</td>
+                        <td className="py-3 px-4">
+                          <div className="font-medium text-gray-900">{jugadora.name}</div>
+                          <div className="text-xs text-gray-500">{jugadora.position}</div>
+                        </td>
+                        <td className="py-3 px-2 text-center text-gray-600">{jugadora.setsJugados}</td>
+                        <td className="py-3 px-2 text-center font-bold text-green-600 bg-green-50/30">{jugadora.puntosAFavor}</td>
+                        <td className="py-3 px-2 text-center font-medium text-red-500 bg-red-50/30">{jugadora.erroresPropios}</td>
+                        <td className={cn(
+                          "py-3 px-2 text-center font-bold",
+                          (jugadora.balanceNeto || 0) > 0 ? "text-green-600" : (jugadora.balanceNeto || 0) < 0 ? "text-red-600" : "text-gray-400"
+                        )}>
+                          {(jugadora.balanceNeto || 0) > 0 ? '+' : ''}{jugadora.balanceNeto}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Reception Stats */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+              <h2 className="font-semibold text-gray-900">Rendimiento en Recepción</h2>
+              {estadisticasRecepcion.teamAverage !== null && (
+                <span className="text-sm font-medium px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                  Media Equipo: {estadisticasRecepcion.teamAverage.toFixed(2)}
+                </span>
+              )}
+            </div>
+
+            {!hasActionData || estadisticasRecepcion.playerAverages.length === 0 ? (
+              <div className="p-6 text-center text-gray-500 text-sm">
+                No hay datos detallados de recepción.
+              </div>
+            ) : (
+              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {estadisticasRecepcion.playerAverages.map((jugadora) => (
-                  <div key={jugadora.playerId} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg">
-                    <span className="text-gray-700 font-medium">
-                      {jugadora.name}
-                      <span className="text-sm text-gray-500 ml-2">({jugadora.receptions} recepciones)</span>
-                    </span>
-                    <span className="font-semibold text-gray-900">
+                  <div key={jugadora.playerId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <div>
+                      <div className="font-medium text-gray-900">{jugadora.name}</div>
+                      <div className="text-xs text-gray-500">{jugadora.receptions} recepciones</div>
+                    </div>
+                    <div className="text-lg font-bold text-gray-900">
                       {jugadora.average.toFixed(2)}
-                    </span>
+                    </div>
                   </div>
                 ))}
               </div>
-            </div>
+            )}
           </div>
-        )}
-      </div>
-
-      {/* Player Participation */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">
-          Participación por jugadora
-        </h2>
-
-        {jugadorasConParticipacion.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="text-gray-500 mb-2">
-              No hay datos de participación por jugadora para este partido.
-            </div>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Nº</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Jugadora</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-900">Rol</th>
-                  <th className="text-center py-3 px-4 font-medium text-gray-900">Sets jugados</th>
-                  <th className="text-center py-3 px-4 font-medium text-gray-900">Puntos jugados</th>
-                  <th className="text-center py-3 px-4 font-medium text-gray-900">Puntos a favor</th>
-                  <th className="text-center py-3 px-4 font-medium text-gray-900">Errores</th>
-                  <th className="text-center py-3 px-4 font-medium text-gray-900">Balance neto</th>
-                </tr>
-              </thead>
-              <tbody>
-                {jugadorasConParticipacion.map((jugadora) => (
-                  <tr key={jugadora.playerId} className="border-b border-gray-100 last:border-b-0">
-                    <td className="py-3 px-4 font-medium">{jugadora.number}</td>
-                    <td className="py-3 px-4">{jugadora.name}</td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${jugadora.position === 'S' ? 'bg-blue-100 text-blue-800' :
-                          jugadora.position === 'OH' ? 'bg-green-100 text-green-800' :
-                            jugadora.position === 'MB' ? 'bg-yellow-100 text-yellow-800' :
-                              jugadora.position === 'OPP' ? 'bg-purple-100 text-purple-800' :
-                                jugadora.position === 'L' ? 'bg-red-100 text-red-800' :
-                                  'bg-gray-100 text-gray-800'
-                        }`}>
-                        {jugadora.position}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-center font-semibold text-gray-900">{jugadora.setsJugados}</td>
-                    <td className="py-3 px-4 text-center font-semibold text-gray-900">{jugadora.puntosJugados}</td>
-                    <td className="py-3 px-4 text-center font-semibold text-green-600">{jugadora.puntosAFavor}</td>
-                    <td className="py-3 px-4 text-center font-semibold text-red-600">{jugadora.erroresPropios}</td>
-                    <td className={`py-3 px-4 text-center font-semibold ${(jugadora.balanceNeto || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                      {(jugadora.balanceNeto || 0) >= 0 ? '+' : ''}{jugadora.balanceNeto}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   )

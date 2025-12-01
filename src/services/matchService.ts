@@ -98,7 +98,8 @@ export const matchService = {
                         id,
                         first_name,
                         last_name,
-                        main_position
+                        main_position,
+                        jersey_number
                     )
                 `)
                 .eq('match_id', id)
@@ -108,7 +109,7 @@ export const matchService = {
                 console.error('Error fetching convocations:', convocationError)
             }
 
-            // 3. Get jersey numbers from player_team_season
+            // 3. Get jersey numbers from player_team_season (fallback if not in club_players)
             const { data: rosterData } = await supabase
                 .from('player_team_season')
                 .select('player_id, jersey_number')
@@ -155,44 +156,87 @@ export const matchService = {
                 return {
                     playerId: conv.player_id,
                     name: `${conv.club_players.first_name} ${conv.club_players.last_name}`,
-                    number: parseInt(jerseyMap[conv.player_id] || '0'),
+                    number: parseInt(jerseyMap[conv.player_id] || conv.club_players.jersey_number || '0'),
                     position: conv.role_in_match || conv.club_players.main_position || '?',
                     starter: false, // Cannot determine from current schema easily, would need starters table
                     stats: aggregatedStats
                 }
             })
 
-            // Reconstruct sets (basic info only as we don't store set scores yet)
-            const maxSet = (statsData || []).reduce((max: number, s: any) => Math.max(max, s.set_number), 0)
-            const sets: Set[] = []
-            for (let i = 1; i <= maxSet; i++) {
-                sets.push({
-                    id: `set-${i}`,
-                    number: i,
-                    homeScore: 0, // Unknown
-                    awayScore: 0, // Unknown
-                    status: 'completed'
-                })
+            // Reconstruct sets
+            let sets: Set[] = []
+
+            // Try to get sets from match_sets table if it existed (it doesn't yet), so we rely on stats or result string
+            // First, try to infer from stats
+            const maxSetFromStats = (statsData || []).reduce((max: number, s: any) => Math.max(max, s.set_number), 0)
+
+            if (maxSetFromStats > 0) {
+                for (let i = 1; i <= maxSetFromStats; i++) {
+                    // Calculate score from actions if available, otherwise unknown
+                    // For now, we don't have per-set score in DB unless we parse actions or add a sets table
+                    // We'll leave scores as 0 unless we can parse them from result or actions
+                    sets.push({
+                        id: `set-${i}`,
+                        number: i,
+                        homeScore: 0,
+                        awayScore: 0,
+                        status: 'completed'
+                    })
+                }
             }
 
-            // If no sets found but match is finished, try to parse result string?
-            // "3-0" -> 3 sets.
+            // If no sets from stats (imported match), try to parse result string
+            // Expected format: "3-1 (25-20, 20-25, 25-15, 25-18)" or just "3-0"
             if (sets.length === 0 && matchData.result) {
-                // Simple parsing for "3-0", "3-1", etc.
-                const parts = matchData.result.split('-')
-                if (parts.length === 2) {
-                    const homeSets = parseInt(parts[0])
-                    const awaySets = parseInt(parts[1])
-                    const totalSets = homeSets + awaySets
-                    for (let i = 1; i <= totalSets; i++) {
-                        sets.push({
-                            id: `set-${i}`,
-                            number: i,
-                            homeScore: 0,
-                            awayScore: 0,
-                            status: 'completed'
-                        })
+                const resultStr = matchData.result.trim()
+
+                // Check for detailed scores in parenthesis
+                const detailedMatch = resultStr.match(/\((.*?)\)/)
+                if (detailedMatch) {
+                    const setScoresStr = detailedMatch[1] // "25-20, 20-25, ..."
+                    const setScores = setScoresStr.split(',').map(s => s.trim())
+
+                    setScores.forEach((score, index) => {
+                        const [home, away] = score.split('-').map(s => parseInt(s.trim()))
+                        if (!isNaN(home) && !isNaN(away)) {
+                            sets.push({
+                                id: `set-${index + 1}`,
+                                number: index + 1,
+                                homeScore: home,
+                                awayScore: away,
+                                status: 'completed'
+                            })
+                        }
+                    })
+                } else {
+                    // Simple result "3-0"
+                    const parts = resultStr.split('-')
+                    if (parts.length >= 2) {
+                        const homeSets = parseInt(parts[0])
+                        const awaySets = parseInt(parts[1])
+                        if (!isNaN(homeSets) && !isNaN(awaySets)) {
+                            const totalSets = homeSets + awaySets
+                            for (let i = 1; i <= totalSets; i++) {
+                                sets.push({
+                                    id: `set-${i}`,
+                                    number: i,
+                                    homeScore: 0, // Unknown score
+                                    awayScore: 0, // Unknown score
+                                    status: 'completed'
+                                })
+                            }
+                        }
                     }
+                }
+            }
+
+            // Determine winner/loser sets for simple result if detailed scores missing
+            if (sets.length > 0 && sets[0].homeScore === 0 && sets[0].awayScore === 0 && matchData.result) {
+                const parts = matchData.result.split('-')
+                if (parts.length >= 2) {
+                    const homeSetsWon = parseInt(parts[0])
+                    // We can't know which sets were won without detailed scores, 
+                    // but we can at least show the set count.
                 }
             }
 
@@ -201,7 +245,7 @@ export const matchService = {
                 dbMatchId: matchData.id,
                 opponent: matchData.opponent_name,
                 date: matchData.match_date,
-                time: new Date(matchData.match_date).toLocaleTimeString(),
+                time: new Date(matchData.match_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 location: matchData.location || '',
                 status: matchData.status === 'planned' ? 'upcoming' : matchData.status === 'in_progress' ? 'live' : matchData.status === 'finished' ? 'completed' : 'upcoming',
                 result: matchData.result || undefined,
@@ -210,11 +254,11 @@ export const matchService = {
                 teamSide: matchData.home_away === 'home' ? 'local' : 'visitante',
                 sets: sets,
                 players: players,
-                currentSet: maxSet || 1,
+                currentSet: sets.length || 1,
                 setsWonLocal: 0, // Would need to parse result
-                setsWonVisitor: 0, // Would need to parse result
+                setsWonVisitor: 0, // Calculated in UI or helper
                 sacadorInicialSet1: null,
-                acciones: matchData.actions || [], // Load actions from actions column
+                acciones: matchData.actions || [],
                 createdAt: matchData.created_at,
                 updatedAt: matchData.updated_at
             }

@@ -80,6 +80,11 @@ export function Sidebar() {
   } else if (isCoach) {
     navigation.push(
       {
+        items: [
+          { name: 'Inicio', href: '/', icon: Home }
+        ]
+      },
+      {
         title: 'Mi Gestión',
         items: [
           { name: 'Mis Equipos', href: '/teams', icon: Users },
