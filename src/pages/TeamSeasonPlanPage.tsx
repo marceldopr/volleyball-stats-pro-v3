@@ -15,7 +15,7 @@ export function TeamSeasonPlanPage() {
     const { teamId } = useParams<{ teamId: string }>()
     const navigate = useNavigate()
     const { profile } = useAuthStore()
-    const { isDT, isCoach, assignedTeamIds } = useCurrentUserRole()
+    const { isDT, isCoach, assignedTeamIds, loading: roleLoading } = useCurrentUserRole()
 
     const [loading, setLoading] = useState(true)
     const [team, setTeam] = useState<any>(null)
@@ -28,8 +28,7 @@ export function TeamSeasonPlanPage() {
     const [evaluationModalOpen, setEvaluationModalOpen] = useState(false)
     const [selectedPhaseForEvaluation, setSelectedPhaseForEvaluation] = useState<TeamSeasonPhaseDB | null>(null)
 
-    // Check permissions
-    const canEdit = isDT || (isCoach && teamId && assignedTeamIds.includes(teamId))
+
 
     useEffect(() => {
         const fetchData = async () => {
@@ -69,13 +68,6 @@ export function TeamSeasonPlanPage() {
                 }
                 setTeam(teamData)
 
-                // Check permissions
-                if (!isDT && (!isCoach || !assignedTeamIds.includes(teamId))) {
-                    toast.error('No tienes permisos para ver este equipo')
-                    navigate('/teams')
-                    return
-                }
-
                 // Get team season context
                 const teamContext = await teamSeasonContextService.getContextByTeamAndSeason(teamId, season.id)
                 setContext(teamContext)
@@ -106,7 +98,7 @@ export function TeamSeasonPlanPage() {
         }
 
         fetchData()
-    }, [profile?.club_id, teamId, isDT, isCoach, assignedTeamIds, navigate])
+    }, [profile?.club_id, teamId, isDT, isCoach, assignedTeamIds, roleLoading, navigate])
 
     const handleEditPhase = (phase: TeamSeasonPhaseDB) => {
         setEditingPhase({ ...phase })
@@ -231,7 +223,7 @@ export function TeamSeasonPlanPage() {
         )
     }
 
-    if (loading) {
+    if (loading || roleLoading) {
         return (
             <div className="flex items-center justify-center h-screen bg-gray-50">
                 <div className="flex flex-col items-center gap-4">
@@ -241,6 +233,21 @@ export function TeamSeasonPlanPage() {
             </div>
         )
     }
+
+    // Calculate permissions after role data is loaded
+    const canViewPlan = isDT || (isCoach && teamId && assignedTeamIds.includes(teamId))
+    const canEditContent = isDT || (isCoach && teamId && assignedTeamIds.includes(teamId))
+    const canEvaluate = isDT // Only DT can evaluate phases
+
+    console.log('[TeamSeasonPlanPage] Render permissions:', {
+        canViewPlan,
+        canEditContent,
+        canEvaluate,
+        isDT,
+        isCoach,
+        assignedTeamIds,
+        teamId
+    })
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -469,13 +476,16 @@ export function TeamSeasonPlanPage() {
                                                     <FileCheck2 className="w-5 h-5 text-purple-600" />
                                                     <h4 className="font-semibold text-gray-900">Evaluación de la Fase</h4>
                                                 </div>
-                                                {canEdit && (
+                                                {canEvaluate && (
                                                     <button
                                                         onClick={() => handleOpenEvaluationModal(phase)}
                                                         className="btn-secondary text-sm"
                                                     >
-                                                        {evaluation ? 'Ver Evaluación' : 'Evaluar Fase'}
+                                                        {evaluation ? 'Ver/Editar Evaluación' : 'Evaluar Fase'}
                                                     </button>
+                                                )}
+                                                {!canEvaluate && (
+                                                    <p className="text-sm text-gray-500 italic">Solo Dirección Técnica puede evaluar fases</p>
                                                 )}
                                             </div>
                                             {evaluation ? (
@@ -505,7 +515,7 @@ export function TeamSeasonPlanPage() {
                                     )}
 
                                     {/* Edit/Save Buttons */}
-                                    {canEdit && (
+                                    {canEditContent && (
                                         <div className="flex gap-2 pt-4 border-t border-gray-200">
                                             {isEditing ? (
                                                 <>
@@ -530,7 +540,7 @@ export function TeamSeasonPlanPage() {
                     )
                 })}
 
-                {!canEdit && (
+                {!canEditContent && (
                     <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                         <p className="text-sm text-yellow-800">
                             Solo puedes ver esta planificación. No tienes permisos para editarla.
