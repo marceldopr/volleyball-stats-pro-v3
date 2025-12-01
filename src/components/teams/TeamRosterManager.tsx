@@ -6,6 +6,9 @@ import { TeamDB } from '@/services/teamService'
 import { SeasonDB } from '@/services/seasonService'
 import { playerService, PlayerDB } from '@/services/playerService'
 import { playerTeamSeasonService, PlayerTeamSeasonDB } from '@/services/playerTeamSeasonService'
+import { playerEvaluationService, PlayerEvaluationDB, PlayerEvaluationInput } from '@/services/playerEvaluationService'
+import { EvaluationChips } from './EvaluationChips'
+import { PlayerEvaluationModal } from './PlayerEvaluationModal'
 import { toast } from 'sonner'
 import { POSITION_NAMES } from '@/constants'
 import { getCategoryStageFromBirthDate, getStageIndex } from '@/utils/categoryStage'
@@ -18,12 +21,23 @@ interface TeamRosterManagerProps {
 
 interface RosterItem extends PlayerTeamSeasonDB {
     player?: PlayerDB
+    evaluations?: {
+        start?: PlayerEvaluationDB
+        mid?: PlayerEvaluationDB
+        end?: PlayerEvaluationDB
+    }
 }
 
 export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerProps) {
     const { profile } = useAuthStore()
-    const { isCoach } = useCurrentUserRole()
-    const isReadOnly = isCoach
+    const { isDT, isAdmin, isCoach, assignedTeamIds } = useCurrentUserRole()
+
+    // Permission logic
+    const canEditAllFields = isDT || isAdmin
+    const canEditLimitedFields = isCoach && assignedTeamIds.includes(team.id)
+    const canEditEvaluations = canEditAllFields || canEditLimitedFields
+    const isReadOnly = !canEditAllFields && !canEditLimitedFields
+
     const [roster, setRoster] = useState<RosterItem[]>([])
     const [loading, setLoading] = useState(true)
 
@@ -41,6 +55,12 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
     })
     const [adding, setAdding] = useState(false)
 
+    // Evaluation Modal State
+    const [evaluationModalOpen, setEvaluationModalOpen] = useState(false)
+    const [selectedPlayer, setSelectedPlayer] = useState<PlayerDB | null>(null)
+    const [selectedEvaluationType, setSelectedEvaluationType] = useState<'start' | 'mid' | 'end'>('start')
+    const [selectedEvaluation, setSelectedEvaluation] = useState<PlayerEvaluationDB | null>(null)
+
     useEffect(() => {
         loadRoster()
     }, [team.id, season.id])
@@ -55,11 +75,24 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
             // 2. Get all players to map names (optimization: could fetch only needed IDs, but for now fetch all active)
             const allPlayers = await playerService.getPlayersByClub(profile.club_id)
 
-            // 3. Merge data
-            const fullRoster = rosterData.map(item => ({
-                ...item,
-                player: allPlayers.find(p => p.id === item.player_id)
-            }))
+            // 3. Get all evaluations for this team/season
+            const evaluations = await playerEvaluationService.getEvaluationsByTeamSeason(team.id, season.id)
+
+            // 4. Merge data
+            const fullRoster = rosterData.map(item => {
+                const player = allPlayers.find(p => p.id === item.player_id)
+                const playerEvals = evaluations.filter(e => e.player_id === item.player_id)
+
+                return {
+                    ...item,
+                    player,
+                    evaluations: {
+                        start: playerEvals.find(e => e.evaluation_type === 'start'),
+                        mid: playerEvals.find(e => e.evaluation_type === 'mid'),
+                        end: playerEvals.find(e => e.evaluation_type === 'end')
+                    }
+                }
+            })
 
             setRoster(fullRoster)
             setAvailablePlayers(allPlayers)
@@ -138,6 +171,25 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
         }
     }
 
+    const handleEvaluationClick = (player: PlayerDB, type: 'start' | 'mid' | 'end', existingEvaluation?: PlayerEvaluationDB) => {
+        setSelectedPlayer(player)
+        setSelectedEvaluationType(type)
+        setSelectedEvaluation(existingEvaluation || null)
+        setEvaluationModalOpen(true)
+    }
+
+    const handleSaveEvaluation = async (data: PlayerEvaluationInput) => {
+        try {
+            await playerEvaluationService.upsertEvaluation(data)
+            toast.success('Evaluación guardada correctamente')
+            loadRoster() // Reload to show updated chips
+        } catch (error) {
+            console.error('Error saving evaluation:', error)
+            toast.error('Error al guardar la evaluación')
+            throw error
+        }
+    }
+
     // Filter available players
     const filteredAvailablePlayers = availablePlayers
         .filter(p => !roster.some(r => r.player_id === p.id))
@@ -199,7 +251,8 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Posición</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                                    {!isReadOnly && (
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Evaluación</th>
+                                    {canEditAllFields && (
                                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
                                     )}
                                 </tr>
@@ -227,7 +280,20 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                                 {item.status === 'active' ? 'Activa' : item.status}
                                             </span>
                                         </td>
-                                        {!isReadOnly && (
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            {item.player && item.evaluations && (
+                                                <EvaluationChips
+                                                    evaluations={item.evaluations}
+                                                    onChipClick={(type) => handleEvaluationClick(
+                                                        item.player!,
+                                                        type,
+                                                        item.evaluations![type]
+                                                    )}
+                                                    canEdit={canEditEvaluations}
+                                                />
+                                            )}
+                                        </td>
+                                        {canEditAllFields && (
                                             <td className="px-6 py-4 whitespace-nowrap text-right">
                                                 <button
                                                     onClick={() => handleRemovePlayer(item.id)}
@@ -242,7 +308,7 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                 ))}
                                 {roster.length === 0 && (
                                     <tr>
-                                        <td colSpan={isReadOnly ? 4 : 5} className="px-6 py-12 text-center text-gray-500">
+                                        <td colSpan={canEditAllFields ? 6 : 5} className="px-6 py-12 text-center text-gray-500">
                                             No hay jugadoras en este equipo todavía.
                                         </td>
                                     </tr>
@@ -370,6 +436,24 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                         </form>
                     </div>
                 </div>
+            )}
+
+            {/* Evaluation Modal */}
+            {selectedPlayer && (
+                <PlayerEvaluationModal
+                    isOpen={evaluationModalOpen}
+                    onClose={() => {
+                        setEvaluationModalOpen(false)
+                        setSelectedPlayer(null)
+                        setSelectedEvaluation(null)
+                    }}
+                    player={selectedPlayer}
+                    team={team}
+                    season={season}
+                    evaluationType={selectedEvaluationType}
+                    existingEvaluation={selectedEvaluation}
+                    onSave={handleSaveEvaluation}
+                />
             )}
         </div>
     )
