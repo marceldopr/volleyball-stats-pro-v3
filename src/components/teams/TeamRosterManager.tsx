@@ -7,6 +7,7 @@ import { SeasonDB } from '@/services/seasonService'
 import { playerService, PlayerDB } from '@/services/playerService'
 import { playerTeamSeasonService, PlayerTeamSeasonDB } from '@/services/playerTeamSeasonService'
 import { playerEvaluationService, PlayerEvaluationDB, PlayerEvaluationInput } from '@/services/playerEvaluationService'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { EvaluationChips } from './EvaluationChips'
 import { PlayerEvaluationModal } from './PlayerEvaluationModal'
 import { toast } from 'sonner'
@@ -208,7 +209,7 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
             <div className="p-6 border-b border-gray-200 flex justify-between items-center flex-shrink-0">
                 <div>
                     <div className="flex items-center gap-2">
-                        <h2 className="text-xl font-bold text-gray-900">Plantilla: {team.name}</h2>
+                        <h2 className="text-xl font-bold text-gray-900">Plantilla: {getTeamDisplayName(team)}</h2>
                         {isReadOnly && (
                             <span className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
                                 <Eye className="w-3 h-3" />

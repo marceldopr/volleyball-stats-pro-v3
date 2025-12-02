@@ -9,6 +9,7 @@ import { TeamRosterManager } from '@/components/teams/TeamRosterManager'
 import { TeamSeasonContext } from '@/pages/TeamSeasonContext'
 import { TeamSeasonPlanPage } from '@/pages/TeamSeasonPlanPage'
 import { Matches } from '@/pages/Matches'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
 
@@ -96,7 +97,7 @@ export function TeamDashboardPage() {
                         </button>
                         <div>
                             <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                {team.name}
+                                {getTeamDisplayName(team)}
                                 <span className="text-sm font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full">
                                     {team.category_stage}
                                 </span>

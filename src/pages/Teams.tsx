@@ -7,6 +7,7 @@ import { teamService, TeamDB } from '@/services/teamService'
 import { clubService, ClubDB } from '@/services/clubService'
 import { TeamRosterManager } from '@/components/teams/TeamRosterManager'
 import { useRoleScope } from '@/hooks/useRoleScope'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { toast } from 'sonner'
 import { CoachTeamCard } from '@/components/teams/CoachTeamCard'
 
@@ -519,7 +520,7 @@ export function Teams() {
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {team.name}
+                            {getTeamDisplayName(team)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">

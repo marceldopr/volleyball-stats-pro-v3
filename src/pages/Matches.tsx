@@ -9,6 +9,7 @@ import { seasonService } from '../services/seasonService'
 import { teamService } from '../services/teamService'
 import { matchService } from '../services/matchService'
 import { useRoleScope } from '@/hooks/useRoleScope'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { Plus, Calendar, Trophy, Clock, Trash2, Eye } from 'lucide-react'
 
 
@@ -70,7 +71,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
 
   // Map team IDs to names for quick lookup
   const teamMap = availableTeams.reduce((acc, team) => {
-    acc[team.id] = team.name
+    acc[team.id] = getTeamDisplayName(team)
     return acc
   }, {} as Record<string, string>)
 

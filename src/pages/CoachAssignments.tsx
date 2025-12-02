@@ -6,6 +6,7 @@ import { coachAssignmentService, CoachWithAssignments } from '@/services/coachAs
 import { teamService, TeamDB } from '@/services/teamService'
 import { seasonService, SeasonDB } from '@/services/seasonService'
 import { toast } from 'sonner'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { useNavigate } from 'react-router-dom'
 
 export function CoachAssignments() {
@@ -245,7 +246,7 @@ export function CoachAssignments() {
                                     <option value="">-- Selecciona --</option>
                                     {getAvailableTeamsForCoach(selectedCoachId).map(team => (
                                         <option key={team.id} value={team.id}>
-                                            {team.name}
+                                            {getTeamDisplayName(team)}
                                         </option>
                                     ))}
                                 </select>

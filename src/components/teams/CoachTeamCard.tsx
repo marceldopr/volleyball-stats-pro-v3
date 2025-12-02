@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { TeamDB } from '@/services/teamService'
 import { teamStatsService, CurrentPhaseInfo, RecentActivity } from '@/services/teamStatsService'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -63,7 +64,7 @@ export function CoachTeamCard({ team, seasonId, onClick }: CoachTeamCardProps) {
             <div className="p-5 border-b border-gray-100 dark:border-gray-700/50">
                 <div className="flex justify-between items-start mb-2">
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors line-clamp-1">
-                        {team.name}
+                        {getTeamDisplayName(team)}
                     </h3>
                     <span className={clsx(
                         "text-xs font-medium px-2 py-0.5 rounded-full",

@@ -6,6 +6,7 @@ import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 import { teamService, TeamDB } from '@/services/teamService'
 import { teamSeasonPlanService } from '@/services/teamSeasonPlanService'
 import { seasonService } from '@/services/seasonService'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { toast } from 'sonner'
 
 export function TeamPlansListPage() {
@@ -182,7 +183,7 @@ export function TeamPlansListPage() {
                                         >
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm font-medium text-gray-100 dark:text-white">
-                                                    {team.name}
+                                                    {getTeamDisplayName(team)}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">

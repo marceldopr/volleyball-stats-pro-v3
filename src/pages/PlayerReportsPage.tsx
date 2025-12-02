@@ -7,6 +7,7 @@ import { playerReportService, PlayerReportWithDetails } from '@/services/playerR
 import { seasonService } from '@/services/seasonService'
 import { teamService } from '@/services/teamService'
 import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { toast } from 'sonner'
 
 export function PlayerReportsPage() {
@@ -232,7 +233,7 @@ export function PlayerReportsPage() {
                                 <option value="">Todos los equipos</option>
                                 {availableTeams.map((team) => (
                                     <option key={team.id} value={team.id}>
-                                        {team.name}
+                                        {getTeamDisplayName(team)}
                                     </option>
                                 ))}
                             </select>

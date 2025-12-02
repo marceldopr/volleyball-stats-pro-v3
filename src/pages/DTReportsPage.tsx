@@ -6,6 +6,7 @@ import { seasonService } from '@/services/seasonService'
 import { teamService } from '@/services/teamService'
 import { PlayerEvaluationModal } from '@/components/teams/PlayerEvaluationModal'
 import { useRoleScope } from '@/hooks/useRoleScope'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { toast } from 'sonner'
 
 const PHASE_LABELS = {
@@ -228,7 +229,7 @@ export function DTReportsPage() {
                                 <option value="">Todos los equipos</option>
                                 {teams.map((team) => (
                                     <option key={team.id} value={team.id}>
-                                        {team.name}
+                                        {getTeamDisplayName(team)}
                                     </option>
                                 ))}
                             </select>
@@ -304,7 +305,7 @@ export function DTReportsPage() {
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm text-gray-500 dark:text-gray-400">
                                                     {/* @ts-ignore */}
-                                                    {evaluation.team?.name}
+                                                    {evaluation.team ? getTeamDisplayName(evaluation.team) : '-'}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">

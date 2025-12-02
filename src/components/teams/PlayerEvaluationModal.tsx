@@ -4,6 +4,7 @@ import type { PlayerDB } from '@/services/playerService'
 import type { TeamDB } from '@/services/teamService'
 import type { SeasonDB } from '@/services/seasonService'
 import type { PlayerEvaluationDB, PlayerEvaluationInput } from '@/services/playerEvaluationService'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { RatingInput } from './RatingInput'
 
 interface PlayerEvaluationModalProps {
@@ -125,7 +126,7 @@ export function PlayerEvaluationModal({
                                 {isViewMode ? 'Ver Evaluación' : 'Evaluación'}: {PHASE_LABELS[phase]}
                             </h2>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                {player.first_name} {player.last_name} • {team.name} • {season.name}
+                                {player.first_name} {player.last_name} • {getTeamDisplayName(team)} • {season.name}
                             </p>
                         </div>
                     </div>

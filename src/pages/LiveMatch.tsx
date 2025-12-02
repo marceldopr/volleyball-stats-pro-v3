@@ -6,6 +6,7 @@ import { MatchWizard } from '../components/MatchWizard'
 
 import { seasonService } from '../services/seasonService'
 import { teamService } from '../services/teamService'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 
 
 export function LiveMatch() {
@@ -61,7 +62,7 @@ export function LiveMatch() {
       <div className="p-4 bg-gray-100 border-b">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
           <div className="text-lg font-medium text-gray-800">
-            {team ? `Equipo: ${team.name}` : 'Equipo: —'}
+            {team ? `Equipo: ${getTeamDisplayName(team)}` : 'Equipo: —'}
           </div>
           <div className="text-sm text-gray-600">
             {season ? `Temporada: ${season.name}` : 'Temporada: —'}
@@ -77,7 +78,7 @@ export function LiveMatch() {
           setWizardStep(step)
           setShowWizard(true)
         }}
-        teamName={team?.name}
+        teamName={team ? getTeamDisplayName(team) : undefined}
       />
 
       {showWizard && (

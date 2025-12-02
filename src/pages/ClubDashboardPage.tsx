@@ -7,6 +7,7 @@ import { teamService, TeamDB } from '@/services/teamService'
 import { seasonService, SeasonDB } from '@/services/seasonService'
 import { teamSeasonPhaseService, TeamSeasonPhaseDB } from '@/services/teamSeasonPhaseService'
 import { phaseEvaluationService, PhaseEvaluationDB } from '@/services/phaseEvaluationService'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { toast } from 'sonner'
 
 interface TeamWithPhases {
@@ -190,7 +191,7 @@ export function ClubDashboardPage() {
                                 <tr key={team.id} className="hover:bg-slate-700/30 dark:hover:bg-slate-700/30 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex flex-col">
-                                            <span className="font-medium text-gray-100 dark:text-white">{team.name}</span>
+                                            <span className="font-medium text-gray-100 dark:text-white">{getTeamDisplayName(team)}</span>
                                             <span className="text-xs text-gray-400 dark:text-gray-400">{team.category_stage}</span>
                                         </div>
                                     </td>

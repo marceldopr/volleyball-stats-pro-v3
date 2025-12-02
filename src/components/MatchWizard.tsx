@@ -8,6 +8,7 @@ import { teamService } from '../services/teamService'
 import { playerTeamSeasonService } from '../services/playerTeamSeasonService'
 import { matchService } from '../services/matchService'
 import { matchConvocationService } from '../services/matchConvocationService'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { LiberoValidationModal } from './LiberoValidationModal'
 import { POSITION_NAMES } from '@/constants'
 
@@ -419,7 +420,7 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
                     <option value="">Selecciona un equipo...</option>
                     {availableTeams.map(team => (
                       <option key={team.id} value={team.id}>
-                        {team.name} ({team.player_team_season?.length || 0} jugadoras)
+                        {getTeamDisplayName(team)} ({team.player_team_season?.length || 0} jugadoras)
                       </option>
                     ))}
                   </select>
@@ -492,7 +493,7 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
                 <h3 className="text-lg font-semibold text-gray-900">¿Quién saca primero?</h3>
                 <div className="space-y-3">
                   <button onClick={() => handleServeSelection(true)} className={`w-full py-3 px-4 rounded-xl font-bold transition-all ${data.sacadorInicialSet1 === (data.teamSide === 'local' ? 'local' : 'visitor') ? 'bg-primary-600 text-white shadow-md transform scale-[1.02]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                    {selectedTeam.name}
+                    {getTeamDisplayName(selectedTeam)}
                   </button>
                   <button onClick={() => handleServeSelection(false)} className={`w-full py-3 px-4 rounded-xl font-bold transition-all ${data.sacadorInicialSet1 === (data.teamSide === 'local' ? 'visitor' : 'local') ? 'bg-primary-600 text-white shadow-md transform scale-[1.02]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
                     {data.opponent || 'Equipo Rival'}
