@@ -12,7 +12,7 @@
  */
 export function getTeamDisplayName(team: {
     category_stage?: string
-    team_suffix?: string | null
+    name?: string
     gender?: string
 }): string {
     const parts: string[] = []
@@ -22,17 +22,18 @@ export function getTeamDisplayName(team: {
         parts.push(team.category_stage)
     }
 
-    // Add identifier/suffix (e.g., "Verd", "A", "B")
-    if (team.team_suffix) {
-        parts.push(team.team_suffix)
+    // Add identifier (e.g., "Verd", "A", "B", "Taronja")
+    // This is stored in team.name field
+    if (team.name) {
+        parts.push(team.name)
     }
 
     // Add gender (e.g., "Masculí", "Femení")
     if (team.gender) {
         const genderMap: Record<string, string> = {
-            'male': 'Masculí',
-            'female': 'Femení',
-            'mixed': 'Mixt'
+            'male': 'Masculino',
+            'female': 'Femenino',
+            'mixed': 'Mixto'
         }
         const genderDisplay = genderMap[team.gender] || team.gender
         parts.push(genderDisplay)
@@ -50,7 +51,7 @@ export function getTeamDisplayName(team: {
  */
 export function getTeamShortDisplayName(team: {
     category_stage?: string
-    team_suffix?: string | null
+    name?: string
 }): string {
     const parts: string[] = []
 
@@ -58,8 +59,8 @@ export function getTeamShortDisplayName(team: {
         parts.push(team.category_stage)
     }
 
-    if (team.team_suffix) {
-        parts.push(team.team_suffix)
+    if (team.name) {
+        parts.push(team.name)
     }
 
     return parts.join(' ')

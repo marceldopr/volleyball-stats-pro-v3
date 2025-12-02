@@ -233,5 +233,38 @@ export const coachAssignmentService = {
 
     deleteAssignment: async (id: string): Promise<void> => {
         return coachAssignmentService.removeCoachAssignment(id)
+    },
+
+    /**
+     * Get the primary coach name for a team in a season
+     * @param teamId - The team ID
+     * @param seasonId - The season ID
+     * @returns Coach full name or null if no coach assigned
+     */
+    getPrimaryCoachForTeam: async (teamId: string, seasonId: string): Promise<string | null> => {
+        // Get assignment for this team
+        const { data: assignments, error: assignmentError } = await supabase
+            .from('coach_team_assignments')
+            .select('user_id')
+            .eq('team_id', teamId)
+            .eq('season_id', seasonId)
+            .limit(1)
+
+        if (assignmentError || !assignments || assignments.length === 0) {
+            return null
+        }
+
+        // Get coach profile
+        const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', assignments[0].user_id)
+            .single()
+
+        if (profileError || !profile) {
+            return null
+        }
+
+        return profile.full_name
     }
 }

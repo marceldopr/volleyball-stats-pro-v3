@@ -10,6 +10,16 @@ import { useRoleScope } from '@/hooks/useRoleScope'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { toast } from 'sonner'
 import { CoachTeamCard } from '@/components/teams/CoachTeamCard'
+import { coachAssignmentService } from '@/services/coachAssignmentService'
+import { teamStatsService } from '@/services/teamStatsService'
+
+interface EnrichedTeam extends TeamDB {
+  coach_name?: string | null
+  active_players_count?: number
+  attendance_30d?: number | null
+  wins?: number
+  losses?: number
+}
 
 export function Teams() {
   const { profile } = useAuthStore()
@@ -18,7 +28,7 @@ export function Teams() {
 
   // State
   const [currentSeason, setCurrentSeason] = useState<SeasonDB | null>(null)
-  const [teams, setTeams] = useState<TeamDB[]>([])
+  const [teams, setTeams] = useState<EnrichedTeam[]>([])
   const [club, setClub] = useState<ClubDB | null>(null)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -66,14 +76,32 @@ export function Teams() {
         teamsData = await teamService.getTeamsByClubAndSeason(clubId, seasonId)
       } else if (isCoach) {
         // Coach sees only assigned teams
-        // We fetch all and filter client-side or use a specific service method if available
-        // Since we have assignedTeamIds, we can filter
         const allTeams = await teamService.getTeamsByClubAndSeason(clubId, seasonId)
         teamsData = allTeams.filter(team => assignedTeamIds.includes(team.id))
       }
 
-      console.log('[Teams Debug] Teams loaded:', teamsData)
-      return teamsData
+      // Enriched teams with operational data
+      const enrichedTeams = await Promise.all(
+        teamsData.map(async (team) => {
+          const [coachName, activePlayers, attendance, winLoss] = await Promise.all([
+            coachAssignmentService.getPrimaryCoachForTeam(team.id, seasonId),
+            teamStatsService.getActivePlayersCount(team.id, seasonId),
+            teamStatsService.getAttendanceLast30Days(team.id, seasonId),
+            teamStatsService.getWinLossRecord(team.id, seasonId)
+          ])
+
+          return {
+            ...team,
+            coach_name: coachName,
+            active_players_count: activePlayers,
+            attendance_30d: attendance,
+            ...winLoss
+          }
+        })
+      )
+
+      console.log('[Teams Debug] Teams loaded:', enrichedTeams)
+      return enrichedTeams
     } catch (error) {
       console.error('Error loading teams:', error)
       toast.error('Error al cargar los equipos')
@@ -219,14 +247,7 @@ export function Teams() {
     }
   }
 
-  const getGenderLabel = (gender: string) => {
-    switch (gender) {
-      case 'female': return 'Femenino'
-      case 'male': return 'Masculino'
-      case 'mixed': return 'Mixto'
-      default: return gender
-    }
-  }
+
 
 
   console.log('[Teams Debug] Before filtering:', {
@@ -239,7 +260,8 @@ export function Teams() {
 
   const filteredTeams = teams.filter(team => {
     const matchesSearch = team.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      team.category_stage.toLowerCase().includes(searchTerm.toLowerCase())
+      team.category_stage.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (team.coach_name && team.coach_name.toLowerCase().includes(searchTerm.toLowerCase()))
 
     // Filter by season if selected
     const matchesSeason = !currentSeason || true // For now show all, or filter by active season relationship
@@ -498,13 +520,19 @@ export function Teams() {
                         Equipo
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Categoría
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Género
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Nivel
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Entrenador/a
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Jugadoras
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Asistencia (30d)
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Balance
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Acción
@@ -523,16 +551,24 @@ export function Teams() {
                             {getTeamDisplayName(team)}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                            {team.category_stage}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          {getGenderLabel(team.gender)}
-                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                           {team.competition_level || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {team.coach_name || <span className="text-gray-400 italic">Sin asignar</span>}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
+                          {team.active_players_count || 0}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
+                          {team.attendance_30d !== null ? `${team.attendance_30d}%` : '—'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
+                          {team.wins !== undefined ? (
+                            <span className={team.wins > (team.losses || 0) ? 'text-green-600 font-medium' : ''}>
+                              {team.wins}V – {team.losses}D
+                            </span>
+                          ) : '—'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center justify-end gap-1">

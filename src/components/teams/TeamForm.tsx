@@ -59,17 +59,20 @@ export function TeamForm({ team, onClose }: TeamFormProps) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nombre del Equipo
+              Identificador *
             </label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="input"
-              placeholder="Ej: CV Barcelona"
+              placeholder="Ej: Verd, Taronja, A, Negre, SF..."
               required
               disabled={isSubmitting}
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Este identificador diferencia equipos dentro de la misma categoría (por ejemplo: Taronja, Verd, A, B…). No es necesario repetir el nombre del club.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

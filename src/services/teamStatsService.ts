@@ -175,5 +175,78 @@ export const teamStatsService = {
         }
 
         return alerts
+    },
+
+    /**
+     * Get the number of active players in a team for a season
+     */
+    async getActivePlayersCount(teamId: string, seasonId: string): Promise<number> {
+        const { data, error } = await supabase
+            .from('player_team_season')
+            .select('id')
+            .eq('team_id', teamId)
+            .eq('season_id', seasonId)
+
+        if (error) {
+            console.error('Error fetching active players count:', error)
+            return 0
+        }
+
+        return data?.length || 0
+    },
+
+    /**
+     * Get attendance percentage for last 30 days
+     * Returns percentage rounded to integer or null if no data
+     */
+    async getAttendanceLast30Days(teamId: string, seasonId: string): Promise<number | null> {
+        // TODO: Implement when training attendance tracking is available
+        // This would query a trainings table and calculate average attendance
+        // For now, return null
+        return null
+    },
+
+    /**
+     * Get win/loss record for a team in a season
+     */
+    async getWinLossRecord(teamId: string, seasonId: string): Promise<{ wins: number, losses: number }> {
+        const { data: matches, error } = await supabase
+            .from('matches')
+            .select('id, result, status')
+            .eq('team_id', teamId)
+            .eq('season_id', seasonId)
+            .eq('status', 'finished')
+
+        if (error) {
+            console.error('Error fetching match results:', error)
+            return { wins: 0, losses: 0 }
+        }
+
+        if (!matches || matches.length === 0) {
+            return { wins: 0, losses: 0 }
+        }
+
+        let wins = 0
+        let losses = 0
+
+        // Parse results (format: "3-1", "3-0", etc.)
+        matches.forEach(match => {
+            if (match.result) {
+                const parts = match.result.split('-')
+                if (parts.length === 2) {
+                    const teamSets = parseInt(parts[0])
+                    const opponentSets = parseInt(parts[1])
+                    if (!isNaN(teamSets) && !isNaN(opponentSets)) {
+                        if (teamSets > opponentSets) {
+                            wins++
+                        } else {
+                            losses++
+                        }
+                    }
+                }
+            }
+        })
+
+        return { wins, losses }
     }
 }
