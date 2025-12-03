@@ -67,27 +67,10 @@ export const teamService = {
 
     // Create a new team for a club/season
     createTeam: async (team: Omit<TeamDB, 'id' | 'created_at' | 'updated_at'>): Promise<TeamDB> => {
-        // 1. Fetch club to get name/acronym
-        const { data: club, error: clubError } = await supabase
-            .from('clubs')
-            .select('name, acronym')
-            .eq('id', team.club_id)
-            .single()
-
-        if (clubError) {
-            console.error('Error fetching club for team creation:', clubError)
-            // Fallback: proceed without prefix if club not found
-        }
-
-        const prefix = club?.name || ''
-        // Ensure we don't double prefix if user somehow sent it, though UI should handle this.
-        // The requirement is "Club Name + Suffix". 
-        // We assume 'team.name' coming from UI is just the suffix.
-        const fullName = prefix ? `${prefix} ${team.name}` : team.name
-
+        // We store only the identifier in the name field, without club prefix
         const { data, error } = await supabase
             .from('teams')
-            .insert({ ...team, name: fullName })
+            .insert(team)
             .select()
             .single()
 

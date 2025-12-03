@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { seasonService, SeasonDB } from '@/services/seasonService'
 import { teamService, TeamDB } from '@/services/teamService'
-import { clubService, ClubDB } from '@/services/clubService'
+
 import { TeamRosterManager } from '@/components/teams/TeamRosterManager'
 import { useRoleScope } from '@/hooks/useRoleScope'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
@@ -29,7 +29,6 @@ export function Teams() {
   // State
   const [currentSeason, setCurrentSeason] = useState<SeasonDB | null>(null)
   const [teams, setTeams] = useState<EnrichedTeam[]>([])
-  const [club, setClub] = useState<ClubDB | null>(null)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
 
@@ -115,10 +114,6 @@ export function Teams() {
     if (!profile?.club_id) return
     setLoading(true)
     try {
-      // Get Club Details
-      const clubData = await clubService.getClub(profile.club_id)
-      setClub(clubData)
-
       // Get current season
       const season = await seasonService.getCurrentSeasonByClub(profile.club_id)
       setCurrentSeason(season)
@@ -663,28 +658,18 @@ export function Teams() {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  {editingTeam ? 'Nombre del Equipo' : 'Nombre del Equipo (Sufijo)'} *
+                  Identificador del Equipo *
                 </label>
                 <div className="flex items-center gap-2">
-                  {!editingTeam && club?.name && (
-                    <span className="text-gray-500 dark:text-gray-400 font-medium bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600">
-                      {club.name}
-                    </span>
-                  )}
                   <input
                     type="text"
                     required
                     value={formData.name}
                     onChange={e => setFormData({ ...formData, name: e.target.value })}
                     className="input w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
-                    placeholder={editingTeam ? "Nombre completo" : "Ej: Juvenil A"}
+                    placeholder="Ej: A, Taronja, Negro, SF..."
                   />
                 </div>
-                {!editingTeam && club?.name && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    El nombre completo será: {club.name} {formData.name}
-                  </p>
-                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
