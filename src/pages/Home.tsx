@@ -8,6 +8,7 @@ import {
     Activity,
     ClipboardList,
     Building2,
+    Plus,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useRoleScope } from '@/hooks/useRoleScope';
@@ -17,6 +18,7 @@ import { clubStatsService, ClubOverviewSummary } from '@/services/clubStatsServi
 import { getTeamDisplayName } from '@/utils/teamDisplay';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 type HomeTab = 'club' | string; // 'club' or teamId
 
@@ -140,328 +142,343 @@ export function Home() {
     }
 
     return (
-        <div className="space-y-6">
-            {/* Header & Tabs */}
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                    Panel de Inicio
-                </h1>
-
-                <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 overflow-x-auto pb-1">
-                    {/* Club Tab (Only for DT) */}
-                    {isDT && (
-                        <button
-                            onClick={() => setActiveTab('club')}
-                            className={cn(
-                                "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 whitespace-nowrap",
-                                activeTab === 'club'
-                                    ? "bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 border-b-2 border-primary-500"
-                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                            )}
-                        >
-                            <Building2 className="w-4 h-4" />
-                            Club
-                        </button>
-                    )}
-
-                    {/* Team Tabs */}
-                    {teams.map((team) => (
-                        <button
-                            key={team.id}
-                            onClick={() => setActiveTab(team.id)}
-                            className={cn(
-                                "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap",
-                                activeTab === team.id
-                                    ? "bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 border-b-2 border-primary-500"
-                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                            )}
-                        >
-                            {getTeamDisplayName(team)}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Club View Content */}
-            {activeTab === 'club' && isDT && (
-                <>
-                    {loadingClubSummary ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-pulse">
-                            <div className="h-32 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
-                            <div className="h-32 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
-                            <div className="h-32 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
-                            <div className="h-32 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
-                        </div>
-                    ) : (
-                        <div className="space-y-6">
-                            {/* KPIs generales */}
-                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                                    <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                                        Asistencia global
-                                    </h3>
-                                    <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                                        {clubSummary?.attendanceGlobal !== null ? `${clubSummary?.attendanceGlobal}%` : '--'}
-                                    </p>
-                                </div>
-                                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                                    <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                                        Ratio victorias/derrotas
-                                    </h3>
-                                    <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                                        {clubSummary?.winLossRatio ?? '--'}
-                                    </p>
-                                </div>
-                                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                                    <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                                        Entrenamientos registrados
-                                    </h3>
-                                    <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                                        {clubSummary?.totalTrainings ?? 0}
-                                    </p>
-                                </div>
-                                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                                    <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                                        Informes completados
-                                    </h3>
-                                    <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                                        {clubSummary
-                                            ? `${clubSummary.completedReports}/${clubSummary.totalReportsExpected}`
-                                            : '--'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Categorías */}
-                            <div
-                                onClick={() => navigate('/club/dashboard')}
-                                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 cursor-pointer hover:shadow-md transition-shadow group"
-                            >
-                                <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-                                    <Trophy className="w-5 h-5 text-primary-500" />
-                                    Categorías
-                                </h3>
-                                {clubSummary?.categories && clubSummary.categories.length > 0 ? (
-                                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                                        {clubSummary.categories.map((cat) => (
-                                            <div
-                                                key={cat.id}
-                                                className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                                            >
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="font-medium text-gray-900 dark:text-white">
-                                                        {cat.name}
-                                                    </span>
-                                                    <div className="flex items-center gap-1">
-                                                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                                                            {cat.teamsCount} equipo{cat.teamsCount !== 1 ? 's' : ''}
-                                                        </span>
-                                                        {cat.riskLevel === 'high' && <span className="text-lg">⚠️</span>}
-                                                        {cat.riskLevel === 'medium' && <span className="text-lg">🟡</span>}
-                                                        {cat.riskLevel === 'low' && <span className="text-lg">🟢</span>}
-                                                    </div>
-                                                </div>
-                                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                    Asistencia: {cat.attendance ?? '--'}% · Ratio V/D: {cat.winLossRatio ?? '--'}
-                                                </p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        No hay categorías configuradas.
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Entrenadores */}
-                            <div
-                                onClick={() => navigate('/reports/coaches')}
-                                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 cursor-pointer hover:shadow-md transition-shadow group"
-                            >
-                                <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-                                    <Users className="w-5 h-5 text-blue-500" />
-                                    Entrenadores
-                                </h3>
-                                {clubSummary?.coaches && clubSummary.coaches.length > 0 ? (
-                                    <div className="space-y-2">
-                                        {clubSummary.coaches.map((coach) => (
-                                            <div
-                                                key={coach.id}
-                                                className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                                            >
-                                                <div>
-                                                    <span className="font-medium text-gray-900 dark:text-white">
-                                                        {coach.name}
-                                                    </span>
-                                                    <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
-                                                        · {coach.teamsCount} equipo{coach.teamsCount !== 1 ? 's' : ''}
-                                                    </span>
-                                                </div>
-                                                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                                                    {coach.reportsCompletion ?? '--'}% informes
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        No hay entrenadores asignados.
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Alertas */}
-                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                                <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                    <AlertTriangle className="w-5 h-5 text-amber-500" />
-                                    Alertas del club
-                                </h3>
-                                {clubSummary?.alerts && clubSummary.alerts.length > 0 ? (
-                                    <ul className="space-y-2">
-                                        {clubSummary.alerts.map((alert) => (
-                                            <li
-                                                key={alert.id}
-                                                className={cn(
-                                                    "flex items-start gap-2 text-sm p-3 rounded-lg border",
-                                                    alert.level === 'danger'
-                                                        ? "bg-red-50 dark:bg-red-900/10 text-red-800 dark:text-red-200 border-red-100 dark:border-red-800/30"
-                                                        : alert.level === 'warning'
-                                                            ? "bg-amber-50 dark:bg-amber-900/10 text-amber-800 dark:text-amber-200 border-amber-100 dark:border-amber-800/30"
-                                                            : "bg-blue-50 dark:bg-blue-900/10 text-blue-800 dark:text-blue-200 border-blue-100 dark:border-blue-800/30"
-                                                )}
-                                            >
-                                                <span className="mt-0.5">
-                                                    {alert.level === 'danger' ? '⚠️' : alert.level === 'warning' ? '🟡' : 'ℹ️'}
-                                                </span>
-                                                <span>{alert.message}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                                        <ClipboardList className="w-4 h-4" />
-                                        Sin alertas por ahora.
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </>
-            )}
-
-            {/* Team View Content */}
-            {activeTab !== 'club' && activeTab && (
-                <>
-                    {/* Quick Actions */}
-                    <div className="flex flex-wrap gap-3">
-                        <button
-                            disabled={!activeTab}
-                            onClick={() => activeTab && navigate(`/teams/${activeTab}/trainings/new`)}
-                            className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <Activity className="w-4 h-4" />
+        <div className="min-h-screen bg-gray-900">
+            <PageHeader
+                title="Inicio del Club"
+                subtitle="Gestión global de equipos, entrenadores y estadísticas del club."
+                actions={
+                    <>
+                        <button className="btn-primary flex items-center gap-2">
+                            <Plus className="w-4 h-4" />
                             <span>Crear entrenamiento</span>
                         </button>
-
-                        <button
-                            disabled={!activeTab}
-                            onClick={() => activeTab && navigate(`/matches/new?teamId=${activeTab}`)}
-                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <Trophy className="w-4 h-4" />
+                        <button className="btn-secondary flex items-center gap-2">
+                            <Plus className="w-4 h-4" />
                             <span>Crear partido</span>
                         </button>
+                    </>
+                }
+            />
+
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="space-y-6">
+                    {/* Tabs */}
+                    <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 overflow-x-auto pb-1">
+                        {/* Club Tab (Only for DT) */}
+                        {isDT && (
+                            <button
+                                onClick={() => setActiveTab('club')}
+                                className={cn(
+                                    "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 whitespace-nowrap",
+                                    activeTab === 'club'
+                                        ? "bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 border-b-2 border-primary-500"
+                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                                )}
+                            >
+                                <Building2 className="w-4 h-4" />
+                                Club
+                            </button>
+                        )}
+
+                        {/* Team Tabs */}
+                        {teams.map((team) => (
+                            <button
+                                key={team.id}
+                                onClick={() => setActiveTab(team.id)}
+                                className={cn(
+                                    "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap",
+                                    activeTab === team.id
+                                        ? "bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 border-b-2 border-primary-500"
+                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                                )}
+                            >
+                                {getTeamDisplayName(team)}
+                            </button>
+                        ))}
                     </div>
 
-                    {/* Content Area */}
-                    {loadingSummary ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-pulse">
-                            <div className="h-48 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
-                            <div className="h-48 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
-                        </div>
-                    ) : (
-                        <div className="grid gap-6 md:grid-cols-2">
-                            {/* Team Status Card */}
-                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                                <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                    <Activity className="w-5 h-5 text-primary-500" />
-                                    Estado del equipo
-                                </h3>
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
-                                        <span className="text-gray-600 dark:text-gray-400">Asistencia (30 días)</span>
-                                        <span className="font-medium text-gray-900 dark:text-white">
-                                            {summary?.attendance !== null ? `${summary?.attendance}%` : '--'}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
-                                        <span className="text-gray-600 dark:text-gray-400">Último partido</span>
-                                        <span className="font-medium text-gray-900 dark:text-white truncate max-w-[200px] text-right" title={summary?.lastMatchText || ''}>
-                                            {summary?.lastMatchText || 'Sin datos'}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
-                                        <span className="text-gray-600 dark:text-gray-400">Ratio puntos/errores</span>
-                                        <span className="font-medium text-gray-900 dark:text-white">
-                                            {summary?.pointsErrorRatio ?? '--'}
-                                        </span>
-                                    </div>
+                    {/* Club View Content */}
+                    {activeTab === 'club' && isDT && (
+                        <>
+                            {loadingClubSummary ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-pulse">
+                                    <div className="h-32 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
+                                    <div className="h-32 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
+                                    <div className="h-32 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
+                                    <div className="h-32 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
                                 </div>
-                            </div>
-
-                            {/* Next Event & Alerts Column */}
-                            <div className="space-y-6">
-                                {/* Next Event */}
-                                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                                    <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                        <Calendar className="w-5 h-5 text-blue-500" />
-                                        Próximo evento
-                                    </h3>
-                                    {summary?.nextEvent ? (
-                                        <div>
-                                            <p className="font-medium text-gray-900 dark:text-white text-lg">
-                                                {summary.nextEvent.label.split(' - ')[0]}
-                                            </p>
-                                            <p className="text-gray-500 dark:text-gray-400 mt-1">
-                                                {summary.nextEvent.label.split(' - ').slice(1).join(' - ')}
+                            ) : (
+                                <div className="space-y-6">
+                                    {/* KPIs generales */}
+                                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+                                            <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                                                Asistencia global
+                                            </h3>
+                                            <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                                                {clubSummary?.attendanceGlobal !== null ? `${clubSummary?.attendanceGlobal}%` : '--'}
                                             </p>
                                         </div>
-                                    ) : (
-                                        <p className="text-gray-500 dark:text-gray-400">Sin eventos programados.</p>
-                                    )}
-                                </div>
+                                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+                                            <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                                                Ratio victorias/derrotas
+                                            </h3>
+                                            <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                                                {clubSummary?.winLossRatio ?? '--'}
+                                            </p>
+                                        </div>
+                                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+                                            <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                                                Entrenamientos registrados
+                                            </h3>
+                                            <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                                                {clubSummary?.totalTrainings ?? 0}
+                                            </p>
+                                        </div>
+                                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+                                            <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                                                Informes completados
+                                            </h3>
+                                            <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                                                {clubSummary
+                                                    ? `${clubSummary.completedReports}/${clubSummary.totalReportsExpected}`
+                                                    : '--'}
+                                            </p>
+                                        </div>
+                                    </div>
 
-                                {/* Alerts */}
-                                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                                    <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                        <AlertTriangle className="w-5 h-5 text-amber-500" />
-                                        Alertas
-                                    </h3>
-                                    {summary?.alerts && summary.alerts.length > 0 ? (
-                                        <ul className="space-y-2">
-                                            {summary.alerts.map((alert) => (
-                                                <li
-                                                    key={alert.id}
-                                                    className="flex items-start gap-2 text-sm p-2 rounded-lg bg-amber-50 dark:bg-amber-900/10 text-amber-800 dark:text-amber-200 border border-amber-100 dark:border-amber-800/30"
-                                                >
-                                                    <span className="mt-0.5">⚠️</span>
-                                                    <span>{alert.message}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : (
-                                        <p className="text-sm text-gray-400 dark:text-gray-500 flex items-center gap-2">
-                                            <ClipboardList className="w-4 h-4" />
-                                            Sin alertas por ahora.
-                                        </p>
-                                    )}
+                                    {/* Categorías */}
+                                    <div
+                                        onClick={() => navigate('/club/dashboard')}
+                                        className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 cursor-pointer hover:shadow-md transition-shadow group"
+                                    >
+                                        <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                                            <Trophy className="w-5 h-5 text-primary-500" />
+                                            Categorías
+                                        </h3>
+                                        {clubSummary?.categories && clubSummary.categories.length > 0 ? (
+                                            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                                                {clubSummary.categories.map((cat) => (
+                                                    <div
+                                                        key={cat.id}
+                                                        className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                                    >
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <span className="font-medium text-gray-900 dark:text-white">
+                                                                {cat.name}
+                                                            </span>
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                                    {cat.teamsCount} equipo{cat.teamsCount !== 1 ? 's' : ''}
+                                                                </span>
+                                                                {cat.riskLevel === 'high' && <span className="text-lg">⚠️</span>}
+                                                                {cat.riskLevel === 'medium' && <span className="text-lg">🟡</span>}
+                                                                {cat.riskLevel === 'low' && <span className="text-lg">🟢</span>}
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                            Asistencia: {cat.attendance ?? '--'}% · Ratio V/D: {cat.winLossRatio ?? '--'}
+                                                        </p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                No hay categorías configuradas.
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Entrenadores */}
+                                    <div
+                                        onClick={() => navigate('/reports/coaches')}
+                                        className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 cursor-pointer hover:shadow-md transition-shadow group"
+                                    >
+                                        <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                                            <Users className="w-5 h-5 text-blue-500" />
+                                            Entrenadores
+                                        </h3>
+                                        {clubSummary?.coaches && clubSummary.coaches.length > 0 ? (
+                                            <div className="space-y-2">
+                                                {clubSummary.coaches.map((coach) => (
+                                                    <div
+                                                        key={coach.id}
+                                                        className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                                    >
+                                                        <div>
+                                                            <span className="font-medium text-gray-900 dark:text-white">
+                                                                {coach.name}
+                                                            </span>
+                                                            <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+                                                                · {coach.teamsCount} equipo{coach.teamsCount !== 1 ? 's' : ''}
+                                                            </span>
+                                                        </div>
+                                                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                                            {coach.reportsCompletion ?? '--'}% informes
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                No hay entrenadores asignados.
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Alertas */}
+                                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+                                        <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                            <AlertTriangle className="w-5 h-5 text-amber-500" />
+                                            Alertas del club
+                                        </h3>
+                                        {clubSummary?.alerts && clubSummary.alerts.length > 0 ? (
+                                            <ul className="space-y-2">
+                                                {clubSummary.alerts.map((alert) => (
+                                                    <li
+                                                        key={alert.id}
+                                                        className={cn(
+                                                            "flex items-start gap-2 text-sm p-3 rounded-lg border",
+                                                            alert.level === 'danger'
+                                                                ? "bg-red-50 dark:bg-red-900/10 text-red-800 dark:text-red-200 border-red-100 dark:border-red-800/30"
+                                                                : alert.level === 'warning'
+                                                                    ? "bg-amber-50 dark:bg-amber-900/10 text-amber-800 dark:text-amber-200 border-amber-100 dark:border-amber-800/30"
+                                                                    : "bg-blue-50 dark:bg-blue-900/10 text-blue-800 dark:text-blue-200 border-blue-100 dark:border-blue-800/30"
+                                                        )}
+                                                    >
+                                                        <span className="mt-0.5">
+                                                            {alert.level === 'danger' ? '⚠️' : alert.level === 'warning' ? '🟡' : 'ℹ️'}
+                                                        </span>
+                                                        <span>{alert.message}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        ) : (
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                                                <ClipboardList className="w-4 h-4" />
+                                                Sin alertas por ahora.
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
+                            )}
+                        </>
                     )}
-                </>
-            )}
+
+                    {/* Team View Content */}
+                    {activeTab !== 'club' && activeTab && (
+                        <>
+                            {/* Quick Actions */}
+                            <div className="flex flex-wrap gap-3">
+                                <button
+                                    disabled={!activeTab}
+                                    onClick={() => activeTab && navigate(`/teams/${activeTab}/trainings/new`)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <Activity className="w-4 h-4" />
+                                    <span>Crear entrenamiento</span>
+                                </button>
+
+                                <button
+                                    disabled={!activeTab}
+                                    onClick={() => activeTab && navigate(`/matches/new?teamId=${activeTab}`)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <Trophy className="w-4 h-4" />
+                                    <span>Crear partido</span>
+                                </button>
+                            </div>
+
+                            {/* Content Area */}
+                            {loadingSummary ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-pulse">
+                                    <div className="h-48 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
+                                    <div className="h-48 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
+                                </div>
+                            ) : (
+                                <div className="grid gap-6 md:grid-cols-2">
+                                    {/* Team Status Card */}
+                                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+                                        <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                            <Activity className="w-5 h-5 text-primary-500" />
+                                            Estado del equipo
+                                        </h3>
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                                                <span className="text-gray-600 dark:text-gray-400">Asistencia (30 días)</span>
+                                                <span className="font-medium text-gray-900 dark:text-white">
+                                                    {summary?.attendance !== null ? `${summary?.attendance}%` : '--'}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                                                <span className="text-gray-600 dark:text-gray-400">Último partido</span>
+                                                <span className="font-medium text-gray-900 dark:text-white truncate max-w-[200px] text-right" title={summary?.lastMatchText || ''}>
+                                                    {summary?.lastMatchText || 'Sin datos'}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                                                <span className="text-gray-600 dark:text-gray-400">Ratio puntos/errores</span>
+                                                <span className="font-medium text-gray-900 dark:text-white">
+                                                    {summary?.pointsErrorRatio ?? '--'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Next Event & Alerts Column */}
+                                    <div className="space-y-6">
+                                        {/* Next Event */}
+                                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+                                            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                                <Calendar className="w-5 h-5 text-blue-500" />
+                                                Próximo evento
+                                            </h3>
+                                            {summary?.nextEvent ? (
+                                                <div>
+                                                    <p className="font-medium text-gray-900 dark:text-white text-lg">
+                                                        {summary.nextEvent.label.split(' - ')[0]}
+                                                    </p>
+                                                    <p className="text-gray-500 dark:text-gray-400 mt-1">
+                                                        {summary.nextEvent.label.split(' - ').slice(1).join(' - ')}
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <p className="text-gray-500 dark:text-gray-400">Sin eventos programados.</p>
+                                            )}
+                                        </div>
+
+                                        {/* Alerts */}
+                                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+                                            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                                <AlertTriangle className="w-5 h-5 text-amber-500" />
+                                                Alertas
+                                            </h3>
+                                            {summary?.alerts && summary.alerts.length > 0 ? (
+                                                <ul className="space-y-2">
+                                                    {summary.alerts.map((alert) => (
+                                                        <li
+                                                            key={alert.id}
+                                                            className="flex items-start gap-2 text-sm p-2 rounded-lg bg-amber-50 dark:bg-amber-900/10 text-amber-800 dark:text-amber-200 border border-amber-100 dark:border-amber-800/30"
+                                                        >
+                                                            <span className="mt-0.5">⚠️</span>
+                                                            <span>{alert.message}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <p className="text-sm text-gray-400 dark:text-gray-500 flex items-center gap-2">
+                                                    <ClipboardList className="w-4 h-4" />
+                                                    Sin alertas por ahora.
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+            </div>
         </div>
     )
 }
