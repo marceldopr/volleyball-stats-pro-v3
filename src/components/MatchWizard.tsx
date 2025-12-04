@@ -42,6 +42,7 @@ function validateEuropeanTime(timeString: string): boolean {
 interface MatchWizardProps {
   isOpen: boolean
   onClose: () => void
+  onMatchCreated?: () => void
   initialStep?: number
   matchId?: string
 }
@@ -55,7 +56,7 @@ interface WizardData {
   teamSide: 'local' | 'visitante'
 }
 
-export function MatchWizard({ isOpen, onClose }: MatchWizardProps) {
+export function MatchWizard({ isOpen, onClose, onMatchCreated }: MatchWizardProps) {
   const navigate = useNavigate()
   const { profile } = useAuthStore()
 
@@ -215,6 +216,12 @@ export function MatchWizard({ isOpen, onClose }: MatchWizardProps) {
 
       // Close wizard and return to matches list
       onClose()
+
+      // Notify parent that match was created (triggers list refresh)
+      if (onMatchCreated) {
+        onMatchCreated()
+      }
+
       navigate('/matches')
     } catch (err) {
       console.error(err)

@@ -29,6 +29,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
   const [supabaseMatches, setSupabaseMatches] = useState<any[]>([])
   const [matchesWithConvocations, setMatchesWithConvocations] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   // Convocation Manager state
   const [convocationManagerOpen, setConvocationManagerOpen] = useState(false)
@@ -76,7 +77,20 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
       }
     }
     fetchData()
-  }, [profile?.club_id, isCoach, assignedTeamIds, teamId])
+  }, [profile?.club_id, isCoach, assignedTeamIds, teamId, refreshKey])
+
+  // Reload matches when page becomes visible (e.g., returning from live match)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('🔄 Page visible, refreshing matches...')
+        setRefreshKey(prev => prev + 1)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [])
 
   // Check which matches have convocations
   useEffect(() => {
@@ -164,6 +178,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
       case 'planned': return 'bg-blue-100 text-blue-800'
       case 'in_progress': return 'bg-red-100 text-red-800'
       case 'finished': return 'bg-green-100 text-green-800'
+      case 'completed': return 'bg-green-100 text-green-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
@@ -173,6 +188,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
       case 'planned': return 'Próximo'
       case 'in_progress': return 'En Vivo'
       case 'finished': return 'Finalizado'
+      case 'completed': return 'Finalizado'
       default: return 'Desconocido'
     }
   }
@@ -391,7 +407,24 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
 
 
       {/* Match Wizard Modal */}
-      <MatchWizard isOpen={isWizardOpen} onClose={() => setIsWizardOpen(false)} />
+      <MatchWizard
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+        onMatchCreated={async () => {
+          // Reload matches after creation
+          if (profile?.club_id && currentSeason) {
+            const allMatches = await matchService.getMatchesByClubAndSeason(profile.club_id, currentSeason.id)
+            let filteredMatches = allMatches
+            if (teamId) {
+              filteredMatches = filteredMatches.filter(m => m.team_id === teamId)
+            }
+            if (isCoach) {
+              filteredMatches = filteredMatches.filter(m => assignedTeamIds.includes(m.team_id))
+            }
+            setSupabaseMatches(filteredMatches)
+          }
+        }}
+      />
 
       {/* Match Detail Modal */}
       {selectedMatch && (

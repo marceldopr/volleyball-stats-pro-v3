@@ -1940,9 +1940,30 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
               <button
                 onClick={async () => {
                   setShowMatchCompleteModal(false)
+
+                  console.log('🏐 Saving match - IDs:', {
+                    matchId: match.id,
+                    dbMatchId: match.dbMatchId,
+                    willUpdateStatus: true
+                  })
+
                   // Persist stats to Supabase
                   await handleSaveMatchStats()
+
+                  // Update match status in local store
                   onUpdateMatch(match.id, { status: 'completed' })
+
+                  // Update match status in Supabase
+                  // Use match.id (which is the Supabase ID) instead of match.dbMatchId
+                  // IMPORTANT: Database expects 'finished' not 'completed'
+                  try {
+                    console.log('🏐 Updating match status in Supabase to finished, ID:', match.id)
+                    await matchService.updateMatch(match.id, { status: 'finished' })
+                    console.log('✅ Match status updated successfully')
+                  } catch (err) {
+                    console.error('❌ Error updating match status:', err)
+                  }
+
                   onNavigateToMatches()
                 }}
                 className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold transition-colors"
