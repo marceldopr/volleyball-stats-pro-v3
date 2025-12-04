@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Calendar, Clock, MapPin, ChevronDown, Users } from 'lucide-react'
+import { X, Calendar, Clock, ChevronDown, Users } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import { seasonService } from '../services/seasonService'
 import { teamService } from '../services/teamService'
@@ -144,7 +144,7 @@ export function MatchWizard({ isOpen, onClose, onMatchCreated }: MatchWizardProp
     if (currentStep === 2) {
       // Validate Step 2
       if (!data.opponent.trim()) { setError('Debes ingresar el nombre del equipo contrario'); return }
-      if (!data.location.trim()) { setError('Debes ingresar la ubicación del partido'); return }
+      // location field removed - no longer required
       if (dateError) { setError(dateError); return }
       if (timeError) { setError(timeError); return }
 
@@ -208,7 +208,7 @@ export function MatchWizard({ isOpen, onClose, onMatchCreated }: MatchWizardProp
           team_id: data.teamId,
           opponent_name: data.opponent.trim(),
           match_date: matchDate,
-          location: data.location.trim(),
+          // location removed - no longer collected from UI
           home_away: data.teamSide === 'local' ? 'home' : 'away',
           status: 'planned',
         })
@@ -362,10 +362,7 @@ export function MatchWizard({ isOpen, onClose, onMatchCreated }: MatchWizardProp
                     {timeError && <p className="text-danger-500 text-xs mt-1 font-medium">{timeError}</p>}
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2"><MapPin className="w-4 h-4 inline mr-1 text-gray-500" /> Ubicación</label>
-                  <input type="text" value={data.location} onChange={e => setData(prev => ({ ...prev, location: e.target.value }))} className="input-field w-full" placeholder="Ej: Pabellón Municipal" />
-                </div>
+                {/* Location field removed - no longer needed in UI */}
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3 mt-4">

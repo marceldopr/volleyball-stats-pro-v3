@@ -318,13 +318,11 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                     )}
                   </div>
 
-                  {/* Date, time, location in one line */}
+                  {/* Date and time only - location removed */}
                   <div className="flex items-center gap-2 text-sm text-gray-400">
                     <span>{new Date(match.match_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</span>
                     <span>·</span>
                     <span>{new Date(match.match_date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
-                    <span>·</span>
-                    <span>{match.location || 'Por definir'}</span>
                   </div>
                 </div>
 

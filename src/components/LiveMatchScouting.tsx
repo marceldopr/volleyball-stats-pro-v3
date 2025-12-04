@@ -1963,9 +1963,12 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
                   await handleSaveMatchStats()
 
                   // Calculate final result (sets won)
+                  console.log('🔍 Calculating match result from sets:', match.sets)
                   const setsWonLocal = match.sets.filter(s => s.status === 'completed' && s.homeScore > s.awayScore).length
                   const setsWonVisitor = match.sets.filter(s => s.status === 'completed' && s.awayScore > s.homeScore).length
+                  console.log('🔍 Sets won - Local:', setsWonLocal, 'Visitor:', setsWonVisitor)
                   const matchResult = `${setsWonLocal}-${setsWonVisitor}`
+                  console.log('🔍 Final match result:', matchResult)
 
                   // Update match status in local store
                   onUpdateMatch(match.id, { status: 'completed' })

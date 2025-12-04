@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Trophy, Calendar, Clock, Loader2, MapPin } from 'lucide-react'
+import { ArrowLeft, Trophy, Calendar, Clock, Loader2 } from 'lucide-react'
 import { useMatchStore } from '../stores/matchStore'
 import { AccionPartido, Equipo, Match } from '../stores/matchStore'
 import { matchService } from '../services/matchService'
@@ -316,12 +316,7 @@ export function MatchAnalysis() {
               <Clock className="w-4 h-4 mr-1.5" />
               {match.time}
             </div>
-            {match.location && (
-              <div className="flex items-center">
-                <MapPin className="w-4 h-4 mr-1.5" />
-                {match.location}
-              </div>
-            )}
+            {/* Location removed - no longer displayed */}
           </div>
         </div>
 
