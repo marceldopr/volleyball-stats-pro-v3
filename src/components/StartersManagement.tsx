@@ -9,7 +9,7 @@ interface StartersManagementProps {
   isOpen: boolean
   onClose: () => void
   match: Match
-  onSave: (starters: string[], startingLineup: StartingLineup) => void
+  onSave: (starters: string[], startingLineup: StartingLineup, serveSelection?: 'local' | 'visitor' | null) => void
   isFirstTimeSetup?: boolean
   currentSet?: number
   onNavigateBack?: () => void
@@ -106,7 +106,6 @@ export function StartersManagement({ isOpen, onClose, match, onSave, currentSet,
   const getAvailablePlayers = () => {
     const isLiberoSelection = selectedPosition === 'libero'
 
-
     return matchPlayers.filter(player => {
       // Don't show already selected players (except current position)
       const isInOtherPosition = Object.entries(startingLineup).some(
@@ -115,25 +114,21 @@ export function StartersManagement({ isOpen, onClose, match, onSave, currentSet,
 
       if (isInOtherPosition) return false
 
+      // Normalize position check
+      const isLibero = player.position === 'L' || player.position === 'Libero'
+
       // Libero slot: only show liberos
       if (isLiberoSelection) {
-        return player.position === 'L'
+        return isLibero
       }
 
       // Other slots: exclude liberos
-      return player.position !== 'L'
+      return !isLibero
     })
   }
 
   const handleServeSelection = (weServeFirst: boolean) => {
-    const miEquipo = match.teamSide
-    const equipoContrario = miEquipo === 'local' ? 'visitante' : 'local'
-    const startingServer = weServeFirst ? miEquipo : equipoContrario
-
-    // Convert to store format ('visitante' -> 'visitor')
-    const startingServerForStore = startingServer === 'visitante' ? 'visitor' : startingServer
-
-    setServeSelection(startingServerForStore)
+    setServeSelection(weServeFirst ? 'local' : 'visitor')
     if (onServeSelection) {
       onServeSelection(weServeFirst)
     }
@@ -149,16 +144,16 @@ export function StartersManagement({ isOpen, onClose, match, onSave, currentSet,
       return
     }
 
-    // For Set 5, require serve selection
-    if (currentSet === 5 && !serveSelection) {
-      setError('Debes seleccionar quién saca primero en el Set 5.')
+    // For Set 1 and Set 5, require serve selection
+    if ((currentSet === 1 || currentSet === 5) && !serveSelection) {
+      setError(`Debes seleccionar quién saca primero en el Set ${currentSet}.`)
       return
     }
 
     try {
       const selectedStarters = getSelectedStarters()
-      onSave(selectedStarters, startingLineup)
-      // The onSave function now handles navigation/closing based on context
+      onSave(selectedStarters, startingLineup, serveSelection)
+      // Don't close here - let the onSave handler manage closing and navigation
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Ha ocurrido un error al guardar las titulares. Inténtalo de nuevo.')
     }
@@ -212,14 +207,14 @@ export function StartersManagement({ isOpen, onClose, match, onSave, currentSet,
             </div>
           )}
 
-          {/* Serve Selection for Set 5 */}
-          {currentSet === 5 && (
+          {/* Serve Selection for Set 1 and Set 5 */}
+          {(currentSet === 1 || currentSet === 5) && (
             <div className="mb-6 space-y-3">
               <h3 className="text-lg font-semibold text-gray-900">¿Quién saca primero?</h3>
               <div className="space-y-3">
                 <button
                   onClick={() => handleServeSelection(true)}
-                  className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${serveSelection === (match.teamSide === 'local' ? 'local' : 'visitor')
+                  className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${serveSelection === 'local'
                     ? 'bg-primary-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
@@ -228,7 +223,7 @@ export function StartersManagement({ isOpen, onClose, match, onSave, currentSet,
                 </button>
                 <button
                   onClick={() => handleServeSelection(false)}
-                  className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${serveSelection === (match.teamSide === 'local' ? 'visitor' : 'local')
+                  className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${serveSelection === 'visitor'
                     ? 'bg-primary-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}

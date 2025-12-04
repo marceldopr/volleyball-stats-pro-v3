@@ -1,19 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Calendar, Clock, MapPin, ChevronDown } from 'lucide-react'
-import { useMatchStore } from '../stores/matchStore'
+import { X, Calendar, Clock, MapPin, ChevronDown, Users } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import { seasonService } from '../services/seasonService'
 import { teamService } from '../services/teamService'
-import { playerTeamSeasonService } from '../services/playerTeamSeasonService'
 import { matchService } from '../services/matchService'
-import { matchConvocationService } from '../services/matchConvocationService'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
-import { LiberoValidationModal } from './LiberoValidationModal'
-import { POSITION_NAMES } from '@/constants'
 
 // Helper functions for European date and time formatting
 function formatDateForDisplay(isoDate: string): string {
+  if (!isoDate) return ''
   const date = new Date(isoDate)
   return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
@@ -57,51 +53,34 @@ interface WizardData {
   location: string
   teamId: string
   teamSide: 'local' | 'visitante'
-  selectedPlayers: string[]
-  sacadorInicialSet1: 'local' | 'visitor' | null
 }
 
-export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: MatchWizardProps) {
+export function MatchWizard({ isOpen, onClose }: MatchWizardProps) {
   const navigate = useNavigate()
-  const { createMatch, matches, setMatchDbId } = useMatchStore()
   const { profile } = useAuthStore()
 
-  const [currentStep, setCurrentStep] = useState(initialStep)
+  const [currentStep, setCurrentStep] = useState(1)
   const [error, setError] = useState('')
-  const [showLiberoValidationModal, setShowLiberoValidationModal] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Data fetching states
   const [currentSeason, setCurrentSeason] = useState<any>(null)
   const [availableTeams, setAvailableTeams] = useState<any[]>([])
-  const [teamRoster, setTeamRoster] = useState<any[]>([])
 
-  const [data, setData] = useState<WizardData>(() => {
-    if (matchId) {
-      const existingMatch = matches.find(m => m.id === matchId)
-      if (existingMatch) {
-        return {
-          opponent: existingMatch.opponent,
-          date: existingMatch.date,
-          time: existingMatch.time,
-          location: existingMatch.location,
-          teamId: existingMatch.teamId || '',
-          teamSide: existingMatch.teamSide,
-          selectedPlayers: existingMatch.players?.map(p => p.playerId) || [],
-          sacadorInicialSet1: existingMatch.sacadorInicialSet1,
-        }
-      }
-    }
-    return {
-      opponent: '',
-      date: new Date().toISOString().split('T')[0],
-      time: '18:00',
-      location: '',
-      teamId: '',
-      teamSide: 'local',
-      selectedPlayers: [],
-      sacadorInicialSet1: null,
-    }
+  const [data, setData] = useState<WizardData>({
+    opponent: '',
+    date: new Date().toISOString().split('T')[0],
+    time: '18:00',
+    location: '',
+    teamId: '',
+    teamSide: 'local',
   })
+
+  // Display values for European format
+  const [displayDate, setDisplayDate] = useState(formatDateForDisplay(data.date))
+  const [displayTime, setDisplayTime] = useState(formatTimeForDisplay(data.time))
+  const [dateError, setDateError] = useState('')
+  const [timeError, setTimeError] = useState('')
 
   // Fetch current season and teams on mount
   useEffect(() => {
@@ -127,30 +106,6 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
     fetchData()
   }, [profile?.club_id])
 
-  // Fetch roster when team changes
-  useEffect(() => {
-    const fetchRoster = async () => {
-      if (!data.teamId || !currentSeason) return
-      try {
-        const roster = await playerTeamSeasonService.getRosterByTeamAndSeason(data.teamId, currentSeason.id)
-        const filteredRoster = roster.filter((item: any) => item.player)
-        setTeamRoster(filteredRoster)
-        // Select all players by default when roster loads
-        setData(prev => ({ ...prev, selectedPlayers: filteredRoster.map((item: any) => item.player.id) }))
-      } catch (err) {
-        console.error('Error fetching roster:', err)
-        setError('Error al cargar la plantilla del equipo.')
-      }
-    }
-    fetchRoster()
-  }, [data.teamId, currentSeason])
-
-  // Display values for European format
-  const [displayDate, setDisplayDate] = useState(formatDateForDisplay(data.date))
-  const [displayTime, setDisplayTime] = useState(formatTimeForDisplay(data.time))
-  const [dateError, setDateError] = useState('')
-  const [timeError, setTimeError] = useState('')
-
   // Sync display values when data changes
   useEffect(() => {
     setDisplayDate(formatDateForDisplay(data.date))
@@ -161,25 +116,40 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
   useEffect(() => {
     if (!isOpen) {
       setError('')
+      setCurrentStep(1)
+      setData({
+        opponent: '',
+        date: new Date().toISOString().split('T')[0],
+        time: '18:00',
+        location: '',
+        teamId: '',
+        teamSide: 'local',
+      })
     }
   }, [isOpen])
 
-  const totalSteps = 3
+  const totalSteps = 2
 
-  const handleNext = () => {
-    if (currentStep < totalSteps) {
-      if (currentStep === 1) {
-        if (!data.teamId) { setError('Debes seleccionar tu equipo para este partido.'); return }
-        if (!data.teamSide) { setError('Debes seleccionar si tu equipo juega como local o visitante'); return }
-      }
-      if (currentStep === 2) {
-        if (!data.opponent.trim()) { setError('Debes ingresar el nombre del equipo contrario'); return }
-        if (!data.location.trim()) { setError('Debes ingresar la ubicación del partido'); return }
-        if (dateError) { setError(dateError); return }
-        if (timeError) { setError(timeError); return }
-      }
-      setCurrentStep(prev => prev + 1)
-      setError('')
+  const handleNext = async () => {
+    setError('')
+
+    if (currentStep === 1) {
+      if (!data.teamId) { setError('Debes seleccionar tu equipo para este partido.'); return }
+      if (!data.teamSide) { setError('Debes seleccionar si tu equipo juega como local o visitante'); return }
+      setCurrentStep(2)
+      return
+    }
+
+    if (currentStep === 2) {
+      // Validate Step 2
+      if (!data.opponent.trim()) { setError('Debes ingresar el nombre del equipo contrario'); return }
+      if (!data.location.trim()) { setError('Debes ingresar la ubicación del partido'); return }
+      if (dateError) { setError(dateError); return }
+      if (timeError) { setError(timeError); return }
+
+      // Create Match and Exit
+      await createMatchAndExit()
+      return
     }
   }
 
@@ -211,189 +181,66 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
     setData(prev => ({ ...prev, time: value }))
   }
 
-  const handleServeSelection = (weServeFirst: boolean) => {
-    const miEquipo = data.teamSide
-    const equipoContrario = miEquipo === 'local' ? 'visitante' : 'local'
-    const startingServer = weServeFirst ? miEquipo : equipoContrario
-    const startingServerForStore = startingServer === 'visitante' ? 'visitor' : startingServer
-    setData(prev => ({ ...prev, sacadorInicialSet1: startingServerForStore }))
-  }
-
   const handleTeamSelection = (teamId: string) => {
-    setData(prev => ({ ...prev, teamId, selectedPlayers: [] }))
+    setData(prev => ({ ...prev, teamId }))
   }
 
   const handleTeamSideChange = (teamSide: 'local' | 'visitante') => {
     setData(prev => ({ ...prev, teamSide }))
   }
 
-  const togglePlayerSelection = (playerId: string) => {
-    setData(prev => ({
-      ...prev,
-      selectedPlayers: prev.selectedPlayers.includes(playerId)
-        ? prev.selectedPlayers.filter(id => id !== playerId)
-        : [...prev.selectedPlayers, playerId],
-    }))
-  }
-
-  const selectAllPlayers = () => {
-    const ids = teamRoster.map(item => item.player.id)
-    setData(prev => ({ ...prev, selectedPlayers: ids }))
-  }
-
-  const deselectAllPlayers = () => {
-    setData(prev => ({ ...prev, selectedPlayers: [] }))
-  }
-
-  const getLiberoCount = (): number => {
-    return teamRoster.filter(p => data.selectedPlayers.includes(p.player.id) && (p.role === 'L' || p.player.main_position === 'L')).length
-  }
-
-  const hasExcessLiberos = (): boolean => getLiberoCount() >= 3
-
-  const handleNavigateToTeams = () => {
-    setShowLiberoValidationModal(false)
-    onClose()
-    navigate('/teams')
-  }
-
-  const handleCreateMatch = async () => {
-    setError('')
+  const createMatchAndExit = async () => {
+    setIsSubmitting(true)
     try {
       const selectedTeam = availableTeams.find(t => t.id === data.teamId)
       if (!selectedTeam) throw new Error('No se ha seleccionado un equipo válido')
-      if (!data.opponent.trim()) throw new Error('Debes ingresar el nombre del equipo contrario')
-      if (!data.location.trim()) throw new Error('Debes ingresar la ubicación del partido')
-      if (data.selectedPlayers.length === 0) throw new Error('Debes seleccionar al menos una jugadora')
 
-      const matchPlayers = teamRoster
-        .filter(item => data.selectedPlayers.includes(item.player.id))
-        .map(item => {
-          // Determine position: ignore 'starter' role, prefer specific role or main_position
-          const position = (item.role && item.role !== 'starter') ? item.role : (item.player.main_position || 'L')
+      // Combine date and time for ISO string
+      const dateTimeString = `${data.date}T${data.time}:00`
+      const matchDate = new Date(dateTimeString).toISOString()
 
-          return {
-            playerId: item.player.id,
-            name: `${item.player.first_name} ${item.player.last_name}`,
-            number: parseInt(item.jersey_number || '0'),
-            position: position,
-            starter: false,
-            stats: {
-              serves: 0,
-              aces: 0,
-              serveErrors: 0,
-              receptions: 0,
-              receptionErrors: 0,
-              attacks: 0,
-              kills: 0,
-              attackErrors: 0,
-              blocks: 0,
-              blockErrors: 0,
-              digs: 0,
-              digsErrors: 0,
-              sets: 0,
-              setErrors: 0,
-            },
-          }
+      // Create match in Supabase
+      if (profile?.club_id && currentSeason?.id) {
+        await matchService.createMatch({
+          club_id: profile.club_id,
+          season_id: currentSeason.id,
+          team_id: data.teamId,
+          opponent_name: data.opponent.trim(),
+          match_date: matchDate,
+          location: data.location.trim(),
+          home_away: data.teamSide === 'local' ? 'home' : 'away',
+          status: 'planned',
         })
-
-      const newMatch = createMatch({
-        opponent: data.opponent.trim(),
-        date: data.date,
-        time: data.time,
-        location: data.location.trim(),
-        status: 'upcoming',
-        teamId: data.teamId,
-        season_id: currentSeason?.id,
-        teamSide: data.teamSide,
-        currentSet: 1,
-        setsWonLocal: 0,
-        setsWonVisitor: 0,
-        sacadorInicialSet1: data.sacadorInicialSet1,
-        acciones: [],
-        sets: [{ id: '1', number: 1, homeScore: 0, awayScore: 0, status: 'not_started' }],
-        players: matchPlayers,
-      })
-
-      // Persist to Supabase (Silent)
-      try {
-        if (profile?.club_id && currentSeason?.id && selectedTeam) {
-          // Combine date and time for ISO string
-          const dateTimeString = `${data.date}T${data.time}:00`
-          const matchDate = new Date(dateTimeString).toISOString()
-
-          const supabaseMatch = await matchService.createMatch({
-            club_id: profile.club_id,
-            season_id: currentSeason.id,
-            team_id: data.teamId,
-            opponent_name: data.opponent.trim(),
-            match_date: matchDate,
-            location: data.location.trim(),
-            home_away: data.teamSide === 'local' ? 'home' : 'away',
-            status: 'planned',
-          })
-
-          // Link local match with Supabase ID
-          setMatchDbId(newMatch.id, supabaseMatch.id)
-
-          const convocations = teamRoster.map(item => ({
-            player_id: item.player.id,
-            status: data.selectedPlayers.includes(item.player.id) ? 'convocado' : 'no_convocado',
-            reason_not_convoked: data.selectedPlayers.includes(item.player.id) ? undefined : 'decisión técnica',
-            notes: undefined
-          }))
-
-          await matchConvocationService.setConvocationsForMatch({
-            matchId: supabaseMatch.id,
-            teamId: selectedTeam.id,
-            seasonId: currentSeason.id,
-            convocations
-          })
-        }
-      } catch (err) {
-        console.error('Error persisting match to Supabase:', err)
-        // Silent fail - do not block UI flow
       }
 
-      // Reset wizard state
-      setCurrentStep(1)
-      const newDate = new Date().toISOString().split('T')[0]
-      setData({
-        opponent: '',
-        date: newDate,
-        time: '18:00',
-        location: '',
-        teamId: availableTeams[0]?.id || '',
-        teamSide: 'local',
-        selectedPlayers: [],
-        sacadorInicialSet1: null,
-      })
-      setDisplayDate(formatDateForDisplay(newDate))
-      setDisplayTime(formatTimeForDisplay('18:00'))
-      setDateError('')
-      setTimeError('')
-      setError('')
-
+      // Close wizard and return to matches list
       onClose()
-      navigate(`/matches/${newMatch.id}/live`)
+      navigate('/matches')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ha ocurrido un error al crear el partido. Inténtalo de nuevo.')
+      console.error(err)
+      setError(err instanceof Error ? err.message : 'Error al crear el partido')
+    } finally {
+      setIsSubmitting(false)
     }
+  }
+
+  const handleExit = () => {
+    onClose()
   }
 
   if (!isOpen) return null
 
-  const selectedTeam = availableTeams.find(t => t.id === data.teamId)
-
   return (
     <div className="modal-overlay">
-      <div className="modal-container max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="modal-container max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         <div className="modal-header flex justify-between items-center">
           <h2 className="modal-title">Crear Nuevo Partido</h2>
-          <button onClick={() => { setError(''); onClose() }} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500 hover:text-gray-700">
+          <button onClick={handleExit} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500 hover:text-gray-700">
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Progress Bar */}
         <div className="px-6 pt-4 pb-2 bg-white">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Paso {currentStep} de {totalSteps}</span>
@@ -403,62 +250,88 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
             <div className="bg-primary-600 h-full rounded-full transition-all duration-500 ease-out" style={{ width: `${(currentStep / totalSteps) * 100}%` }} />
           </div>
         </div>
-        <div className="modal-body overflow-y-auto flex-1">
+
+        <div className="modal-body overflow-y-auto flex-1 p-6">
           {error && (
             <div className="mb-6 bg-danger-50 border border-danger-200 rounded-lg p-4 flex items-start gap-3">
               <div className="w-1 h-1 bg-danger-500 rounded-full mt-2" />
               <p className="text-sm text-danger-800 font-medium">{error}</p>
             </div>
           )}
+
+          {/* STEP 1: Team & Side */}
           {currentStep === 1 && (
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-900">Tu equipo en este partido</h3>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Selector de mi equipo</label>
-                <div className="relative">
-                  <select value={data.teamId} onChange={e => handleTeamSelection(e.target.value)} className="input-field w-full appearance-none pr-10">
-                    <option value="">Selecciona un equipo...</option>
-                    {availableTeams.map(team => (
-                      <option key={team.id} value={team.id}>
-                        {getTeamDisplayName(team)} ({team.player_team_season?.length || 0} jugadoras)
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Tu equipo y condición</h3>
+                  <p className="text-sm text-gray-500">Selecciona con qué equipo jugarás y si eres local o visitante.</p>
                 </div>
               </div>
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">Posición de tu equipo en este partido</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div onClick={() => handleTeamSideChange('local')} className={`p-4 border-2 rounded-xl cursor-pointer transition-all text-center relative overflow-hidden group ${data.teamSide === 'local' ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
-                    <div className="relative z-10">
-                      <div className="flex items-center justify-center mb-2">
-                        <div className={`w-5 h-5 rounded-full border-2 mr-2 flex items-center justify-center transition-colors ${data.teamSide === 'local' ? 'border-primary-600 bg-primary-600' : 'border-gray-300 group-hover:border-gray-400'}`}>
-                          {data.teamSide === 'local' && <div className="w-2 h-2 bg-white rounded-full" />}
-                        </div>
-                        <span className="font-medium text-gray-600">Tu equipo es:</span>
-                      </div>
-                      <span className={`text-xl font-bold ${data.teamSide === 'local' ? 'text-primary-700' : 'text-gray-900'}`}>Local</span>
-                    </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Selector de mi equipo</label>
+                  <div className="relative">
+                    <select value={data.teamId} onChange={e => handleTeamSelection(e.target.value)} className="input-field w-full appearance-none pr-10">
+                      <option value="">Selecciona un equipo...</option>
+                      {availableTeams.map(team => (
+                        <option key={team.id} value={team.id}>
+                          {getTeamDisplayName(team)} ({team.player_team_season?.length || 0} jugadoras)
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                   </div>
-                  <div onClick={() => handleTeamSideChange('visitante')} className={`p-4 border-2 rounded-xl cursor-pointer transition-all text-center relative overflow-hidden group ${data.teamSide === 'visitante' ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
-                    <div className="relative z-10">
-                      <div className="flex items-center justify-center mb-2">
-                        <div className={`w-5 h-5 rounded-full border-2 mr-2 flex items-center justify-center transition-colors ${data.teamSide === 'visitante' ? 'border-primary-600 bg-primary-600' : 'border-gray-300 group-hover:border-gray-400'}`}>
-                          {data.teamSide === 'visitante' && <div className="w-2 h-2 bg-white rounded-full" />}
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Posición de tu equipo</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div onClick={() => handleTeamSideChange('local')} className={`p-4 border-2 rounded-xl cursor-pointer transition-all text-center relative overflow-hidden group ${data.teamSide === 'local' ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
+                      <div className="relative z-10">
+                        <div className="flex items-center justify-center mb-2">
+                          <div className={`w-5 h-5 rounded-full border-2 mr-2 flex items-center justify-center transition-colors ${data.teamSide === 'local' ? 'border-primary-600 bg-primary-600' : 'border-gray-300 group-hover:border-gray-400'}`}>
+                            {data.teamSide === 'local' && <div className="w-2 h-2 bg-white rounded-full" />}
+                          </div>
+                          <span className="font-medium text-gray-600">Tu equipo es:</span>
                         </div>
-                        <span className="font-medium text-gray-600">Tu equipo es:</span>
+                        <span className={`text-xl font-bold ${data.teamSide === 'local' ? 'text-primary-700' : 'text-gray-900'}`}>Local</span>
                       </div>
-                      <span className={`text-xl font-bold ${data.teamSide === 'visitante' ? 'text-primary-700' : 'text-gray-900'}`}>Visitante</span>
+                    </div>
+                    <div onClick={() => handleTeamSideChange('visitante')} className={`p-4 border-2 rounded-xl cursor-pointer transition-all text-center relative overflow-hidden group ${data.teamSide === 'visitante' ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
+                      <div className="relative z-10">
+                        <div className="flex items-center justify-center mb-2">
+                          <div className={`w-5 h-5 rounded-full border-2 mr-2 flex items-center justify-center transition-colors ${data.teamSide === 'visitante' ? 'border-primary-600 bg-primary-600' : 'border-gray-300 group-hover:border-gray-400'}`}>
+                            {data.teamSide === 'visitante' && <div className="w-2 h-2 bg-white rounded-full" />}
+                          </div>
+                          <span className="font-medium text-gray-600">Tu equipo es:</span>
+                        </div>
+                        <span className={`text-xl font-bold ${data.teamSide === 'visitante' ? 'text-primary-700' : 'text-gray-900'}`}>Visitante</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           )}
+
+          {/* STEP 2: Match Info */}
           {currentStep === 2 && (
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-900">Información del Partido</h3>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600">
+                  <Calendar className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Información del Partido</h3>
+                  <p className="text-sm text-gray-500">Define los detalles logísticos del encuentro.</p>
+                </div>
+              </div>
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Equipo Rival</label>
@@ -470,104 +343,61 @@ export function MatchWizard({ isOpen, onClose, initialStep = 1, matchId }: Match
                     placeholder="Ej: CV Barcelona"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2"><Calendar className="w-4 h-4 inline mr-1 text-gray-500" /> Fecha</label>
-                  <input type="text" value={displayDate} onChange={handleDateChange} placeholder="DD/MM/YYYY" className={`input-field w-full ${dateError ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500' : ''}`} />
-                  {dateError && <p className="text-danger-500 text-xs mt-1 font-medium">{dateError}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2"><Clock className="w-4 h-4 inline mr-1 text-gray-500" /> Hora</label>
-                  <input type="text" value={displayTime} onChange={handleTimeChange} placeholder="HH:MM" className={`input-field w-full ${timeError ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500' : ''}`} />
-                  {timeError && <p className="text-danger-500 text-xs mt-1 font-medium">{timeError}</p>}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2"><Calendar className="w-4 h-4 inline mr-1 text-gray-500" /> Fecha</label>
+                    <input type="text" value={displayDate} onChange={handleDateChange} placeholder="DD/MM/YYYY" className={`input-field w-full ${dateError ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500' : ''}`} />
+                    {dateError && <p className="text-danger-500 text-xs mt-1 font-medium">{dateError}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2"><Clock className="w-4 h-4 inline mr-1 text-gray-500" /> Hora</label>
+                    <input type="text" value={displayTime} onChange={handleTimeChange} placeholder="HH:MM" className={`input-field w-full ${timeError ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500' : ''}`} />
+                    {timeError && <p className="text-danger-500 text-xs mt-1 font-medium">{timeError}</p>}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2"><MapPin className="w-4 h-4 inline mr-1 text-gray-500" /> Ubicación</label>
                   <input type="text" value={data.location} onChange={e => setData(prev => ({ ...prev, location: e.target.value }))} className="input-field w-full" placeholder="Ej: Pabellón Municipal" />
                 </div>
               </div>
-            </div>
-          )}
-          {currentStep === 3 && selectedTeam && (
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-gray-900">¿Quién saca primero?</h3>
-                <div className="space-y-3">
-                  <button onClick={() => handleServeSelection(true)} className={`w-full py-3 px-4 rounded-xl font-bold transition-all ${data.sacadorInicialSet1 === (data.teamSide === 'local' ? 'local' : 'visitor') ? 'bg-primary-600 text-white shadow-md transform scale-[1.02]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                    {getTeamDisplayName(selectedTeam)}
-                  </button>
-                  <button onClick={() => handleServeSelection(false)} className={`w-full py-3 px-4 rounded-xl font-bold transition-all ${data.sacadorInicialSet1 === (data.teamSide === 'local' ? 'visitor' : 'local') ? 'bg-primary-600 text-white shadow-md transform scale-[1.02]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                    {data.opponent || 'Equipo Rival'}
-                  </button>
-                </div>
-                {!data.sacadorInicialSet1 && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                    <p className="text-sm text-yellow-800">Debes seleccionar quién saca primero</p>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">Seleccionar Jugadoras</h3>
-                  <div className="flex space-x-2">
-                    <button onClick={selectAllPlayers} className="text-sm px-3 py-1 bg-primary-100 text-primary-700 rounded-md hover:bg-primary-200 transition-colors">Seleccionar todas</button>
-                    <button onClick={deselectAllPlayers} className="text-sm px-3 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors">Deseleccionar todas</button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {teamRoster.map(item => {
-                    const position = (item.role && item.role !== 'starter') ? item.role : (item.player.main_position || 'L')
-                    return (
-                      <div key={item.player.id} className={`p-2 border-2 rounded-xl cursor-pointer transition-all flex flex-col items-center justify-center gap-1 relative group min-h-[110px] ${data.selectedPlayers.includes(item.player.id) ? 'border-primary-500 bg-primary-50 shadow-sm' : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'}`} onClick={() => togglePlayerSelection(item.player.id)} title={`Seleccionar ${item.player.first_name} ${item.player.last_name}`}>
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-sm border-2 border-white mb-1.5 transition-colors flex-shrink-0 ${data.selectedPlayers.includes(item.player.id) ? 'bg-primary-600' : 'bg-gray-900'}`}>{item.jersey_number || '0'}</div>
-                        <span title={POSITION_NAMES[position]} className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase mb-1 ${position === 'L' ? 'bg-yellow-400 text-yellow-900' : position === 'S' ? 'bg-blue-100 text-blue-800' : position === 'OH' ? 'bg-green-100 text-green-800' : position === 'MB' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>{position}</span>
-                        <p className="font-bold text-gray-900 text-xs truncate w-full text-center">{item.player.first_name}</p>
-                        {data.selectedPlayers.includes(item.player.id) && (
-                          <div className="absolute top-2 right-2 w-5 h-5 bg-primary-600 rounded-full border-2 border-white flex items-center justify-center">
-                            <span className="text-white text-[10px] font-bold">✓</span>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-                {data.selectedPlayers.length === 0 && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <p className="text-sm text-red-800">Debes seleccionar al menos una jugadora para este partido</p>
-                  </div>
-                )}
-                {hasExcessLiberos() && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <div className="flex items-start space-x-3">
-                      <div className="flex-shrink-0"><div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center"><span className="text-red-600 font-bold text-sm">!</span></div></div>
-                      <div>
-                        <p className="text-sm font-medium text-red-800">Demasiadas líberos convocadas</p>
-                        <p className="text-sm text-red-700 mt-1">Has seleccionado {getLiberoCount()} líberos. Solo se pueden convocar 2 líberos por partido.</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3 mt-4">
+                <div className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5">ℹ️</div>
+                <p className="text-sm text-blue-800">Al crear el partido, podrás gestionar la convocatoria desde la lista de partidos.</p>
               </div>
             </div>
           )}
         </div>
-        <div className="modal-footer">
-          <button onClick={handlePrevious} className="mr-2 px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Anterior</button>
-          {currentStep < totalSteps && (
-            <button onClick={handleNext} className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700">Siguiente</button>
-          )}
-          {currentStep === totalSteps && (
-            <button onClick={handleCreateMatch} className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Crear Partido</button>
-          )}
+
+        {/* Footer */}
+        <div className="modal-footer flex justify-between items-center p-4 border-t border-gray-100 bg-gray-50">
+          <div className="flex gap-2">
+            {currentStep > 1 && (
+              <button onClick={handlePrevious} className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors" disabled={isSubmitting}>
+                Atrás
+              </button>
+            )}
+          </div>
+
+          <button
+            onClick={handleNext}
+            disabled={isSubmitting}
+            className={`px-6 py-2 rounded-lg text-white font-medium shadow-sm transition-all flex items-center gap-2 ${isSubmitting ? 'opacity-70 cursor-wait' : 'hover:shadow-md'} bg-primary-600 hover:bg-primary-700`}
+          >
+            {isSubmitting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Procesando...</span>
+              </>
+            ) : (
+              <>
+                {currentStep === 1 && <span>Siguiente</span>}
+                {currentStep === 2 && <span>Crear Partido</span>}
+              </>
+            )}
+          </button>
         </div>
       </div>
-      {showLiberoValidationModal && (
-        <LiberoValidationModal
-          isOpen={showLiberoValidationModal}
-          liberoCount={getLiberoCount()}
-          onClose={() => setShowLiberoValidationModal(false)}
-          onNavigateToTeams={handleNavigateToTeams}
-        />
-      )}
     </div>
   )
 }

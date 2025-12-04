@@ -880,8 +880,17 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
     const setsGanadosLocal = setsCompletados.filter(s => s.homeScore > s.awayScore).length
     const setsGanadosVisitante = setsCompletados.filter(s => s.awayScore > s.homeScore).length
 
+    console.log('🏐 handleSetComplete - Match End Check:', {
+      setNumber: pendingSetCompletion.setNumber,
+      setsCompletados: setsCompletados.length,
+      setsGanadosLocal,
+      setsGanadosVisitante,
+      shouldEndMatch: setsGanadosLocal === 3 || setsGanadosVisitante === 3
+    })
+
     if (setsGanadosLocal === 3 || setsGanadosVisitante === 3) {
       // Match is complete
+      console.log('✅ Match is complete! Showing match complete modal')
       setShowSetCompleteModal(false)
       setShowMatchCompleteModal(true)
     } else if (match.currentSet < 5) {

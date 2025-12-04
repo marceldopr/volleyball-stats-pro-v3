@@ -1,0 +1,35 @@
+// NUEVA VERSIÓN SIMPLIFICADA de handleStartMatch
+// Reemplaza desde la línea 215 hasta la línea 306
+
+const handleStartMatch = async (match: any) => {
+  // Check if match has convocation
+  const hasConvocation = matchesWithConvocations[match.id]
+  
+  if (!hasConvocation) {
+    alert('Este partido no tiene convocatoria. Gestiona la convocatoria antes de iniciar el partido.')
+    return
+  }
+
+  try {
+    // Verify we have at least 6 convocated players
+    const convocations = await matchConvocationService.getConvocationsByMatch(match.id)
+    const convocated = convocations.filter((c: any) => c.status === 'convocado')
+
+    if (convocated.length < 6) {
+      alert(`Solo hay ${convocated.length} jugadoras convocadas. Se necesitan al menos 6 para iniciar el partido.`)
+      return
+    }
+
+    // Update match status to in_progress
+    await matchService.updateMatch(match.id, {
+      status: 'in_progress'
+    })
+
+    // Navigate directly to live match
+    // LiveMatch will detect no starters and show StartersManagement modal automatically
+    navigate(`/matches/${match.id}/live`)
+  } catch (err) {
+    console.error('Error starting match:', err)
+    alert('Error al iniciar el partido.')
+  }
+}

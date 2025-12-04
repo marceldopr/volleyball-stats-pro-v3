@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { MatchWizard } from '../components/MatchWizard'
 import { MatchDetail } from '../components/MatchDetail'
+import { ConvocationManager } from '../components/ConvocationManager'
 import { useMatchStore } from '../stores/matchStore'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useAuthStore } from '../stores/authStore'
 import { seasonService } from '../services/seasonService'
 import { teamService } from '../services/teamService'
 import { matchService } from '../services/matchService'
+import { matchConvocationService } from '../services/matchConvocationService'
 import { useRoleScope } from '@/hooks/useRoleScope'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
-import { Plus, Calendar, Trophy, Clock, Trash2, Eye } from 'lucide-react'
+import { Plus, Calendar, Trophy, Clock, Trash2, Eye, Users, Play } from 'lucide-react'
 
 
 export function Matches({ teamId }: { teamId?: string } = {}) {
@@ -25,7 +27,14 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
   const [currentSeason, setCurrentSeason] = useState<any>(null)
   const [availableTeams, setAvailableTeams] = useState<any[]>([])
   const [supabaseMatches, setSupabaseMatches] = useState<any[]>([])
+  const [matchesWithConvocations, setMatchesWithConvocations] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
+
+  // Convocation Manager state
+  const [convocationManagerOpen, setConvocationManagerOpen] = useState(false)
+  const [selectedMatchForConvocation, setSelectedMatchForConvocation] = useState<any>(null)
+
+  const navigate = useNavigate()
 
   // Load season, teams, and matches
   useEffect(() => {
@@ -68,6 +77,30 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
     }
     fetchData()
   }, [profile?.club_id, isCoach, assignedTeamIds, teamId])
+
+  // Check which matches have convocations
+  useEffect(() => {
+    const checkConvocations = async () => {
+      const convocationsMap: Record<string, boolean> = {}
+
+      for (const match of supabaseMatches) {
+        try {
+          const convocations = await matchConvocationService.getConvocationsByMatch(match.id)
+          const hasConvocated = convocations.some((c: any) => c.status === 'convocado')
+          convocationsMap[match.id] = hasConvocated
+        } catch (err) {
+          console.error(`Error checking convocations for match ${match.id}:`, err)
+          convocationsMap[match.id] = false
+        }
+      }
+
+      setMatchesWithConvocations(convocationsMap)
+    }
+
+    if (supabaseMatches.length > 0) {
+      checkConvocations()
+    }
+  }, [supabaseMatches])
 
   // Map team IDs to names for quick lookup
   const teamMap = availableTeams.reduce((acc, team) => {
@@ -143,6 +176,71 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
       default: return 'Desconocido'
     }
   }
+
+  const handleOpenConvocationManager = (match: any) => {
+    if (match.status !== 'planned') {
+      alert('No se puede modificar la convocatoria de un partido iniciado o finalizado.')
+      return
+    }
+    setSelectedMatchForConvocation(match)
+    setConvocationManagerOpen(true)
+  }
+
+  const handleCloseConvocationManager = () => {
+    setConvocationManagerOpen(false)
+    setSelectedMatchForConvocation(null)
+    // Reload matches to update convocation status
+    if (profile?.club_id && currentSeason) {
+      matchService.getMatchesByClubAndSeason(profile.club_id, currentSeason.id)
+        .then(matches => {
+          let filteredMatches = matches
+          if (teamId) {
+            filteredMatches = filteredMatches.filter(m => m.team_id === teamId)
+          }
+          if (isCoach) {
+            filteredMatches = filteredMatches.filter(m => assignedTeamIds.includes(m.team_id))
+          }
+          setSupabaseMatches(filteredMatches)
+        })
+    }
+  }
+
+  const handleStartMatch = async (match: any) => {
+    // Check if match has convocation
+    const hasConvocation = matchesWithConvocations[match.id]
+
+    if (!hasConvocation) {
+      alert('Este partido no tiene convocatoria. Gestiona la convocatoria antes de iniciar el partido.')
+      return
+    }
+
+    try {
+      // Verify we have at least 6 convocated players
+      const convocations = await matchConvocationService.getConvocationsByMatch(match.id)
+      const convocated = convocations.filter((c: any) => c.status === 'convocado')
+
+      if (convocated.length < 6) {
+        alert(`Solo hay ${convocated.length} jugadoras convocadas. Se necesitan al menos 6 para iniciar el partido.`)
+        return
+      }
+
+      // Update match status to in_progress
+      await matchService.updateMatch(match.id, {
+        status: 'in_progress'
+      })
+
+      // Navigate directly to live match
+      // LiveMatch will detect no starters and show StartersManagement modal automatically
+      navigate(`/matches/${match.id}/live`)
+    } catch (err) {
+      console.error('Error starting match:', err)
+      alert('Error al iniciar el partido.')
+    }
+  }
+
+
+
+
 
   return (
     <div className="p-6 space-y-6 min-h-screen bg-gray-900">
@@ -239,7 +337,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
+              <div className="pt-4 border-t border-gray-700/50 flex justify-end gap-3">
                 <button
                   onClick={() => setSelectedMatch(transformMatchForDetail(match))}
                   className="btn-secondary text-sm py-2"
@@ -247,17 +345,39 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                   <Eye className="w-4 h-4 mr-2" />
                   Ver detalles
                 </button>
+
                 {match.status === 'planned' && (
-                  <Link to={`/matches/${match.id}/live`} className="btn-primary text-sm py-2">
-                    Comenzar Partido
-                  </Link>
+                  <>
+                    <button
+                      onClick={() => handleOpenConvocationManager(match)}
+                      className="btn-secondary text-sm py-2 flex items-center gap-2"
+                    >
+                      <Users className="w-4 h-4" />
+                      Gestionar Convocatoria
+                    </button>
+
+                    <button
+                      onClick={() => handleStartMatch(match)}
+                      disabled={!matchesWithConvocations[match.id]}
+                      title={!matchesWithConvocations[match.id] ? 'Primero debes gestionar la convocatoria' : ''}
+                      className={`btn-primary text-sm py-2 flex items-center gap-2 ${!matchesWithConvocations[match.id]
+                        ? 'opacity-50 cursor-not-allowed'
+                        : ''
+                        }`}
+                    >
+                      <Play className="w-4 h-4" />
+                      Iniciar Partido
+                    </button>
+                  </>
                 )}
+
                 {match.status === 'in_progress' && (
-                  <Link to={`/matches/${match.id}/live`} className="btn-action-danger text-sm py-2 animate-pulse">
-                    <div className="w-2 h-2 bg-white rounded-full mr-2"></div>
+                  <Link to={`/matches/${match.id}/live`} className="btn-action-danger text-sm py-2 animate-pulse flex items-center gap-2">
+                    <div className="w-2 h-2 bg-white rounded-full"></div>
                     Ver en Vivo
                   </Link>
                 )}
+
                 {match.status === 'finished' && (
                   <Link to={`/matches/${match.id}/analysis`} className="btn-outline text-sm py-2">
                     Ver Análisis
@@ -269,6 +389,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
         </div>
       )}
 
+
       {/* Match Wizard Modal */}
       <MatchWizard isOpen={isWizardOpen} onClose={() => setIsWizardOpen(false)} />
 
@@ -276,6 +397,21 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
       {selectedMatch && (
         <MatchDetail match={selectedMatch} onClose={() => setSelectedMatch(null)} />
       )}
+
+      {/* Convocation Manager Modal */}
+      {convocationManagerOpen && selectedMatchForConvocation && (
+        <ConvocationManager
+          isOpen={convocationManagerOpen}
+          onClose={handleCloseConvocationManager}
+          matchId={selectedMatchForConvocation.id}
+          teamId={selectedMatchForConvocation.team_id}
+          seasonId={selectedMatchForConvocation.season_id}
+          matchStatus={selectedMatchForConvocation.status}
+          opponentName={selectedMatchForConvocation.opponent_name}
+        />
+      )}
+
+
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog

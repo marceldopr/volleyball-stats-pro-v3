@@ -1,0 +1,105 @@
+// INSTRUCCIONES: Reemplaza la función handleStartMatch (líneas 215-227) 
+// con este código completo:
+
+const handleStartMatch = async (match: any) => {
+  // Check if match has convocation
+  const hasConvocation = matchesWithConvocations[match.id]
+  
+  if (!hasConvocation) {
+    alert('Este partido no tiene convocatoria. Gestiona la convocatoria antes de iniciar el partido.')
+    return
+  }
+
+  try {
+    // Load convocated players to create Match object
+    const convocations = await matchConvocationService.getConvocationsByMatch(match.id)
+    const convocated = convocations.filter((c: any) => c.status === 'convocado')
+
+    if (convocated.length < 6) {
+      alert(`Solo hay ${convocated.length} jugadoras convocadas. Se necesitan al menos 6 para iniciar el partido.`)
+      return
+    }
+
+    // Load player details from player_team_season
+    const playerIds = convocated.map((c: any) => c.player_id)
+    const { data: playerSeasons } = await supabase
+      .from('player_team_season')
+      .select(`
+        jersey_number,
+        role,
+        club_players!inner (
+          id,
+          first_name,
+          last_name,
+          main_position
+        )
+      `)
+      .in('player_id', playerIds)
+      .eq('season_id', match.season_id)
+
+    if (!playerSeasons || playerSeasons.length === 0) {
+      alert('No se pudieron cargar los datos de las jugadoras.')
+      return
+    }
+
+    // Create Match object compatible with StartersManagement
+    const matchObj = {
+      id: match.id,
+      opponent: match.opponent_name,
+      date: match.match_date,
+      time: new Date(match.match_date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+      location: match.location,
+      teamSide: match.home_away === 'home' ? 'local' : 'visitante',
+      teamId: match.team_id,
+      players: playerSeasons.map((pts: any) => ({
+        playerId: pts.club_players.id,
+        name: `${pts.club_players.first_name} ${pts.club_players.last_name}`,
+        number: pts.jersey_number,
+        position: pts.club_players.main_position,
+        starter: false
+      })),
+      sets: [],
+      status: 'upcoming'
+    }
+
+    setMatchForStarters(matchObj)
+    setSelectedMatchForStart(match)
+    setStarterSelectionOpen(true)
+  } catch (err) {
+    console.error('Error loading match for starters:', err)
+    alert('Error al cargar los datos del partido.')
+  }
+}
+
+// AÑADE esta nueva función después de handleStartMatch:
+
+const handleSaveStarters = async (starters: string[], startingLineup: any) => {
+  if (!selectedMatchForStart) return
+
+  try {
+    // Update match_convocations to mark starters
+    for (const playerId of starters) {
+      const convocations = await matchConvocationService.getConvocationsByMatch(selectedMatchForStart.id)
+      const convocation = convocations.find((c: any) => c.player_id === playerId)
+      if (convocation) {
+        await matchConvocationService.updateConvocation(convocation.id, {
+          role_in_match: 'starter'
+        })
+      }
+    }
+
+    // Update match status to in_progress
+    await matchService.updateMatch(selectedMatchForStart.id, {
+      status: 'in_progress'
+    })
+
+    // Close modal and navigate to live match
+    setStarterSelectionOpen(false)
+    setSelectedMatchForStart(null)
+    setMatchForStarters(null)
+    navigate(`/matches/${selectedMatchForStart.id}/live`)
+  } catch (err) {
+    console.error('Error saving starters:', err)
+    alert('Error al guardar las titulares.')
+  }
+}

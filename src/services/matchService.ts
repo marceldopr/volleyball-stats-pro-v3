@@ -17,6 +17,8 @@ export interface MatchDB {
     actions: any[] | null
     created_at: string
     updated_at: string
+    sacador_inicial_set_1?: 'local' | 'visitor' | null
+    sacador_inicial_set_5?: 'local' | 'visitor' | null
 }
 
 export const matchService = {
@@ -98,8 +100,7 @@ export const matchService = {
                         id,
                         first_name,
                         last_name,
-                        main_position,
-                        jersey_number
+                        main_position
                     )
                 `)
                 .eq('match_id', id)
@@ -194,10 +195,10 @@ export const matchService = {
                 const detailedMatch = resultStr.match(/\((.*?)\)/)
                 if (detailedMatch) {
                     const setScoresStr = detailedMatch[1] // "25-20, 20-25, ..."
-                    const setScores = setScoresStr.split(',').map(s => s.trim())
+                    const setScores = setScoresStr.split(',').map((s: string) => s.trim())
 
-                    setScores.forEach((score, index) => {
-                        const [home, away] = score.split('-').map(s => parseInt(s.trim()))
+                    setScores.forEach((score: string, index: number) => {
+                        const [home, away] = score.split('-').map((s: string) => parseInt(s.trim()))
                         if (!isNaN(home) && !isNaN(away)) {
                             sets.push({
                                 id: `set-${index + 1}`,
@@ -234,7 +235,7 @@ export const matchService = {
             if (sets.length > 0 && sets[0].homeScore === 0 && sets[0].awayScore === 0 && matchData.result) {
                 const parts = matchData.result.split('-')
                 if (parts.length >= 2) {
-                    const homeSetsWon = parseInt(parts[0])
+                    // const homeSetsWon = parseInt(parts[0])
                     // We can't know which sets were won without detailed scores, 
                     // but we can at least show the set count.
                 }
@@ -257,7 +258,8 @@ export const matchService = {
                 currentSet: sets.length || 1,
                 setsWonLocal: 0, // Would need to parse result
                 setsWonVisitor: 0, // Calculated in UI or helper
-                sacadorInicialSet1: null,
+                sacadorInicialSet1: (matchData.actions || []).find((a: any) => a.tipo === 'initial_serve_selection' && a.set === 1)?.serveSelection || null,
+                sacadorInicialSet5: (matchData.actions || []).find((a: any) => a.tipo === 'initial_serve_selection' && a.set === 5)?.serveSelection || null,
                 acciones: matchData.actions || [],
                 createdAt: matchData.created_at,
                 updatedAt: matchData.updated_at
