@@ -259,7 +259,7 @@ export const clubStatsService = {
     /**
      * Get summary by coach
      */
-    async getCoachesSummary(clubId: string, seasonId?: string): Promise<CoachSummary[]> {
+    async getCoachesSummary(clubId: string, _seasonId?: string): Promise<CoachSummary[]> {
         try {
             // Get all coaches (users with role 'coach' or 'dt' in this club)
             const { data: profiles, error: profilesError } = await supabase

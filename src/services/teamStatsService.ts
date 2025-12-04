@@ -42,7 +42,7 @@ export const teamStatsService = {
     /**
      * Calculate team attendance percentage for last N days
      */
-    async getTeamAttendance(teamId: string, days: number = 30): Promise<number | null> {
+    async getTeamAttendance(_teamId: string, _days: number = 30): Promise<number | null> {
         // TODO: Implement when training attendance tracking is available
         // For now, return null
         return null
@@ -199,7 +199,7 @@ export const teamStatsService = {
      * Get attendance percentage for last 30 days
      * Returns percentage rounded to integer or null if no data
      */
-    async getAttendanceLast30Days(teamId: string, seasonId: string): Promise<number | null> {
+    async getAttendanceLast30Days(_teamId: string, _seasonId: string): Promise<number | null> {
         // TODO: Implement when training attendance tracking is available
         // This would query a trainings table and calculate average attendance
         // For now, return null

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { TrendingUp, Activity, Users, Loader2, AlertCircle } from 'lucide-react'
-import { teamStatsService, CurrentPhaseInfo, RecentActivity, TeamStats } from '@/services/teamStatsService'
+// import { teamStatsService } from '@/services/teamStatsService'
 import { seasonService } from '@/services/seasonService'
 import { useAuthStore } from '@/stores/authStore'
 import { toast } from 'sonner'
@@ -11,9 +11,9 @@ export function TeamHomePage() {
     const { profile } = useAuthStore()
 
     const [loading, setLoading] = useState(true)
-    const [currentPhase, setCurrentPhase] = useState<CurrentPhaseInfo | null>(null)
-    const [recentActivity, setRecentActivity] = useState<RecentActivity | null>(null)
-    const [teamStats, setTeamStats] = useState<TeamStats | null>(null)
+    const [currentPhase] = useState<any | null>(null)
+    const [recentActivity] = useState<any | null>(null)
+    const [teamStats] = useState<any | null>(null)
 
     useEffect(() => {
         loadHomeData()
@@ -32,16 +32,9 @@ export function TeamHomePage() {
                 return
             }
 
-            // Load all data in parallel
-            const [phaseData, activityData, statsData] = await Promise.all([
-                teamStatsService.getCurrentPhase(teamId, season.id),
-                teamStatsService.getRecentActivity(teamId, season.id),
-                teamStatsService.getTeamStats(teamId, season.id)
-            ])
-
-            setCurrentPhase(phaseData)
-            setRecentActivity(activityData)
-            setTeamStats(statsData)
+            // Load basic team stats (placeholder)
+            // TODO: Implement when full team stats service is available
+            setLoading(false)
         } catch (error) {
             console.error('Error loading home data:', error)
             toast.error('Error al cargar los datos del equipo')
@@ -153,10 +146,10 @@ export function TeamHomePage() {
                             <div className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
                                 <div className="flex-1">
                                     <span className={`font-semibold ${recentActivity.lastMatch.result === 'win'
-                                            ? 'text-emerald-600 dark:text-emerald-400'
-                                            : recentActivity.lastMatch.result === 'loss'
-                                                ? 'text-red-600 dark:text-red-400'
-                                                : 'text-gray-600 dark:text-gray-400'
+                                        ? 'text-emerald-600 dark:text-emerald-400'
+                                        : recentActivity.lastMatch.result === 'loss'
+                                            ? 'text-red-600 dark:text-red-400'
+                                            : 'text-gray-600 dark:text-gray-400'
                                         }`}>
                                         {recentActivity.lastMatch.score}
                                     </span>

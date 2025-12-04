@@ -167,26 +167,40 @@ export const matchService = {
             // Reconstruct sets
             let sets: Set[] = []
 
-            // Try to get sets from match_sets table if it existed (it doesn't yet), so we rely on stats or result string
-            // First, try to infer from stats
-            const maxSetFromStats = (statsData || []).reduce((max: number, s: any) => Math.max(max, s.set_number), 0)
-
-            if (maxSetFromStats > 0) {
-                for (let i = 1; i <= maxSetFromStats; i++) {
-                    // Calculate score from actions if available, otherwise unknown
-                    // For now, we don't have per-set score in DB unless we parse actions or add a sets table
-                    // We'll leave scores as 0 unless we can parse them from result or actions
+            // PRIORITY 1: Try to get set scores from actions array (most accurate for live-tracked matches)
+            const setCompletedEvents = (matchData.actions || []).filter((a: any) => a.tipo === 'set_completed')
+            if (setCompletedEvents.length > 0) {
+                // Use set_completed events - these have the actual scores
+                setCompletedEvents.forEach((event: any) => {
                     sets.push({
-                        id: `set-${i}`,
-                        number: i,
-                        homeScore: 0,
-                        awayScore: 0,
+                        id: `set-${event.set}`,
+                        number: event.set,
+                        homeScore: event.homeScore,
+                        awayScore: event.awayScore,
                         status: 'completed'
                     })
+                })
+            } else {
+                // PRIORITY 2: Try to infer sets from match_stats if no set_completed events
+                const maxSetFromStats = (statsData || []).reduce((max: number, s: any) => Math.max(max, s.set_number), 0)
+
+                if (maxSetFromStats > 0) {
+                    for (let i = 1; i <= maxSetFromStats; i++) {
+                        // Calculate score from actions if available, otherwise unknown
+                        // For now, we don't have per-set score in DB unless we parse actions or add a sets table
+                        // We'll leave scores as 0 unless we can parse them from result or actions
+                        sets.push({
+                            id: `set-${i}`,
+                            number: i,
+                            homeScore: 0,
+                            awayScore: 0,
+                            status: 'completed'
+                        })
+                    }
                 }
             }
 
-            // If no sets from stats (imported match), try to parse result string
+            // PRIORITY 2: If no sets from stats or actions, try to parse result string (imported matches)
             // Expected format: "3-1 (25-20, 20-25, 25-15, 25-18)" or just "3-0"
             if (sets.length === 0 && matchData.result) {
                 const resultStr = matchData.result.trim()

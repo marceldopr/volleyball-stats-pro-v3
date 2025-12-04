@@ -868,6 +868,18 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
           timestamp: new Date().toISOString(),
           scoreAfter: { home: pendingSetCompletion.homeScore, away: pendingSetCompletion.awayScore }
         }
+      ],
+      // Add set completion event to acciones array for Supabase persistence
+      acciones: [
+        ...(match.acciones || []),
+        {
+          tipo: 'set_completed',
+          set: pendingSetCompletion.setNumber,
+          homeScore: pendingSetCompletion.homeScore,
+          awayScore: pendingSetCompletion.awayScore,
+          winner: pendingSetCompletion.winner,
+          timestamp: new Date().toISOString()
+        } as any
       ]
     })
 
@@ -1950,19 +1962,34 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
                   // Persist stats to Supabase
                   await handleSaveMatchStats()
 
+                  // Calculate final result (sets won)
+                  const setsWonLocal = match.sets.filter(s => s.status === 'completed' && s.homeScore > s.awayScore).length
+                  const setsWonVisitor = match.sets.filter(s => s.status === 'completed' && s.awayScore > s.homeScore).length
+                  const matchResult = `${setsWonLocal}-${setsWonVisitor}`
+
                   // Update match status in local store
                   onUpdateMatch(match.id, { status: 'completed' })
 
-                  // Update match status in Supabase
+                  // Update match status and result in Supabase
                   // Use match.id (which is the Supabase ID) instead of match.dbMatchId
                   // IMPORTANT: Database expects 'finished' not 'completed'
                   try {
-                    console.log('🏐 Updating match status in Supabase to finished, ID:', match.id)
-                    await matchService.updateMatch(match.id, { status: 'finished' })
-                    console.log('✅ Match status updated successfully')
+                    console.log('🏐 Updating match in Supabase:', {
+                      id: match.id,
+                      status: 'finished',
+                      result: matchResult
+                    })
+                    await matchService.updateMatch(match.id, {
+                      status: 'finished',
+                      result: matchResult
+                    })
+                    console.log('✅ Match status and result updated successfully')
                   } catch (err) {
-                    console.error('❌ Error updating match status:', err)
+                    console.error('❌ Error updating match:', err)
                   }
+
+                  // Clear unsaved changes flag to prevent blocker popup
+                  setHasUnsavedChanges(false)
 
                   onNavigateToMatches()
                 }}

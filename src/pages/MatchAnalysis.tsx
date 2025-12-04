@@ -2,19 +2,20 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Trophy, Calendar, Clock, Loader2, MapPin } from 'lucide-react'
 import { useMatchStore } from '../stores/matchStore'
-import { useTeamStore } from '../stores/teamStore'
 import { AccionPartido, Equipo, Match } from '../stores/matchStore'
 import { matchService } from '../services/matchService'
+import { teamService } from '../services/teamService'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { cn } from '@/lib/utils'
 
 export function MatchAnalysis() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { matches } = useMatchStore()
-  const { teams } = useTeamStore()
 
   const [match, setMatch] = useState<Match | undefined>(matches.find(m => m.id === id))
   const [loading, setLoading] = useState(!match || (match?.players?.length === 0))
+  const [teamName, setTeamName] = useState<string | null>(null)
 
   useEffect(() => {
     const loadMatch = async () => {
@@ -26,6 +27,18 @@ export function MatchAnalysis() {
         const fetchedMatch = await matchService.getMatchFullDetails(id)
         if (fetchedMatch) {
           setMatch(fetchedMatch)
+
+          // Load team name from Supabase
+          if (fetchedMatch.teamId) {
+            try {
+              const team = await teamService.getTeamById(fetchedMatch.teamId)
+              if (team) {
+                setTeamName(getTeamDisplayName(team))
+              }
+            } catch (err) {
+              console.error('Error loading team:', err)
+            }
+          }
         }
       } catch (err) {
         console.error('Error loading match analysis:', err)
@@ -61,12 +74,11 @@ export function MatchAnalysis() {
     )
   }
 
-  const myTeam = teams.find(team => team.id === match.teamId)
   const isHomeTeam = match.teamSide === 'local'
 
-  // Team names
-  const localTeamName = isHomeTeam ? myTeam?.name || 'Mi Equipo' : match.opponent
-  const visitorTeamName = isHomeTeam ? match.opponent : myTeam?.name || 'Mi Equipo'
+  // Team names - use loaded team name instead of store
+  const localTeamName = isHomeTeam ? (teamName || 'Mi Equipo') : match.opponent
+  const visitorTeamName = isHomeTeam ? match.opponent : (teamName || 'Mi Equipo')
 
   // Determine sets won if not explicit
   let setsWonLocal = match.setsWonLocal || 0
@@ -360,13 +372,22 @@ export function MatchAnalysis() {
                   </tr>
                 </thead>
                 <tbody>
-                  {match.sets.map((set) => (
-                    <tr key={set.id} className="border-b border-gray-50 last:border-b-0">
-                      <td className="py-3 px-4 font-medium text-gray-500">Set {set.number}</td>
-                      <td className="py-3 px-4 text-center font-semibold">{set.homeScore}</td>
-                      <td className="py-3 px-4 text-center font-semibold">{set.awayScore}</td>
-                    </tr>
-                  ))}
+                  {match.sets.map((set) => {
+                    // Check if we have actual scores or just placeholders
+                    const hasScores = set.homeScore !== undefined && set.awayScore !== undefined && (set.homeScore > 0 || set.awayScore > 0)
+
+                    return (
+                      <tr key={set.id} className="border-b border-gray-50 last:border-b-0">
+                        <td className="py-3 px-4 font-medium text-gray-500">Set {set.number}</td>
+                        <td className="py-3 px-4 text-center font-semibold">
+                          {hasScores ? set.homeScore : '-'}
+                        </td>
+                        <td className="py-3 px-4 text-center font-semibold">
+                          {hasScores ? set.awayScore : '-'}
+                        </td>
+                      </tr>
+                    )
+                  })}
                   {match.sets.length === 0 && (
                     <tr>
                       <td colSpan={3} className="py-4 text-center text-gray-500 italic">

@@ -19,8 +19,8 @@ export function StarterSelection({
     isOpen,
     onClose,
     matchId,
-    teamId,
-    teamSide,
+    // teamId, // Not used currently
+    // teamSide, // Not used currently
     opponentName,
     teamName
 }: StarterSelectionProps) {
@@ -157,8 +157,8 @@ export function StarterSelection({
                 }
             }
 
-            // 2. Determine first_serve value
-            const firstServe = weServeFirst ? teamSide : (teamSide === 'local' ? 'away' : 'home')
+            // 2. Determine first_serve value (not currently saved)
+            // const firstServe = weServeFirst ? teamSide : (teamSide === 'local' ? 'away' : 'home')
 
             // 3. Update match status to 'in_progress' and save first_serve
             // Note: We need to add first_serve field to matches table if it doesn't exist

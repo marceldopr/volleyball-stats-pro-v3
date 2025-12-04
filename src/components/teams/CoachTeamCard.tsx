@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { TeamDB } from '@/services/teamService'
-import { teamStatsService, CurrentPhaseInfo, RecentActivity } from '@/services/teamStatsService'
+import { teamStatsService } from '@/services/teamStatsService'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
@@ -15,9 +15,9 @@ interface CoachTeamCardProps {
 export function CoachTeamCard({ team, seasonId, onClick }: CoachTeamCardProps) {
     const navigate = useNavigate()
     const [loading, setLoading] = useState(true)
-    const [phase, setPhase] = useState<CurrentPhaseInfo | null>(null)
-    const [activity, setActivity] = useState<RecentActivity | null>(null)
-    const [stats, setStats] = useState<{ attendance: number } | null>(null)
+    // const [phase, setPhase] = useState<any | null>(null)
+    // const [activity, setActivity] = useState<any | null>(null)
+    const [stats, setStats] = useState<{ attendance: number | null } | null>(null)
 
     useEffect(() => {
         async function loadCardData() {
@@ -25,15 +25,9 @@ export function CoachTeamCard({ team, seasonId, onClick }: CoachTeamCardProps) {
 
             try {
                 setLoading(true)
-                const [phaseData, activityData, statsData] = await Promise.all([
-                    teamStatsService.getCurrentPhase(team.id, seasonId),
-                    teamStatsService.getRecentActivity(team.id, seasonId),
-                    teamStatsService.getTeamStats(team.id, seasonId)
-                ])
-
-                setPhase(phaseData)
-                setActivity(activityData)
-                setStats({ attendance: statsData.attendanceAverage })
+                // Load basic team stats
+                const attendance = await teamStatsService.getTeamAttendance(team.id, 30)
+                setStats({ attendance })
             } catch (error) {
                 console.error('Error loading team card data:', error)
             } finally {
@@ -90,20 +84,15 @@ export function CoachTeamCard({ team, seasonId, onClick }: CoachTeamCardProps) {
                     </div>
                 ) : (
                     <>
-                        {/* Phase Info */}
+                        {/* Phase Info - Placeholder */}
                         <div>
                             <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
                                 Planificación
                             </p>
                             <div className="flex items-center gap-2">
-                                <span className={clsx(
-                                    "w-2 h-2 rounded-full",
-                                    phase?.phaseNumber === 1 ? "bg-emerald-500" :
-                                        phase?.phaseNumber === 2 ? "bg-orange-500" :
-                                            phase?.phaseNumber === 3 ? "bg-blue-500" : "bg-gray-400"
-                                )} />
+                                <span className="w-2 h-2 rounded-full bg-gray-400" />
                                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                                    {phase ? `${phase.phaseName} — ${phase.primaryGoal}` : 'Sin planificación activa'}
+                                    Sin planificación activa
                                 </span>
                             </div>
                         </div>
@@ -115,22 +104,7 @@ export function CoachTeamCard({ team, seasonId, onClick }: CoachTeamCardProps) {
                                     Último Partido
                                 </p>
                                 <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                                    {activity?.lastMatch ? (
-                                        <>
-                                            <span className={clsx(
-                                                activity.lastMatch.result === 'win' ? "text-emerald-600 dark:text-emerald-400" :
-                                                    activity.lastMatch.result === 'loss' ? "text-red-600 dark:text-red-400" :
-                                                        "text-gray-600 dark:text-gray-400"
-                                            )}>
-                                                {activity.lastMatch.score}
-                                            </span>
-                                            <span className="text-gray-500 dark:text-gray-500 ml-1 font-normal text-xs">
-                                                vs {activity.lastMatch.opponent}
-                                            </span>
-                                        </>
-                                    ) : (
-                                        <span className="text-gray-400 font-normal italic">Sin registros</span>
-                                    )}
+                                    <span className="text-gray-400 font-normal italic">Sin registros</span>
                                 </p>
                             </div>
                             <div>
