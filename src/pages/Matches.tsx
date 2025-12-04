@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { MatchWizard } from '../components/MatchWizard'
-import { MatchDetail } from '../components/MatchDetail'
+// MatchDetail component removed - using only MatchAnalysis now
 import { ConvocationManager } from '../components/ConvocationManager'
 import { useMatchStore } from '../stores/matchStore'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -12,12 +12,11 @@ import { matchService } from '../services/matchService'
 import { matchConvocationService } from '../services/matchConvocationService'
 import { useRoleScope } from '@/hooks/useRoleScope'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
-import { Plus, Calendar, Trophy, Clock, Trash2, Eye, Users, Play } from 'lucide-react'
+import { Plus, Trophy, Trash2, Users, Play } from 'lucide-react'
 
 
 export function Matches({ teamId }: { teamId?: string } = {}) {
   const [isWizardOpen, setIsWizardOpen] = useState(false)
-  const [selectedMatch, setSelectedMatch] = useState<any>(null)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [matchToDelete, setMatchToDelete] = useState<any>(null)
   const { deleteMatch } = useMatchStore()
@@ -122,21 +121,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
     return acc
   }, {} as Record<string, string>)
 
-  // Transform MatchDB to minimal Match for MatchDetail component
-  const transformMatchForDetail = (dbMatch: any) => ({
-    id: dbMatch.id,
-    opponent: dbMatch.opponent_name,
-    date: dbMatch.match_date,
-    time: new Date(dbMatch.match_date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-    location: dbMatch.location || 'Por definir',
-    teamSide: dbMatch.home_away === 'home' ? 'local' : 'visitante',
-    status: dbMatch.status === 'planned' ? 'upcoming' : dbMatch.status === 'in_progress' ? 'live' : dbMatch.status === 'finished' ? 'completed' : dbMatch.status,
-    result: dbMatch.result,
-    team_id: dbMatch.team_id,
-    season_id: dbMatch.season_id,
-    players: [], // Empty, will be loaded by MatchDetail
-    sets: []     // Empty, will be loaded by MatchDetail
-  })
+  // transformMatchForDetail function removed - no longer needed
 
   const handleDeleteClick = (match: any) => {
     setMatchToDelete(match)
@@ -158,7 +143,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
           setSupabaseMatches(matches)
         }
 
-        if (selectedMatch?.id === matchToDelete.id) setSelectedMatch(null)
+        // selectedMatch state removed - no longer needed
       } catch (error) {
         console.error('Error deleting match:', error)
         alert('No se ha podido eliminar el partido. Inténtalo de nuevo.')
@@ -304,63 +289,53 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
             <div key={match.id} className="bg-gray-800/30 rounded-xl p-6 border border-gray-700/50 hover:shadow-md transition-all duration-200">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-xl font-bold text-gray-100 dark:text-white">{match.opponent_name}</h3>
+                  {/* Scoreboard: Team vs Opponent */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <h3 className="text-2xl font-bold text-white">
+                      {teamMap[match.team_id] || 'Mi Equipo'}
+                    </h3>
+                    <span className="text-lg text-gray-400 font-medium">vs</span>
+                    <h3 className="text-xl font-semibold text-gray-300">
+                      {match.opponent_name}
+                    </h3>
+                  </div>
+
+                  {/* Status badges and result */}
+                  <div className="flex items-center gap-2 mb-3">
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${match.home_away === 'home'
                       ? 'bg-green-100 text-green-800 border border-green-200'
                       : 'bg-blue-100 text-blue-800 border border-blue-200'
                       }`}>
-                      {match.home_away === 'home' ? 'Local' : 'Visitante'}
+                      {match.home_away === 'home' ? 'LOCAL' : 'VISITANTE'}
                     </span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${getStatusColor(match.status)}`}>
+                      {getStatusText(match.status).toUpperCase()}
+                    </span>
+                    {match.status === 'finished' && match.result && (
+                      <span className="ml-auto text-lg font-bold text-white tabular-nums">
+                        Resultado: {match.result}
+                      </span>
+                    )}
                   </div>
 
-                  <div className="flex items-center gap-4 text-sm text-gray-400 dark:text-gray-400">
-                    <div className="flex items-center gap-1.5">
-                      <Calendar className="w-4 h-4 text-gray-500 dark:text-gray-500" />
-                      <span>{new Date(match.match_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-gray-400" />
-                      <span>{new Date(match.match_date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-4 h-4 flex items-center justify-center">📍</div>
-                      <span>{match.location || 'Por definir'}</span>
-                    </div>
-                    {match.team_id && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-medium">Equipo:</span>
-                        <span>{teamMap[match.team_id] || 'Desconocido'}</span>
-                      </div>
-                    )}
+                  {/* Date, time, location in one line */}
+                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                    <span>{new Date(match.match_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</span>
+                    <span>·</span>
+                    <span>{new Date(match.match_date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span>·</span>
+                    <span>{match.location || 'Por definir'}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${getStatusColor(match.status)}`}>
-                      {getStatusText(match.status)}
-                    </span>
-                    {match.result && (
-                      <div className="mt-1 text-2xl font-bold text-gray-900 tabular-nums">
-                        {match.result}
-                      </div>
-                    )}
-                  </div>
-                  <button onClick={() => handleDeleteClick(match)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Eliminar partido">
+                <div className="flex items-center gap-2">
+                  <button onClick={() => handleDeleteClick(match)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all" title="Eliminar partido">
                     <Trash2 className="w-5 h-5" />
                   </button>
                 </div>
               </div>
 
               <div className="pt-4 border-t border-gray-700/50 flex justify-end gap-3">
-                <button
-                  onClick={() => setSelectedMatch(transformMatchForDetail(match))}
-                  className="btn-secondary text-sm py-2"
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  Ver detalles
-                </button>
 
                 {match.status === 'planned' && (
                   <>
@@ -426,10 +401,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
         }}
       />
 
-      {/* Match Detail Modal */}
-      {selectedMatch && (
-        <MatchDetail match={selectedMatch} onClose={() => setSelectedMatch(null)} />
-      )}
+      {/* Match Detail Modal removed - using only MatchAnalysis now */}
 
       {/* Convocation Manager Modal */}
       {convocationManagerOpen && selectedMatchForConvocation && (
