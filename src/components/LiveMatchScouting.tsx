@@ -1963,11 +1963,27 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
                   await handleSaveMatchStats()
 
                   // Calculate final result (sets won)
+                  // Calculate final result (sets won)
                   console.log('🔍 Calculating match result from sets:', match.sets)
-                  const setsWonLocal = match.sets.filter(s => s.status === 'completed' && s.homeScore > s.awayScore).length
-                  const setsWonVisitor = match.sets.filter(s => s.status === 'completed' && s.awayScore > s.homeScore).length
+
+                  let setsWonLocal = 0
+                  let setsWonVisitor = 0
+
+                  match.sets.forEach(s => {
+                    if (s.status === 'completed') {
+                      if (s.homeScore > s.awayScore) setsWonLocal++
+                      else if (s.awayScore > s.homeScore) setsWonVisitor++
+                    }
+                  })
+
                   console.log('🔍 Sets won - Local:', setsWonLocal, 'Visitor:', setsWonVisitor)
-                  const matchResult = `${setsWonLocal}-${setsWonVisitor}`
+
+                  // If I am 'local', result is Local-Visitor
+                  // If I am 'visitante', result is Visitor-Local (MySets-OpponentSets)
+                  const matchResult = match.teamSide === 'local'
+                    ? `${setsWonLocal}-${setsWonVisitor}`
+                    : `${setsWonVisitor}-${setsWonLocal}`
+
                   console.log('🔍 Final match result:', matchResult)
 
                   // Update match status in local store

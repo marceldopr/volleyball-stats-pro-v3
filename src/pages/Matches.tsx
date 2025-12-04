@@ -123,6 +123,40 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
 
   // transformMatchForDetail function removed - no longer needed
 
+  // Calculate actual match result from set_completed events in actions array
+  const getActualMatchResult = (match: any): string | null => {
+    // If we have actions with set_completed events, calculate from there
+    if (match.actions && Array.isArray(match.actions)) {
+      const setCompletedEvents = match.actions.filter((a: any) => a.tipo === 'set_completed')
+
+      if (setCompletedEvents.length > 0) {
+        // Count sets won by home and away teams
+        let setsWonHome = 0
+        let setsWonAway = 0
+
+        setCompletedEvents.forEach((event: any) => {
+          if (event.homeScore > event.awayScore) {
+            setsWonHome++
+          } else if (event.awayScore > event.homeScore) {
+            setsWonAway++
+          }
+        })
+
+        // Determine result based on team side (home/away)
+        // If I am 'home', result is MySets-OpponentSets (Home-Away)
+        // If I am 'away', result is MySets-OpponentSets (Away-Home)
+        if (match.home_away === 'home') {
+          return `${setsWonHome}-${setsWonAway}`
+        } else {
+          return `${setsWonAway}-${setsWonHome}`
+        }
+      }
+    }
+
+    // Fallback to stored result if no actions or no set events
+    return match.result
+  }
+
   const handleDeleteClick = (match: any) => {
     setMatchToDelete(match)
     setDeleteConfirmOpen(true)
@@ -311,9 +345,9 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${getStatusColor(match.status)}`}>
                       {getStatusText(match.status).toUpperCase()}
                     </span>
-                    {match.status === 'finished' && match.result && (
+                    {match.status === 'finished' && (
                       <span className="ml-auto text-lg font-bold text-white tabular-nums">
-                        Resultado: {match.result}
+                        Resultado: {getActualMatchResult(match) || match.result}
                       </span>
                     )}
                   </div>
