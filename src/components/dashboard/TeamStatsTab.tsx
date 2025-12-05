@@ -116,6 +116,32 @@ export function TeamStatsTab({ teamId, teamIds, seasonId }: TeamStatsTabProps) {
         { key: 'errors.total', label: 'Err', align: 'center' }
     ]
 
+    const receptionColumns: RankingColumn[] = [
+        { key: 'playerName', label: 'Jugadora' },
+        { key: 'receptions', label: 'Recepciones', align: 'center', format: (v) => <span className="font-bold">{v}</span> },
+        { key: 'errors.reception', label: 'Errores', align: 'center', format: (v) => <span className="text-red-600 dark:text-red-400">{v}</span> },
+        {
+            key: 'receptionEfficiency', label: 'Eficiencia', align: 'center', format: (v) => {
+                const efficiency = v as number
+                return <span className={`font-bold ${efficiency >= 80 ? 'text-green-600' : efficiency >= 60 ? 'text-blue-600' : 'text-orange-600'}`}>
+                    {efficiency.toFixed(1)}%
+                </span>
+            }
+        }
+    ]
+
+    // Prepare reception data with efficiency calculation
+    const receptionData = [...playerStats]
+        .map(p => ({
+            ...p,
+            receptions: (p as any).receptions || 0,
+            receptionEfficiency: (p as any).receptions > 0
+                ? ((((p as any).receptions - p.errors.reception) / (p as any).receptions) * 100)
+                : 0
+        }))
+        .filter(p => p.receptions > 0) // Only show players with receptions
+        .sort((a, b) => b.receptions - a.receptions)
+
     return (
         <div className="space-y-8">
             {/* Team KPIs (only for single team) */}
@@ -174,6 +200,11 @@ export function TeamStatsTab({ teamId, teamIds, seasonId }: TeamStatsTabProps) {
                     title="Ranking Ratio Pts/Err"
                     columns={ratioColumns}
                     data={ratioData}
+                />
+                <RankingTable
+                    title="Ranking de Recepción"
+                    columns={receptionColumns}
+                    data={receptionData}
                 />
             </div>
 

@@ -47,6 +47,7 @@ export interface PlayerAggregatedStats {
         pointsErrorRatio: number
     }
     serves: number
+    receptions: number
     percentageOfTeamPoints: number
     percentageOfTeamErrors: number
     actionsPerSet: number
@@ -451,6 +452,7 @@ export const teamStatsService = {
                         volume: { total: 0, percentage: 0 },
                         ratios: { pointsPerMatch: 0, errorsPerMatch: 0, pointsErrorRatio: 0 },
                         serves: 0,
+                        receptions: 0,
                         percentageOfTeamPoints: 0,
                         percentageOfTeamErrors: 0,
                         actionsPerSet: 0,
@@ -481,6 +483,9 @@ export const teamStatsService = {
 
                 // Serves count
                 playerStats.serves += stat.serves || 0
+
+                // Receptions count
+                playerStats.receptions += stat.receptions || 0
             })
 
             // Update matches played count
@@ -619,6 +624,7 @@ export const teamStatsService = {
                         volume: { total: 0, percentage: 0 },
                         ratios: { pointsPerMatch: 0, errorsPerMatch: 0, pointsErrorRatio: 0 },
                         serves: 0,
+                        receptions: 0,
                         percentageOfTeamPoints: 0,
                         percentageOfTeamErrors: 0,
                         actionsPerSet: 0,
@@ -648,6 +654,10 @@ export const teamStatsService = {
                 // Aggregate volume
                 aggregated.volume.total += playerStat.volume.total
                 teamTotalVolume += playerStat.volume.total
+
+                // Aggregate serves and receptions
+                aggregated.serves += playerStat.serves
+                aggregated.receptions += playerStat.receptions
             })
 
             // Recalculate ratios and percentages
