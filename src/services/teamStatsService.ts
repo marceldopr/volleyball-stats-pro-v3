@@ -288,7 +288,7 @@ export const teamStatsService = {
     async getWinLossRecord(teamId: string, seasonId: string): Promise<{ wins: number, losses: number }> {
         const { data: matches, error } = await supabase
             .from('matches')
-            .select('id, result, status')
+            .select('id, result, status, home_away')
             .eq('team_id', teamId)
             .eq('season_id', seasonId)
             .eq('status', 'finished')
@@ -305,17 +305,32 @@ export const teamStatsService = {
         let wins = 0
         let losses = 0
 
-        // Parse results (format: "3-1", "3-0", etc.)
+        // Parse results in LOCAL-VISITOR format
         matches.forEach(match => {
-            if (match.result) {
+            if (match.result && match.home_away) {
                 const parts = match.result.split('-')
                 if (parts.length === 2) {
-                    const teamSets = parseInt(parts[0])
-                    const opponentSets = parseInt(parts[1])
-                    if (!isNaN(teamSets) && !isNaN(opponentSets)) {
-                        if (teamSets > opponentSets) {
+                    const localSets = parseInt(parts[0])
+                    const visitorSets = parseInt(parts[1])
+
+                    if (!isNaN(localSets) && !isNaN(visitorSets)) {
+                        // Interpret based on home_away field
+                        let mySets, oppSets
+
+                        if (match.home_away === 'home') {
+                            // My team is local
+                            mySets = localSets
+                            oppSets = visitorSets
+                        } else { // 'away'
+                            // My team is visitor
+                            mySets = visitorSets
+                            oppSets = localSets
+                        }
+
+                        // Determine win/loss
+                        if (mySets > oppSets) {
                             wins++
-                        } else {
+                        } else if (mySets < oppSets) {
                             losses++
                         }
                     }

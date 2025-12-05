@@ -1581,24 +1581,24 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
 
       console.log('[Stats] Successfully persisted stats to Supabase')
 
-      // Calculate match result from team's perspective
-      // Count sets won by team vs opponent
-      let teamSetsWon = 0
-      let opponentSetsWon = 0
+      // Calculate match result in LOCAL-VISITOR format (ALWAYS)
+      // Count sets won by LOCAL team vs VISITOR team
+      let localSetsWon = 0
+      let visitorSetsWon = 0
 
       match.sets.forEach(set => {
         if (set.status === 'completed') {
-          const winner = set.homeScore > set.awayScore ? 'local' : 'visitor'
-          if (winner === match.teamSide) {
-            teamSetsWon++
+          // homeScore = local team score, awayScore = visitor team score
+          if (set.homeScore > set.awayScore) {
+            localSetsWon++  // Local team won this set
           } else {
-            opponentSetsWon++
+            visitorSetsWon++  // Visitor team won this set
           }
         }
       })
 
-      const matchResult = `${teamSetsWon}-${opponentSetsWon}`
-      console.log('[Stats] Match result from team perspective:', matchResult, '(teamSide:', match.teamSide, ')')
+      const matchResult = `${localSetsWon}-${visitorSetsWon}`
+      console.log('[Stats] Match result (LOCAL-VISITOR format):', matchResult, '| My team is:', match.teamSide)
 
       // Persist match actions (timeline) and result to Supabase
       await matchService.updateMatch(match.dbMatchId, {

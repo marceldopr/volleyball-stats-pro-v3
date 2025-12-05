@@ -142,14 +142,9 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
           }
         })
 
-        // Determine result based on team side (home/away)
-        // If I am 'home', result is MySets-OpponentSets (Home-Away)
-        // If I am 'away', result is MySets-OpponentSets (Away-Home)
-        if (match.home_away === 'home') {
-          return `${setsWonHome}-${setsWonAway}`
-        } else {
-          return `${setsWonAway}-${setsWonHome}`
-        }
+        // Return in LOCAL-VISITOR format (ALWAYS)
+        // homeScore = local team, awayScore = visitor team
+        return `${setsWonHome}-${setsWonAway}`
       }
     }
 
@@ -361,20 +356,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                     </span>
                     {match.status === 'finished' && (
                       <span className="ml-auto text-lg font-bold text-white tabular-nums">
-                        Resultado: {(() => {
-                          const result = getActualMatchResult(match) || match.result
-                          if (!result) return '-'
-
-                          // Result is always from team's perspective (team_sets-opponent_sets)
-                          // If team is visitor, we need to flip it for display (opponent_sets-team_sets)
-                          if (match.home_away === 'away') {
-                            const parts = result.split('-')
-                            if (parts.length === 2) {
-                              return `${parts[1]}-${parts[0]}`
-                            }
-                          }
-                          return result
-                        })()}
+                        Resultado: {getActualMatchResult(match) || match.result || '-'}
                       </span>
                     )}
                   </div>
