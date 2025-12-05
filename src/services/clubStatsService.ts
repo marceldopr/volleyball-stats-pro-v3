@@ -101,7 +101,7 @@ export const clubStatsService = {
             // Calculate matches win/loss ratio
             const { data: matches } = await supabase
                 .from('matches')
-                .select('result, status')
+                .select('result, status, home_away')
                 .in('team_id', teamIds)
                 .eq('status', 'finished')
 
@@ -110,13 +110,16 @@ export const clubStatsService = {
 
             if (matches) {
                 matches.forEach(match => {
-                    if (match.result) {
-                        // Parse result like "3-0", "3-1", etc.
+                    if (match.result && match.home_away) {
+                        // Parse result in LOCAL-VISITOR format
                         const parts = match.result.split('-')
                         if (parts.length === 2) {
-                            const ourSets = parseInt(parts[0])
-                            const theirSets = parseInt(parts[1])
-                            if (!isNaN(ourSets) && !isNaN(theirSets)) {
+                            const localSets = parseInt(parts[0])
+                            const visitorSets = parseInt(parts[1])
+                            if (!isNaN(localSets) && !isNaN(visitorSets)) {
+                                // Interpret based on home_away
+                                const ourSets = match.home_away === 'home' ? localSets : visitorSets
+                                const theirSets = match.home_away === 'home' ? visitorSets : localSets
                                 if (ourSets > theirSets) wins++
                                 else if (theirSets > ourSets) losses++
                             }
@@ -200,7 +203,7 @@ export const clubStatsService = {
                 // Get matches for this category
                 const { data: matches } = await supabase
                     .from('matches')
-                    .select('result, status')
+                    .select('result, status, home_away')
                     .in('team_id', teamIds)
                     .eq('status', 'finished')
 
@@ -209,12 +212,14 @@ export const clubStatsService = {
 
                 if (matches) {
                     matches.forEach(match => {
-                        if (match.result) {
+                        if (match.result && match.home_away) {
                             const parts = match.result.split('-')
                             if (parts.length === 2) {
-                                const ourSets = parseInt(parts[0])
-                                const theirSets = parseInt(parts[1])
-                                if (!isNaN(ourSets) && !isNaN(theirSets)) {
+                                const localSets = parseInt(parts[0])
+                                const visitorSets = parseInt(parts[1])
+                                if (!isNaN(localSets) && !isNaN(visitorSets)) {
+                                    const ourSets = match.home_away === 'home' ? localSets : visitorSets
+                                    const theirSets = match.home_away === 'home' ? visitorSets : localSets
                                     if (ourSets > theirSets) wins++
                                     else if (theirSets > ourSets) losses++
                                 }
@@ -391,7 +396,7 @@ export const clubStatsService = {
             // Check for teams with poor performance (win/loss ratio < 0.5)
             const { data: allMatches } = await supabase
                 .from('matches')
-                .select('team_id, result, status')
+                .select('team_id, result, status, home_away')
                 .in('team_id', teamIds)
                 .eq('status', 'finished')
 
@@ -399,12 +404,14 @@ export const clubStatsService = {
                 const teamPerformance = new Map<string, { wins: number, losses: number }>()
 
                 allMatches.forEach(match => {
-                    if (match.result) {
+                    if (match.result && match.home_away) {
                         const parts = match.result.split('-')
                         if (parts.length === 2) {
-                            const ourSets = parseInt(parts[0])
-                            const theirSets = parseInt(parts[1])
-                            if (!isNaN(ourSets) && !isNaN(theirSets)) {
+                            const localSets = parseInt(parts[0])
+                            const visitorSets = parseInt(parts[1])
+                            if (!isNaN(localSets) && !isNaN(visitorSets)) {
+                                const ourSets = match.home_away === 'home' ? localSets : visitorSets
+                                const theirSets = match.home_away === 'home' ? visitorSets : localSets
                                 const perf = teamPerformance.get(match.team_id) || { wins: 0, losses: 0 }
                                 if (ourSets > theirSets) perf.wins++
                                 else if (theirSets > ourSets) perf.losses++
