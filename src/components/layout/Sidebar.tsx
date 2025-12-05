@@ -14,10 +14,11 @@ import {
   ChevronDown,
   ChevronRight
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '@/stores/authStore'
 import { useRoleScope } from '@/hooks/useRoleScope'
+import { clubService } from '@/services/clubService'
 
 // Navigation item types
 interface NavItem {
@@ -35,11 +36,29 @@ interface NavSection {
 
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false)
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['Configuración']))
+  const [clubName, setClubName] = useState<string>('')
   const location = useLocation()
   const navigate = useNavigate()
   const { profile, logout } = useAuthStore()
   const { isDT, isCoach, role } = useRoleScope()
+
+  // Fetch club name
+  useEffect(() => {
+    async function fetchClub() {
+      if (profile?.club_id) {
+        try {
+          const club = await clubService.getClub(profile.club_id)
+          if (club) {
+            setClubName(club.name)
+          }
+        } catch (error) {
+          console.error('Error fetching club:', error)
+        }
+      }
+    }
+    fetchClub()
+  }, [profile?.club_id])
 
   // Navigation structure based on role
   const navigation: NavSection[] = []
@@ -52,7 +71,7 @@ export function Sidebar() {
         ]
       },
       {
-        title: 'Club',
+        title: 'CLUB',
         items: [
           { name: 'Jugadoras', href: '/players', icon: Users },
           { name: 'Equipos', href: '/teams', icon: Users },
@@ -61,7 +80,7 @@ export function Sidebar() {
         ]
       },
       {
-        title: 'Gestión',
+        title: 'GESTIÓN',
         items: [
           { name: 'Planificación', href: '/reports/team-plans', icon: FileText },
           { name: 'Informes', href: '/reports/players', icon: BarChart3 },
@@ -69,12 +88,10 @@ export function Sidebar() {
         ]
       },
       {
-        title: 'Administración',
+        title: 'ADMINISTRACIÓN',
         items: [
           { name: 'Entrenadores', href: '/coach-assignments', icon: UserCog },
-          { name: 'Configuración', href: '/settings', icon: Settings },
-          { name: 'Importar / Exportar', href: '/import-export', icon: FileText, placeholder: true },
-          { name: 'Sobre la App', href: '/about', icon: Info }
+          { name: 'Configuración', href: '/settings', icon: Settings }
         ]
       }
     )
@@ -86,7 +103,7 @@ export function Sidebar() {
         ]
       },
       {
-        title: 'Mi Gestión',
+        title: 'MI GESTIÓN',
         items: [
           { name: 'Mis Equipos', href: '/teams', icon: Users },
           { name: 'Partidos', href: '/matches', icon: Trophy },
@@ -95,7 +112,7 @@ export function Sidebar() {
       },
       {
         items: [
-          { name: 'Sobre la App', href: '/about', icon: Info }
+          { name: 'Sobre la app', href: '/about', icon: Info }
         ]
       }
     )
@@ -105,9 +122,9 @@ export function Sidebar() {
 
   let roleLabel = 'Usuario'
   const roleStr = role as string
-  if (roleStr === 'dt' || roleStr === 'director_tecnic') roleLabel = 'Director/a Técnico/a'
-  if (roleStr === 'coach' || roleStr === 'entrenador') roleLabel = 'Entrenador/a'
-  if (roleStr === 'admin') roleLabel = 'Administrador/a'
+  if (roleStr === 'dt' || roleStr === 'director_tecnic') roleLabel = 'Director Técnico'
+  if (roleStr === 'coach' || roleStr === 'entrenador') roleLabel = 'Entrenador'
+  if (roleStr === 'admin') roleLabel = 'Administrador'
 
   const navigationSections = navigation
 
@@ -134,16 +151,19 @@ export function Sidebar() {
     navigate('/login', { replace: true })
   }
 
-  const renderNavItem = (item: NavItem) => {
+  const renderNavItem = (item: NavItem, isChild = false) => {
     const isActive = item.href && location.pathname === item.href
 
     if (item.placeholder) {
       return (
         <div
-          className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-500 cursor-not-allowed opacity-60"
+          className={clsx(
+            "flex items-center gap-3 rounded-lg text-gray-500 cursor-not-allowed opacity-60",
+            isChild ? "py-2 pl-12 pr-4" : "py-2.5 px-4"
+          )}
           title="Próximamente"
         >
-          <item.icon className="w-5 h-5 flex-shrink-0" />
+          <item.icon className="w-4 h-4 flex-shrink-0" />
           <span className="text-sm">{item.name}</span>
           <span className="ml-auto text-xs bg-gray-800 px-2 py-0.5 rounded">Pronto</span>
         </div>
@@ -156,10 +176,10 @@ export function Sidebar() {
         <div>
           <button
             onClick={() => toggleSection(item.name)}
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-all duration-200 font-medium w-full"
+            className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors w-full text-left"
           >
             <item.icon className="w-5 h-5 flex-shrink-0" />
-            <span>{item.name}</span>
+            <span className="text-sm font-medium">{item.name}</span>
             {isExpanded ? (
               <ChevronDown className="w-4 h-4 ml-auto" />
             ) : (
@@ -167,9 +187,9 @@ export function Sidebar() {
             )}
           </button>
           {isExpanded && (
-            <div className="ml-4 mt-1 space-y-1">
+            <div className="mt-1 space-y-1">
               {item.children.map((child) => (
-                <div key={child.name}>{renderNavItem(child)}</div>
+                <div key={child.name}>{renderNavItem(child, true)}</div>
               ))}
             </div>
           )}
@@ -181,13 +201,14 @@ export function Sidebar() {
       <Link
         to={item.href!}
         className={clsx(
-          'flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-all duration-200 font-medium',
-          isActive && 'bg-gray-800 text-white'
+          'flex items-center gap-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm',
+          isChild ? 'py-2 pl-12 pr-4' : 'py-2.5 px-4',
+          isActive && 'bg-gray-700/50 text-white border-l-4 border-primary-500'
         )}
         onClick={() => handleItemClick(item)}
       >
-        <item.icon className="w-5 h-5 flex-shrink-0" />
-        <span>{item.name}</span>
+        <item.icon className="w-4 h-4 flex-shrink-0" />
+        <span className="font-medium">{item.name}</span>
       </Link>
     )
   }
@@ -222,11 +243,13 @@ export function Sidebar() {
         {/* User Profile Section */}
         {profile && (
           <div className="px-4 pt-4 pb-3 border-b border-gray-800">
-            <p className="text-xs text-gray-400">Sesión iniciada como</p>
-            <p className="text-sm font-medium text-white truncate" title={displayName}>
+            <p className="text-xs text-gray-300 font-semibold truncate" title={clubName}>
+              {clubName || 'Cargando...'}
+            </p>
+            <p className="text-xs text-white truncate" title={displayName}>
               {displayName}
             </p>
-            <p className="text-xs text-primary-400">
+            <p className="text-xs text-green-400">
               {roleLabel}
             </p>
           </div>
@@ -238,7 +261,7 @@ export function Sidebar() {
             {navigationSections.map((section, idx) => (
               <div key={idx}>
                 {section.title && (
-                  <h3 className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  <h3 className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-1">
                     {section.title}
                   </h3>
                 )}
