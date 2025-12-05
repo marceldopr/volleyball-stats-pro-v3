@@ -228,11 +228,11 @@ export function Sidebar() {
 
       {/* Sidebar */}
       <div className={clsx(
-        'fixed inset-y-0 left-0 z-40 w-64 bg-gray-900 shadow-xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0',
+        'fixed inset-y-0 left-0 z-40 w-64 bg-gray-900 shadow-xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col h-screen',
         isOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
         {/* Header */}
-        <div className="flex flex-col items-center justify-center h-20 px-4 border-b border-gray-800">
+        <div className="flex flex-col items-center justify-center h-20 px-4 border-b border-gray-800 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Trophy className="w-6 h-6 text-primary-500" />
             <h1 className="text-white font-bold text-lg">Volleyball Stats</h1>
@@ -242,7 +242,7 @@ export function Sidebar() {
 
         {/* User Profile Section */}
         {profile && (
-          <div className="px-4 pt-4 pb-3 border-b border-gray-800">
+          <div className="px-4 pt-4 pb-3 border-b border-gray-800 flex-shrink-0">
             <p className="text-xs text-gray-300 font-semibold truncate" title={clubName}>
               {clubName || 'Cargando...'}
             </p>
@@ -256,8 +256,8 @@ export function Sidebar() {
         )}
 
         {/* Navigation */}
-        <nav className="mt-6 px-3 pb-24 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
-          <div className="space-y-6">
+        <nav className="mt-6 px-3 flex-1 overflow-y-auto">
+          <div className="space-y-6 pb-6">
             {navigationSections.map((section, idx) => (
               <div key={idx}>
                 {section.title && (
@@ -278,7 +278,7 @@ export function Sidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800 bg-gray-900">
+        <div className="p-4 border-t border-gray-800 bg-gray-900 flex-shrink-0">
           <div className="text-center">
             <p className="text-gray-500 text-xs mb-4">v1.0.0</p>
 
