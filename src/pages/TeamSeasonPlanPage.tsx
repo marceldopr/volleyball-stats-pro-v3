@@ -225,10 +225,10 @@ export function TeamSeasonPlanPage() {
 
     if (loading || roleLoading) {
         return (
-            <div className="flex items-center justify-center h-screen bg-gray-50">
+            <div className="flex items-center justify-center h-screen bg-gray-900">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-gray-500 font-medium">Cargando planificación...</p>
+                    <p className="text-gray-400 font-medium">Cargando planificación...</p>
                 </div>
             </div>
         )
@@ -250,22 +250,22 @@ export function TeamSeasonPlanPage() {
     })
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-900">
             {/* Header */}
-            <div className="bg-white shadow-sm border-b border-gray-200">
+            <div className="bg-gray-800 shadow-sm border-b border-gray-700">
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => navigate('/teams')}
-                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
                         >
-                            <ArrowLeft className="w-5 h-5 text-gray-500" />
+                            <ArrowLeft className="w-5 h-5 text-gray-400" />
                         </button>
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-900">
+                            <h1 className="text-2xl font-bold text-white">
                                 Planificación por Fases
                             </h1>
-                            <p className="text-sm text-gray-500 mt-1">
+                            <p className="text-sm text-gray-400 mt-1">
                                 {team?.name} - Temporada {currentSeason?.name}
                             </p>
                         </div>
@@ -276,19 +276,19 @@ export function TeamSeasonPlanPage() {
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
                 {/* Context Reference */}
                 {context && (
-                    <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
-                        <h3 className="text-sm font-semibold text-purple-900 mb-2">Contexto del Equipo</h3>
+                    <div className="bg-purple-900/20 border border-purple-700/50 rounded-lg p-4">
+                        <h3 className="text-sm font-semibold text-purple-200 mb-2">Contexto del Equipo</h3>
                         <div className="space-y-1">
                             {context.primary_goal && (
-                                <p className="text-sm text-purple-800">
+                                <p className="text-sm text-purple-300">
                                     <span className="font-medium">Objetivo:</span> {context.primary_goal}
                                 </p>
                             )}
                             {context.training_focus && context.training_focus.length > 0 && (
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-sm font-medium text-purple-800">Prioridades:</span>
+                                    <span className="text-sm font-medium text-purple-300">Prioridades:</span>
                                     {context.training_focus.map((priority: string, idx: number) => (
-                                        <span key={idx} className="text-xs bg-purple-200 text-purple-800 px-2 py-1 rounded-full">
+                                        <span key={idx} className="text-xs bg-purple-900/40 text-purple-200 px-2 py-1 rounded-full border border-purple-700/30">
                                             {priority}
                                         </span>
                                     ))}
@@ -306,20 +306,20 @@ export function TeamSeasonPlanPage() {
                     const evaluation = evaluations[phase.id]
 
                     return (
-                        <div key={phase.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                        <div key={phase.id} className="bg-gray-800 rounded-lg shadow-sm border border-gray-700 overflow-hidden">
                             {/* Phase Header */}
                             <button
                                 onClick={() => setExpandedPhase(isExpanded ? null : phase.phase_number)}
-                                className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                                className="w-full flex items-center justify-between p-4 hover:bg-gray-700/50 transition-colors"
                             >
                                 <div className="flex items-center gap-3">
                                     <span className="text-2xl">{getPhaseIcon(phase.phase_number)}</span>
                                     <div className="text-left">
-                                        <h3 className="text-lg font-bold text-gray-900">
+                                        <h3 className="text-lg font-bold text-white">
                                             Fase {phase.phase_number} — {phase.phase_name}
                                         </h3>
                                         {currentPhase.primary_objective && (
-                                            <p className="text-sm text-gray-600 mt-1">{currentPhase.primary_objective}</p>
+                                            <p className="text-sm text-gray-400 mt-1">{currentPhase.primary_objective}</p>
                                         )}
                                         {evaluation && (
                                             <div className="mt-2">
@@ -329,20 +329,20 @@ export function TeamSeasonPlanPage() {
                                     </div>
                                 </div>
                                 {isExpanded ? (
-                                    <ChevronUp className="w-5 h-5 text-gray-400" />
+                                    <ChevronUp className="w-5 h-5 text-gray-500" />
                                 ) : (
-                                    <ChevronDown className="w-5 h-5 text-gray-400" />
+                                    <ChevronDown className="w-5 h-5 text-gray-500" />
                                 )}
                             </button>
 
                             {/* Phase Content */}
                             {isExpanded && (
-                                <div className="p-6 border-t border-gray-200 space-y-6">
+                                <div className="p-6 border-t border-gray-700 space-y-6">
                                     {/* A) Objetivo Principal */}
                                     <div>
                                         <div className="flex items-center gap-2 mb-3">
-                                            <Target className="w-5 h-5 text-primary-600" />
-                                            <h4 className="font-semibold text-gray-900">¿Qué queréis conseguir en esta fase?</h4>
+                                            <Target className="w-5 h-5 text-primary-500" />
+                                            <h4 className="font-semibold text-white">¿Qué queréis conseguir en esta fase?</h4>
                                         </div>
                                         {isEditing ? (
                                             <input
@@ -350,33 +350,33 @@ export function TeamSeasonPlanPage() {
                                                 value={currentPhase.primary_objective || ''}
                                                 onChange={(e) => setEditingPhase({ ...editingPhase, primary_objective: e.target.value })}
                                                 placeholder="Ej: Consolidar recepción y rotación base"
-                                                className="input-field w-full"
+                                                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                                             />
                                         ) : (
-                                            <p className="text-gray-700">{currentPhase.primary_objective || 'Sin definir'}</p>
+                                            <p className="text-gray-300">{currentPhase.primary_objective || 'Sin definir'}</p>
                                         )}
                                     </div>
 
                                     {/* B) Objetivos Secundarios */}
                                     <div>
                                         <div className="flex items-center gap-2 mb-3">
-                                            <List className="w-5 h-5 text-blue-600" />
-                                            <h4 className="font-semibold text-gray-900">Objetivos Secundarios</h4>
+                                            <List className="w-5 h-5 text-blue-500" />
+                                            <h4 className="font-semibold text-white">Objetivos Secundarios</h4>
                                         </div>
                                         {isEditing ? (
                                             <div className="space-y-2">
                                                 {(currentPhase.secondary_objectives || []).map((obj, idx) => (
                                                     <div key={idx} className="flex items-center gap-2">
-                                                        <span className="text-gray-700 flex-1">• {obj}</span>
+                                                        <span className="text-gray-300 flex-1">• {obj}</span>
                                                         <button
                                                             onClick={() => removeSecondaryObjective(idx)}
-                                                            className="text-red-600 hover:text-red-700"
+                                                            className="text-red-400 hover:text-red-300"
                                                         >
                                                             <X className="w-4 h-4" />
                                                         </button>
                                                     </div>
                                                 ))}
-                                                <button onClick={addSecondaryObjective} className="btn-secondary text-sm">
+                                                <button onClick={addSecondaryObjective} className="text-gray-300 hover:text-white hover:bg-gray-700 px-3 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-2">
                                                     <Plus className="w-4 h-4" />
                                                     Añadir objetivo
                                                 </button>
@@ -384,7 +384,7 @@ export function TeamSeasonPlanPage() {
                                         ) : (
                                             <ul className="space-y-1">
                                                 {(currentPhase.secondary_objectives || []).map((obj, idx) => (
-                                                    <li key={idx} className="text-gray-700">• {obj}</li>
+                                                    <li key={idx} className="text-gray-300">• {obj}</li>
                                                 ))}
                                                 {(!currentPhase.secondary_objectives || currentPhase.secondary_objectives.length === 0) && (
                                                     <p className="text-gray-500 italic">Sin objetivos secundarios</p>
@@ -396,22 +396,22 @@ export function TeamSeasonPlanPage() {
                                     {/* C) Prioridades Técnicas */}
                                     <div>
                                         <div className="flex items-center gap-2 mb-3">
-                                            <Zap className="w-5 h-5 text-yellow-600" />
-                                            <h4 className="font-semibold text-gray-900">¿Qué aspectos técnicos vais a priorizar?</h4>
+                                            <Zap className="w-5 h-5 text-yellow-500" />
+                                            <h4 className="font-semibold text-white">¿Qué aspectos técnicos vais a priorizar?</h4>
                                         </div>
                                         {isEditing ? (
                                             <div className="space-y-2">
                                                 <div className="flex flex-wrap gap-2">
                                                     {(currentPhase.technical_priorities || []).map((priority, idx) => (
-                                                        <div key={idx} className="inline-flex items-center gap-2 bg-yellow-100 text-yellow-800 px-3 py-1.5 rounded-full text-sm">
+                                                        <div key={idx} className="inline-flex items-center gap-2 bg-yellow-900/30 text-yellow-200 border border-yellow-700/30 px-3 py-1.5 rounded-full text-sm">
                                                             <span>{priority}</span>
-                                                            <button onClick={() => removeTechnicalPriority(idx)} className="hover:text-yellow-900">
+                                                            <button onClick={() => removeTechnicalPriority(idx)} className="hover:text-yellow-100">
                                                                 <X className="w-3 h-3" />
                                                             </button>
                                                         </div>
                                                     ))}
                                                 </div>
-                                                <button onClick={addTechnicalPriority} className="btn-secondary text-sm">
+                                                <button onClick={addTechnicalPriority} className="text-gray-300 hover:text-white hover:bg-gray-700 px-3 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-2">
                                                     <Plus className="w-4 h-4" />
                                                     Añadir prioridad
                                                 </button>
@@ -419,7 +419,7 @@ export function TeamSeasonPlanPage() {
                                         ) : (
                                             <div className="flex flex-wrap gap-2">
                                                 {(currentPhase.technical_priorities || []).map((priority, idx) => (
-                                                    <span key={idx} className="bg-yellow-100 text-yellow-800 px-3 py-1.5 rounded-full text-sm">
+                                                    <span key={idx} className="bg-yellow-900/30 text-yellow-200 border border-yellow-700/30 px-3 py-1.5 rounded-full text-sm">
                                                         {priority}
                                                     </span>
                                                 ))}
@@ -433,27 +433,27 @@ export function TeamSeasonPlanPage() {
                                     {/* D) Riesgos */}
                                     <div>
                                         <div className="flex items-center gap-2 mb-3">
-                                            <AlertTriangle className="w-5 h-5 text-orange-600" />
-                                            <h4 className="font-semibold text-gray-900">¿Qué debilidades habéis detectado?</h4>
+                                            <AlertTriangle className="w-5 h-5 text-orange-500" />
+                                            <h4 className="font-semibold text-white">¿Qué debilidades habéis detectado?</h4>
                                         </div>
                                         {isEditing ? (
                                             <textarea
                                                 value={currentPhase.risks_weaknesses || ''}
                                                 onChange={(e) => setEditingPhase({ ...editingPhase, risks_weaknesses: e.target.value })}
                                                 placeholder="Ej: Equipo sufre en saque flotante. OH2 bloquea tarde contra rivales altos."
-                                                className="input-field w-full"
+                                                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                                                 rows={3}
                                             />
                                         ) : (
-                                            <p className="text-gray-700">{currentPhase.risks_weaknesses || 'Sin riesgos identificados'}</p>
+                                            <p className="text-gray-300">{currentPhase.risks_weaknesses || 'Sin riesgos identificados'}</p>
                                         )}
                                     </div>
 
                                     {/* E) KPI */}
                                     <div>
                                         <div className="flex items-center gap-2 mb-3">
-                                            <BarChart3 className="w-5 h-5 text-green-600" />
-                                            <h4 className="font-semibold text-gray-900">Indicador de Rendimiento (KPI)</h4>
+                                            <BarChart3 className="w-5 h-5 text-green-500" />
+                                            <h4 className="font-semibold text-white">Indicador de Rendimiento (KPI)</h4>
                                         </div>
                                         {isEditing ? (
                                             <input
@@ -461,25 +461,25 @@ export function TeamSeasonPlanPage() {
                                                 value={currentPhase.kpi || ''}
                                                 onChange={(e) => setEditingPhase({ ...editingPhase, kpi: e.target.value })}
                                                 placeholder="Ej: Recepción ≥ 60%"
-                                                className="input-field w-full"
+                                                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                                             />
                                         ) : (
-                                            <p className="text-gray-700">{currentPhase.kpi || 'Sin KPI definido'}</p>
+                                            <p className="text-gray-300">{currentPhase.kpi || 'Sin KPI definido'}</p>
                                         )}
                                     </div>
 
                                     {/* Evaluation Section */}
                                     {!isEditing && (
-                                        <div className="border-t border-gray-200 pt-6">
+                                        <div className="border-t border-gray-700 pt-6">
                                             <div className="flex items-center justify-between mb-3">
                                                 <div className="flex items-center gap-2">
-                                                    <FileCheck2 className="w-5 h-5 text-purple-600" />
-                                                    <h4 className="font-semibold text-gray-900">Evaluación de la Fase</h4>
+                                                    <FileCheck2 className="w-5 h-5 text-purple-500" />
+                                                    <h4 className="font-semibold text-white">Evaluación de la Fase</h4>
                                                 </div>
                                                 {canEvaluate && (
                                                     <button
                                                         onClick={() => handleOpenEvaluationModal(phase)}
-                                                        className="btn-secondary text-sm"
+                                                        className="text-gray-300 hover:text-white hover:bg-gray-700 px-3 py-1.5 rounded-lg text-sm transition-colors"
                                                     >
                                                         {evaluation ? 'Ver/Editar Evaluación' : 'Evaluar Fase'}
                                                     </button>
@@ -489,23 +489,23 @@ export function TeamSeasonPlanPage() {
                                                 )}
                                             </div>
                                             {evaluation ? (
-                                                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                                                <div className="bg-gray-900/50 rounded-lg p-4 space-y-3 border border-gray-700">
                                                     <div>
                                                         {getEvaluationBadge(evaluation)}
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm font-medium text-gray-700">Motivos:</p>
-                                                        <p className="text-sm text-gray-600">{evaluation.reasons}</p>
+                                                        <p className="text-sm font-medium text-gray-300">Motivos:</p>
+                                                        <p className="text-sm text-gray-400">{evaluation.reasons}</p>
                                                     </div>
                                                     {evaluation.match_impact && (
                                                         <div>
-                                                            <p className="text-sm font-medium text-gray-700">Impacto en partido:</p>
-                                                            <p className="text-sm text-gray-600">{evaluation.match_impact}</p>
+                                                            <p className="text-sm font-medium text-gray-300">Impacto en partido:</p>
+                                                            <p className="text-sm text-gray-400">{evaluation.match_impact}</p>
                                                         </div>
                                                     )}
                                                     <div>
-                                                        <p className="text-sm font-medium text-gray-700">Ajustes para la siguiente fase:</p>
-                                                        <p className="text-sm text-gray-600">{evaluation.next_adjustments}</p>
+                                                        <p className="text-sm font-medium text-gray-300">Ajustes para la siguiente fase:</p>
+                                                        <p className="text-sm text-gray-400">{evaluation.next_adjustments}</p>
                                                     </div>
                                                 </div>
                                             ) : (
@@ -516,19 +516,19 @@ export function TeamSeasonPlanPage() {
 
                                     {/* Edit/Save Buttons */}
                                     {canEditContent && (
-                                        <div className="flex gap-2 pt-4 border-t border-gray-200">
+                                        <div className="flex gap-2 pt-4 border-t border-gray-700">
                                             {isEditing ? (
                                                 <>
                                                     <button onClick={handleSavePhase} className="btn-primary flex items-center gap-2">
                                                         <Save className="w-4 h-4" />
                                                         Guardar Cambios
                                                     </button>
-                                                    <button onClick={() => setEditingPhase(null)} className="btn-outline">
+                                                    <button onClick={() => setEditingPhase(null)} className="text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors border border-gray-600">
                                                         Cancelar
                                                     </button>
                                                 </>
                                             ) : (
-                                                <button onClick={() => handleEditPhase(phase)} className="btn-secondary">
+                                                <button onClick={() => handleEditPhase(phase)} className="text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors border border-gray-600">
                                                     Editar Fase
                                                 </button>
                                             )}
@@ -541,8 +541,8 @@ export function TeamSeasonPlanPage() {
                 })}
 
                 {!canEditContent && (
-                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p className="text-sm text-yellow-800">
+                    <div className="p-4 bg-yellow-900/20 border border-yellow-700/50 rounded-lg">
+                        <p className="text-sm text-yellow-200">
                             Solo puedes ver esta planificación. No tienes permisos para editarla.
                         </p>
                     </div>

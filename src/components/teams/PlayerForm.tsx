@@ -47,15 +47,15 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 backdrop-blur-sm">
+      <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto border border-gray-700">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold">
+          <h2 className="text-xl font-semibold text-white">
             {player ? 'Editar Jugadora' : 'Nueva Jugadora'}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 hover:text-white transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
@@ -63,14 +63,14 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Nombre Completo
             </label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="input"
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               placeholder="Ej: María García"
               required
               disabled={isSubmitting}
@@ -79,14 +79,14 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Número
               </label>
               <input
                 type="text"
                 value={formData.number}
                 onChange={(e) => setFormData({ ...formData, number: e.target.value })}
-                className="input"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 placeholder="Ej: 12"
                 required
                 disabled={isSubmitting}
@@ -94,13 +94,13 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Rol
               </label>
               <select
                 value={formData.role}
                 onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                className="input"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 disabled={isSubmitting}
               >
                 <option value="S">Colocadora (S)</option>
@@ -114,14 +114,14 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Altura (cm)
               </label>
               <input
                 type="number"
                 value={formData.height}
                 onChange={(e) => setFormData({ ...formData, height: e.target.value })}
-                className="input"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 placeholder="Ej: 175"
                 min="100"
                 max="250"
@@ -130,14 +130,14 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Peso (kg)
               </label>
               <input
                 type="number"
                 value={formData.weight}
                 onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                className="input"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 placeholder="Ej: 65"
                 min="30"
                 max="150"
@@ -147,13 +147,13 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Dominante
             </label>
             <select
               value={formData.dominant}
               onChange={(e) => setFormData({ ...formData, dominant: e.target.value })}
-              className="input"
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               disabled={isSubmitting}
             >
               <option value="right">Derecha</option>
@@ -162,13 +162,13 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Notas del Entrenador
             </label>
             <textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="input min-h-[100px]"
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-h-[100px]"
               placeholder="Observaciones sobre la jugadora..."
               disabled={isSubmitting}
             />
@@ -180,10 +180,10 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
               id="isActive"
               checked={formData.isActive}
               onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-              className="mr-2"
+              className="mr-2 w-4 h-4 text-primary-600 bg-gray-900 border-gray-700 rounded focus:ring-primary-500"
               disabled={isSubmitting}
             />
-            <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
+            <label htmlFor="isActive" className="text-sm font-medium text-gray-300">
               Jugadora activa
             </label>
           </div>
@@ -192,14 +192,14 @@ export function PlayerForm({ teamId, player, onClose }: PlayerFormProps) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 btn-secondary"
+              className="flex-1 text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors border border-gray-600"
               disabled={isSubmitting}
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="flex-1 btn-primary"
+              className="flex-1 bg-primary-500 hover:bg-primary-600 text-white font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isSubmitting}
             >
               {isSubmitting ? 'Guardando...' : (player ? 'Actualizar' : 'Crear')}

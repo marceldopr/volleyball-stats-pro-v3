@@ -193,7 +193,7 @@ export function PlayerEvaluationModal({
                         <select
                             value={formData.role_in_team || ''}
                             onChange={(e) => setFormData({ ...formData, role_in_team: e.target.value as any })}
-                            className="input-field w-full"
+                            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                             disabled={isViewMode}
                         >
                             <option value="">Selecciona un rol</option>
@@ -215,7 +215,7 @@ export function PlayerEvaluationModal({
                                 value={formData.competitive_mindset}
                                 onChange={(e) => setFormData({ ...formData, competitive_mindset: e.target.value })}
                                 placeholder="Describe la mentalidad competitiva de la jugadora..."
-                                className="input-field w-full"
+                                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                                 rows={3}
                                 maxLength={200}
                                 disabled={isViewMode}
@@ -236,7 +236,7 @@ export function PlayerEvaluationModal({
                                 value={formData.coach_recommendation}
                                 onChange={(e) => setFormData({ ...formData, coach_recommendation: e.target.value })}
                                 placeholder="Ej: Tiene potencial para subir a Juvenil si mantiene constancia en recepción"
-                                className="input-field w-full"
+                                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                                 rows={3}
                                 maxLength={250}
                                 disabled={isViewMode}

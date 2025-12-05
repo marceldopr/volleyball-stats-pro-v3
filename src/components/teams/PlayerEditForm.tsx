@@ -114,23 +114,23 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden border border-gray-700">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Editar Jugadora</h2>
+        <div className="flex items-center justify-between p-6 border-b border-gray-700">
+          <h2 className="text-xl font-semibold text-white">Editar Jugadora</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
 
         {/* Content */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[60vh]">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Nombre de la jugadora *
             </label>
             <input
@@ -138,16 +138,16 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
               name="name"
               value={formData.name}
               onChange={handleInputChange}
-              className={`input w-full ${errors.name ? 'border-red-500' : ''}`}
+              className={`w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${errors.name ? 'border-red-500' : ''}`}
               placeholder="Ej: María García"
               disabled={isSubmitting}
             />
-            {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+            {errors.name && <p className="text-red-400 text-sm mt-1">{errors.name}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Número *
               </label>
               <input
@@ -157,22 +157,22 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
                 onChange={handleInputChange}
                 min="1"
                 max="99"
-                className={`input w-full ${errors.number ? 'border-red-500' : ''}`}
+                className={`w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${errors.number ? 'border-red-500' : ''}`}
                 placeholder="Ej: 10"
                 disabled={isSubmitting}
               />
-              {errors.number && <p className="text-red-500 text-sm mt-1">{errors.number}</p>}
+              {errors.number && <p className="text-red-400 text-sm mt-1">{errors.number}</p>}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Rol *
               </label>
               <select
                 name="role"
                 value={formData.role}
                 onChange={handleInputChange}
-                className={`input w-full ${errors.role ? 'border-red-500' : ''}`}
+                className={`w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${errors.role ? 'border-red-500' : ''}`}
                 disabled={isSubmitting}
               >
                 <option value="">Seleccionar rol</option>
@@ -182,13 +182,13 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
                   </option>
                 ))}
               </select>
-              {errors.role && <p className="text-red-500 text-sm mt-1">{errors.role}</p>}
+              {errors.role && <p className="text-red-400 text-sm mt-1">{errors.role}</p>}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Altura (cm)
               </label>
               <input
@@ -198,14 +198,14 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
                 onChange={handleInputChange}
                 min="100"
                 max="250"
-                className="input w-full"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 placeholder="Ej: 180"
                 disabled={isSubmitting}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Peso (kg)
               </label>
               <input
@@ -215,7 +215,7 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
                 onChange={handleInputChange}
                 min="30"
                 max="150"
-                className="input w-full"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 placeholder="Ej: 70"
                 disabled={isSubmitting}
               />
@@ -223,14 +223,14 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Dominante
             </label>
             <select
               name="dominant"
               value={formData.dominant}
               onChange={handleInputChange}
-              className="input w-full"
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               disabled={isSubmitting}
             >
               <option value="right">Derecha</option>
@@ -239,7 +239,7 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Notas
             </label>
             <textarea
@@ -247,7 +247,7 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
               value={formData.notes}
               onChange={handleInputChange}
               rows={3}
-              className="input w-full"
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               placeholder="Información adicional sobre la jugadora..."
               disabled={isSubmitting}
             />
@@ -260,21 +260,21 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
               name="isActive"
               checked={formData.isActive}
               onChange={handleInputChange}
-              className="mr-2"
+              className="mr-2 w-4 h-4 text-primary-600 bg-gray-900 border-gray-700 rounded focus:ring-primary-500"
               disabled={isSubmitting}
             />
-            <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
+            <label htmlFor="isActive" className="text-sm font-medium text-gray-300">
               Jugadora activa
             </label>
           </div>
         </form>
 
         {/* Footer */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
+        <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-700">
           <button
             type="button"
             onClick={onClose}
-            className="btn-outline"
+            className="text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors border border-gray-600"
             disabled={isSubmitting}
           >
             Cancelar
@@ -282,7 +282,7 @@ export function PlayerEditForm({ player, teamId, onClose, onSave }: PlayerEditFo
           <button
             type="submit"
             onClick={handleSubmit}
-            className="btn-primary"
+            className="bg-primary-500 hover:bg-primary-600 text-white font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isSubmitting}
           >
             {isSubmitting ? 'Guardando...' : 'Guardar cambios'}

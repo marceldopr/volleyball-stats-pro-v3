@@ -4,11 +4,11 @@
 
 @layer base {
   * {
-    @apply border-gray-200;
+    @apply border-gray-700;
   }
   
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-gray-900 text-white;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -16,15 +16,15 @@
   
   /* Headings */
   h1 {
-    @apply text-3xl font-bold text-gray-900;
+    @apply text-3xl font-bold text-white;
   }
   
   h2 {
-    @apply text-2xl font-semibold text-gray-900;
+    @apply text-2xl font-semibold text-white;
   }
   
   h3 {
-    @apply text-xl font-semibold text-gray-800;
+    @apply text-xl font-semibold text-gray-200;
   }
 }
 

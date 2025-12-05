@@ -221,12 +221,12 @@ export function Sidebar() {
 
         {/* User Profile Section */}
         {profile && (
-          <div className="px-4 pt-4 pb-3 border-b border-slate-800">
-            <p className="text-xs text-slate-400">Sesión iniciada como</p>
+          <div className="px-4 pt-4 pb-3 border-b border-gray-800">
+            <p className="text-xs text-gray-400">Sesión iniciada como</p>
             <p className="text-sm font-medium text-white truncate" title={displayName}>
               {displayName}
             </p>
-            <p className="text-xs text-emerald-400">
+            <p className="text-xs text-primary-400">
               {roleLabel}
             </p>
           </div>
