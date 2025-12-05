@@ -1581,9 +1581,30 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
 
       console.log('[Stats] Successfully persisted stats to Supabase')
 
-      // Persist match actions (timeline) to Supabase
+      // Calculate match result from team's perspective
+      // Count sets won by team vs opponent
+      let teamSetsWon = 0
+      let opponentSetsWon = 0
+
+      match.sets.forEach(set => {
+        if (set.status === 'completed') {
+          const winner = set.homeScore > set.awayScore ? 'local' : 'visitor'
+          if (winner === match.teamSide) {
+            teamSetsWon++
+          } else {
+            opponentSetsWon++
+          }
+        }
+      })
+
+      const matchResult = `${teamSetsWon}-${opponentSetsWon}`
+      console.log('[Stats] Match result from team perspective:', matchResult, '(teamSide:', match.teamSide, ')')
+
+      // Persist match actions (timeline) and result to Supabase
       await matchService.updateMatch(match.dbMatchId, {
-        actions: match.acciones
+        actions: match.acciones,
+        result: matchResult,
+        status: 'finished'
       })
 
       console.log('[Stats] Actions saved to Supabase')

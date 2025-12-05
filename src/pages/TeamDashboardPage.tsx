@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { Users, Target, FileText, Trophy, BarChart3, ArrowLeft, Loader2, Home } from 'lucide-react'
+import { Users, Target, FileText, Trophy, BarChart3, ArrowLeft, Loader2, Home, BookOpen, Edit, Trash2, MoreVertical } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { teamService, TeamDB } from '@/services/teamService'
 import { seasonService, SeasonDB } from '@/services/seasonService'
@@ -13,6 +13,7 @@ import { TeamStatsTab } from '@/components/dashboard/TeamStatsTab'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
+import { useRoleScope } from '@/hooks/useRoleScope'
 
 type TabId = 'home' | 'roster' | 'context' | 'planning' | 'matches' | 'stats'
 
@@ -31,6 +32,8 @@ export function TeamDashboardPage() {
     const [team, setTeam] = useState<TeamDB | null>(null)
     const [currentSeason, setCurrentSeason] = useState<SeasonDB | null>(null)
     const [loading, setLoading] = useState(true)
+    const [showActionsMenu, setShowActionsMenu] = useState(false)
+    const { isDT } = useRoleScope()
 
     useEffect(() => {
         const loadData = async () => {
@@ -96,7 +99,7 @@ export function TeamDashboardPage() {
                         >
                             <ArrowLeft className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                         </button>
-                        <div>
+                        <div className="flex-1">
                             <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                 {getTeamDisplayName(team)}
                                 <span className="text-sm font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full">
@@ -106,6 +109,68 @@ export function TeamDashboardPage() {
                             <p className="text-sm text-gray-500 dark:text-gray-400">
                                 Temporada {currentSeason.name}
                             </p>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2">
+                            {/* Season Summary Button */}
+                            <button
+                                onClick={() => navigate(`/teams/${team.id}/season/${currentSeason.id}/summary`)}
+                                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                                title="Resumen de Temporada"
+                            >
+                                <BookOpen className="w-4 h-4" />
+                                <span className="hidden sm:inline">Resumen</span>
+                            </button>
+
+                            {/* Admin Actions (Edit/Delete) - Only for DT */}
+                            {isDT && (
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setShowActionsMenu(!showActionsMenu)}
+                                        className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                        title="Más acciones"
+                                    >
+                                        <MoreVertical className="w-5 h-5" />
+                                    </button>
+
+                                    {showActionsMenu && (
+                                        <>
+                                            {/* Backdrop to close menu */}
+                                            <div
+                                                className="fixed inset-0 z-10"
+                                                onClick={() => setShowActionsMenu(false)}
+                                            />
+
+                                            {/* Actions Menu */}
+                                            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-20">
+                                                <button
+                                                    onClick={() => {
+                                                        setShowActionsMenu(false)
+                                                        // TODO: Implement edit team modal
+                                                        toast.info('Función de edición en desarrollo')
+                                                    }}
+                                                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                                >
+                                                    <Edit className="w-4 h-4" />
+                                                    Editar equipo
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowActionsMenu(false)
+                                                        // TODO: Implement delete confirmation
+                                                        toast.info('Función de eliminación en desarrollo')
+                                                    }}
+                                                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                    Eliminar equipo
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
 

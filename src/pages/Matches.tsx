@@ -323,15 +323,29 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
             <div key={match.id} className="bg-gray-800/30 rounded-xl p-6 border border-gray-700/50 hover:shadow-md transition-all duration-200">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                 <div className="flex-1">
-                  {/* Scoreboard: Team vs Opponent */}
+                  {/* Scoreboard: Always show visitor on the right */}
                   <div className="flex items-center gap-3 mb-3">
-                    <h3 className="text-2xl font-bold text-white">
-                      {teamMap[match.team_id] || 'Mi Equipo'}
-                    </h3>
-                    <span className="text-lg text-gray-400 font-medium">vs</span>
-                    <h3 className="text-xl font-semibold text-gray-300">
-                      {match.opponent_name}
-                    </h3>
+                    {match.home_away === 'home' ? (
+                      <>
+                        <h3 className="text-2xl font-bold text-white">
+                          {teamMap[match.team_id] || 'Mi Equipo'}
+                        </h3>
+                        <span className="text-lg text-gray-400 font-medium">vs</span>
+                        <h3 className="text-xl font-semibold text-gray-300">
+                          {match.opponent_name}
+                        </h3>
+                      </>
+                    ) : (
+                      <>
+                        <h3 className="text-xl font-semibold text-gray-300">
+                          {match.opponent_name}
+                        </h3>
+                        <span className="text-lg text-gray-400 font-medium">vs</span>
+                        <h3 className="text-2xl font-bold text-white">
+                          {teamMap[match.team_id] || 'Mi Equipo'}
+                        </h3>
+                      </>
+                    )}
                   </div>
 
                   {/* Status badges and result */}
@@ -347,7 +361,20 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                     </span>
                     {match.status === 'finished' && (
                       <span className="ml-auto text-lg font-bold text-white tabular-nums">
-                        Resultado: {getActualMatchResult(match) || match.result}
+                        Resultado: {(() => {
+                          const result = getActualMatchResult(match) || match.result
+                          if (!result) return '-'
+
+                          // Result is always from team's perspective (team_sets-opponent_sets)
+                          // If team is visitor, we need to flip it for display (opponent_sets-team_sets)
+                          if (match.home_away === 'away') {
+                            const parts = result.split('-')
+                            if (parts.length === 2) {
+                              return `${parts[1]}-${parts[0]}`
+                            }
+                          }
+                          return result
+                        })()}
                       </span>
                     )}
                   </div>
