@@ -9,6 +9,7 @@ import { TeamRosterManager } from '@/components/teams/TeamRosterManager'
 import { TeamSeasonContext } from '@/pages/TeamSeasonContext'
 import { TeamSeasonPlanPage } from '@/pages/TeamSeasonPlanPage'
 import { Matches } from '@/pages/Matches'
+import { TeamStatsTab } from '@/components/dashboard/TeamStatsTab'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
@@ -80,7 +81,7 @@ export function TeamDashboardPage() {
         { id: 'context', label: 'Contexto', icon: Target },
         { id: 'planning', label: 'Planificación', icon: FileText },
         { id: 'matches', label: 'Partidos', icon: Trophy },
-        { id: 'stats', label: 'Estadísticas', icon: BarChart3, disabled: true },
+        { id: 'stats', label: 'Estadísticas', icon: BarChart3 },
     ]
 
     return (
@@ -113,19 +114,16 @@ export function TeamDashboardPage() {
                         {tabs.map((tab) => (
                             <button
                                 key={tab.id}
-                                onClick={() => !tab.disabled && setActiveTab(tab.id as TabId)}
-                                disabled={tab.disabled}
+                                onClick={() => setActiveTab(tab.id as TabId)}
                                 className={clsx(
                                     'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
                                     activeTab === tab.id
                                         ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300',
-                                    tab.disabled && 'opacity-50 cursor-not-allowed'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                                 )}
                             >
                                 <tab.icon className="w-4 h-4" />
                                 {tab.label}
-                                {tab.disabled && <span className="text-[10px] bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded ml-1">Pronto</span>}
                             </button>
                         ))}
                     </div>
@@ -170,6 +168,10 @@ export function TeamDashboardPage() {
                             <Matches teamId={team.id} />
                         </div>
                     </div>
+                )}
+
+                {activeTab === 'stats' && (
+                    <TeamStatsTab teamId={team.id} seasonId={currentSeason.id} />
                 )}
             </div>
         </div>

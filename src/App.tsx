@@ -23,6 +23,7 @@ import { TeamDashboardPage } from '@/pages/TeamDashboardPage'
 import { CoachReportsPage } from './pages/CoachReportsPage'
 import { CoachAssignments } from './pages/CoachAssignments'
 import { ClubDashboardPage } from '@/pages/ClubDashboardPage'
+import { StatsPage } from '@/pages/StatsPage'
 import { ProtectedRoute } from '@/components/routing/ProtectedRoute'
 import { useThemeStore } from '@/stores/themeStore'
 import { Toaster } from 'sonner'
@@ -87,6 +88,11 @@ function App() {
                     <Route path="/club/dashboard" element={
                       <RoleGuard allowedForDT>
                         <ClubDashboardPage />
+                      </RoleGuard>
+                    } />
+                    <Route path="/stats" element={
+                      <RoleGuard allowedForDT>
+                        <StatsPage />
                       </RoleGuard>
                     } />
                     <Route path="/players" element={

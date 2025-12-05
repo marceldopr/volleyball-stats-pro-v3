@@ -56,7 +56,8 @@ export function Sidebar() {
         items: [
           { name: 'Jugadoras', href: '/players', icon: Users },
           { name: 'Equipos', href: '/teams', icon: Users },
-          { name: 'Partidos', href: '/matches', icon: Trophy }
+          { name: 'Partidos', href: '/matches', icon: Trophy },
+          { name: 'Estadísticas', href: '/stats', icon: BarChart3 }
         ]
       },
       {

@@ -1488,25 +1488,75 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
       match.sets.forEach(set => {
         // Iterar sobre todos los jugadores
         match.players.forEach(player => {
-          if (set.number === match.currentSet) {
+          // Filtrar timeline por set para ser más precisos
+          const setStats = {
+            serves: 0,
+            aces: 0,
+            serveErrors: 0,
+            receptions: 0,
+            receptionErrors: 0,
+            attacks: 0,
+            kills: 0,
+            attackErrors: 0,
+            blocks: 0,
+            blockErrors: 0,
+            digs: 0,
+            digsErrors: 0,
+            sets: 0,
+            setErrors: 0
+          }
+
+          if (match.timeline) {
+            match.timeline.filter(e => e.set === set.number && e.type === 'rally' && e.rally).forEach(event => {
+              const { tipo, jugadoraId, jugadorasEnCanchaIds } = event.rally!
+              const isMyTeamServing = event.serveStateBefore === 'myTeamServing'
+
+              // Contar saques
+              if (isMyTeamServing && jugadorasEnCanchaIds && jugadorasEnCanchaIds.length > 0) {
+                if (jugadorasEnCanchaIds[0] === player.playerId) {
+                  setStats.serves++
+                }
+              }
+
+              // Contar acciones
+              if (jugadoraId === player.playerId) {
+                switch (tipo) {
+                  case 'punto_saque': setStats.aces++; break
+                  case 'error_saque': setStats.serveErrors++; break
+                  case 'punto_ataque': setStats.kills++; setStats.attacks++; break
+                  case 'error_ataque': setStats.attackErrors++; setStats.attacks++; break
+                  case 'ataque_bloqueado': setStats.attacks++; break
+                  case 'punto_bloqueo': setStats.blocks++; break
+                  case 'error_bloqueo': setStats.blockErrors++; break
+                  case 'recepcion': setStats.receptions++; break
+                  case 'error_recepcion': setStats.receptionErrors++; setStats.receptions++; break
+                }
+              }
+            })
+          }
+
+          // Solo guardar si hay alguna estadística o si jugó el set
+          const hasStats = Object.values(setStats).some(v => v > 0)
+
+          if (hasStats || set.number === match.currentSet) {
             statsPayloads.push({
               match_id: match.dbMatchId,
               player_id: player.playerId,
               set_number: set.number,
-              serves: player.stats.serves,
-              aces: player.stats.aces,
-              serve_errors: player.stats.serveErrors,
-              receptions: player.stats.receptions,
-              reception_errors: player.stats.receptionErrors,
-              attacks: player.stats.attacks,
-              kills: player.stats.kills,
-              attack_errors: player.stats.attackErrors,
-              blocks: player.stats.blocks,
-              block_errors: player.stats.blockErrors,
-              digs: player.stats.digs,
-              digs_errors: player.stats.digsErrors,
-              sets: player.stats.sets,
-              set_errors: player.stats.setErrors
+              serves: setStats.serves,
+              aces: setStats.aces,
+              serve_errors: setStats.serveErrors,
+              receptions: setStats.receptions,
+              reception_errors: setStats.receptionErrors,
+              attacks: setStats.attacks,
+              kills: setStats.kills,
+              attack_errors: setStats.attackErrors,
+              blocks: setStats.blocks,
+              block_errors: setStats.blockErrors,
+              digs: setStats.digs,
+              digs_errors: setStats.digsErrors,
+              sets: setStats.sets,
+              set_errors: setStats.setErrors
             })
           }
         })
@@ -1559,6 +1609,8 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
       setIsSaving(false)
     }
   }
+
+
 
   return (
     <div className="min-h-screen bg-gray-900 text-white pb-20">
