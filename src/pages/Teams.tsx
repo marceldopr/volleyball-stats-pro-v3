@@ -137,7 +137,7 @@ export function Teams() {
     if (team) {
       setEditingTeam(team)
       setFormData({
-        name: team.name,
+        name: team.name || '',
         category: team.category,
         category_stage: team.category_stage || 'Sénior',
         gender: team.gender,
@@ -254,7 +254,7 @@ export function Teams() {
   })
 
   const filteredTeams = teams.filter(team => {
-    const matchesSearch = team.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = (team.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       team.category_stage.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (team.coach_name && team.coach_name.toLowerCase().includes(searchTerm.toLowerCase()))
 
@@ -658,12 +658,11 @@ export function Teams() {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Identificador del Equipo *
+                  Identificador del Equipo (Opcional)
                 </label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    required
                     value={formData.name}
                     onChange={e => setFormData({ ...formData, name: e.target.value })}
                     className="input w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"

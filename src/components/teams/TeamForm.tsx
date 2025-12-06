@@ -59,7 +59,7 @@ export function TeamForm({ team, onClose }: TeamFormProps) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Identificador *
+              Identificador (Opcional)
             </label>
             <input
               type="text"
@@ -67,11 +67,10 @@ export function TeamForm({ team, onClose }: TeamFormProps) {
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               placeholder="Ej: Verd, Taronja, A, Negre, SF..."
-              required
               disabled={isSubmitting}
             />
             <p className="text-xs text-gray-400 mt-1">
-              Este identificador diferencia equipos dentro de la misma categoría (por ejemplo: Taronja, Verd, A, B…). No es necesario repetir el nombre del club.
+              Este identificador diferencia equipos dentro de la misma categoría (por ejemplo: Taronja, Verd, A, B…). No es necesario si solo hay un equipo.
             </p>
           </div>
 

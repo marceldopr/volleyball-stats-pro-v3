@@ -4,7 +4,7 @@ export interface TeamDB {
     id: string
     club_id: string
     season_id: string
-    name: string
+    name: string | null
     category: string // Legacy field, keeping for now
     category_stage: 'Benjamín' | 'Alevín' | 'Infantil' | 'Cadete' | 'Juvenil' | 'Júnior' | 'Sénior'
     division_name: string | null

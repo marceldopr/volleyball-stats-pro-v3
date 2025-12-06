@@ -12,34 +12,23 @@
  */
 export function getTeamDisplayName(team: {
     category_stage?: string
-    name?: string
+    name?: string | null
     gender?: string
 }): string {
-    const parts: string[] = []
-
-    // Add category (e.g., "Cadet", "Sènior")
-    if (team.category_stage) {
-        parts.push(team.category_stage)
+    const genderMap: Record<string, string> = {
+        'male': 'Masculino',
+        'female': 'Femenino',
+        'mixed': 'Mixto'
     }
+    const genderDisplay = team.gender ? (genderMap[team.gender] || team.gender) : undefined
 
-    // Add identifier (e.g., "Verd", "A", "B", "Taronja")
-    // This is stored in team.name field
-    if (team.name) {
-        parts.push(team.name)
-    }
-
-    // Add gender (e.g., "Masculí", "Femení")
-    if (team.gender) {
-        const genderMap: Record<string, string> = {
-            'male': 'Masculino',
-            'female': 'Femenino',
-            'mixed': 'Mixto'
-        }
-        const genderDisplay = genderMap[team.gender] || team.gender
-        parts.push(genderDisplay)
-    }
-
-    return parts.join(' ')
+    return [
+        team.category_stage,
+        team.name, // The 'label' or identifier (e.g. "A", "Verde")
+        genderDisplay
+    ]
+        .filter(Boolean)
+        .join(' ')
 }
 
 /**
@@ -51,17 +40,12 @@ export function getTeamDisplayName(team: {
  */
 export function getTeamShortDisplayName(team: {
     category_stage?: string
-    name?: string
+    name?: string | null
 }): string {
-    const parts: string[] = []
-
-    if (team.category_stage) {
-        parts.push(team.category_stage)
-    }
-
-    if (team.name) {
-        parts.push(team.name)
-    }
-
-    return parts.join(' ')
+    return [
+        team.category_stage,
+        team.name
+    ]
+        .filter(Boolean)
+        .join(' ')
 }
