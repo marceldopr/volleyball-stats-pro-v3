@@ -228,33 +228,33 @@ export const clubStatsService = {
             const categoriesSummary: CategorySummary[] = []
 
             for (const [categoryName, teamIds] of categoriesMap.entries()) {
-                // Get matches for this category
+                // Get matches for this category (include our_sets and opponent_sets)
                 const { data: matches } = await supabase
                     .from('matches')
-                    .select('result, status, home_away')
+                    .select('result, status, home_away, our_sets, opponent_sets')
                     .in('team_id', teamIds)
                     .eq('status', 'finished')
 
                 let wins = 0
                 let losses = 0
 
-                if (matches) {
-                    matches.forEach(match => {
-                        if (match.result && match.home_away) {
-                            const parts = match.result.split('-')
-                            if (parts.length === 2) {
-                                const localSets = parseInt(parts[0])
-                                const visitorSets = parseInt(parts[1])
-                                if (!isNaN(localSets) && !isNaN(visitorSets)) {
-                                    const ourSets = match.home_away === 'home' ? localSets : visitorSets
-                                    const theirSets = match.home_away === 'home' ? visitorSets : localSets
-                                    if (ourSets > theirSets) wins++
-                                    else if (theirSets > ourSets) losses++
-                                }
-                            }
-                        }
-                    })
-                }
+                // Use getSetsFromMatch helper (consistent with getGlobalKPIs)
+                matches?.forEach(match => {
+                    const sets = getSetsFromMatch(match)
+
+                    // Ignore matches without valid data
+                    if (sets.ourSets === null || sets.theirSets === null) {
+                        return
+                    }
+
+                    // Count wins and losses
+                    if (sets.ourSets > sets.theirSets) {
+                        wins++
+                    } else if (sets.theirSets > sets.ourSets) {
+                        losses++
+                    }
+                    // If equal, don't count (theoretical tie, rare in volleyball)
+                })
 
                 const winLossRatio = losses > 0 ? parseFloat((wins / losses).toFixed(2)) : wins > 0 ? wins : null
 
@@ -319,8 +319,25 @@ export const clubStatsService = {
     /**
      * Get summary by coach
      */
-    async getCoachesSummary(clubId: string, _seasonId?: string): Promise<CoachSummary[]> {
+    async getCoachesSummary(clubId: string, seasonId?: string): Promise<CoachSummary[]> {
         try {
+            // If seasonId is provided, get teams for that season
+            let seasonTeamIds: string[] | null = null
+            if (seasonId) {
+                const { data: seasonTeams } = await supabase
+                    .from('teams')
+                    .select('id')
+                    .eq('club_id', clubId)
+                    .eq('season_id', seasonId)
+
+                seasonTeamIds = seasonTeams?.map(t => t.id) || []
+
+                // If no teams in this season, return empty
+                if (seasonTeamIds.length === 0) {
+                    return []
+                }
+            }
+
             // Get all coaches (users with role 'coach' or 'dt' in this club)
             const { data: profiles, error: profilesError } = await supabase
                 .from('profiles')
@@ -335,11 +352,18 @@ export const clubStatsService = {
             const coachesSummary: CoachSummary[] = []
 
             for (const profile of profiles) {
-                // Get teams assigned to this coach
-                const { data: assignments } = await supabase
+                // Get teams assigned to this coach (filtered by season if applicable)
+                let assignmentsQuery = supabase
                     .from('coach_team_assignments')
                     .select('team_id')
                     .eq('user_id', profile.id)
+
+                // If we have seasonTeamIds, filter only those teams
+                if (seasonTeamIds !== null) {
+                    assignmentsQuery = assignmentsQuery.in('team_id', seasonTeamIds)
+                }
+
+                const { data: assignments } = await assignmentsQuery
 
                 const teamsCount = assignments?.length || 0
 
@@ -392,7 +416,7 @@ export const clubStatsService = {
             // Get all teams
             let teamsQuery = supabase
                 .from('teams')
-                .select('id, name, category_stage')
+                .select('id, custom_name, category_stage')
                 .eq('club_id', clubId)
 
             if (seasonId) {

@@ -137,7 +137,7 @@ export function Teams() {
     if (team) {
       setEditingTeam(team)
       setFormData({
-        name: team.name || '',
+        name: team.custom_name || '',
         category: team.category,
         category_stage: team.category_stage || 'Sénior',
         gender: team.gender,
@@ -174,23 +174,32 @@ export function Teams() {
     try {
       if (editingTeam) {
         await teamService.updateTeam(editingTeam.id, {
-          ...formData,
+          custom_name: formData.name,
           gender: formData.gender as any,
-          category_stage: formData.category_stage as any
+          category_stage: formData.category_stage as any,
+          category: formData.category_stage,
+          division_name: null,
+          team_suffix: null,
+          competition_level: formData.competition_level,
+          notes: formData.notes,
+          head_coach_id: null,
+          assistant_coach_id: null
         })
         toast.success('Equipo actualizado')
       } else {
         await teamService.createTeam({
           club_id: profile.club_id,
           season_id: currentSeason.id,
-          ...formData,
+          custom_name: formData.name,
           gender: formData.gender as any,
           category_stage: formData.category_stage as any,
           category: formData.category_stage,
           division_name: null,
           team_suffix: null,
           head_coach_id: null,
-          assistant_coach_id: null
+          assistant_coach_id: null,
+          competition_level: formData.competition_level,
+          notes: formData.notes
         })
         toast.success('Equipo creado')
       }
@@ -254,7 +263,7 @@ export function Teams() {
   })
 
   const filteredTeams = teams.filter(team => {
-    const matchesSearch = (team.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = (team.custom_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       team.category_stage.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (team.coach_name && team.coach_name.toLowerCase().includes(searchTerm.toLowerCase()))
 
@@ -263,7 +272,7 @@ export function Teams() {
 
     // Filter by role
     if (isCoach && !assignedTeamIds.includes(team.id)) {
-      console.log('[Teams Debug] Filtering out team:', team.name, 'ID:', team.id, 'not in', assignedTeamIds)
+      console.log('[Teams Debug] Filtering out team:', team.custom_name, 'ID:', team.id, 'not in', assignedTeamIds)
       return false
     }
 
@@ -275,7 +284,7 @@ export function Teams() {
     assignedIds: assignedTeamIds,
     isCoach,
     filteredCount: filteredTeams.length,
-    teamsInList: teams.map(t => ({ id: t.id, name: t.name }))
+    teamsInList: teams.map(t => ({ id: t.id, custom_name: t.custom_name }))
   })
 
   if (loading) {

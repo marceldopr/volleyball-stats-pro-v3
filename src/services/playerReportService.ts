@@ -140,7 +140,7 @@ export const playerReportService = {
                 .select(`
                     *,
                     player:club_players!player_id(first_name, last_name),
-                    team:teams!team_id(name),
+                    team:teams!team_id(custom_name),
                     author:profiles!created_by(full_name)
                 `)
                 .eq('club_id', clubId)
@@ -164,7 +164,7 @@ export const playerReportService = {
                 player_name: report.player
                     ? `${report.player.first_name} ${report.player.last_name}`
                     : 'Desconocido',
-                team_name: report.team?.name || 'Desconocido',
+                team_name: report.team?.custom_name || 'Desconocido',
                 author_name: report.author?.full_name || 'Desconocido'
             }))
 

@@ -89,7 +89,7 @@ export const useTeamStore = create<TeamState>((set) => ({
 
         return {
           id: team.id,
-          name: team.name,
+          name: team.custom_name,
           category_stage: team.category_stage,
           division_name: team.division_name,
           team_suffix: team.team_suffix,

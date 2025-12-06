@@ -15,9 +15,10 @@ interface StartersManagementProps {
   onNavigateBack?: () => void
   onServeSelection?: (weServeFirst: boolean) => void
   sacadorInicialSet5?: 'local' | 'visitor' | null
+  teamName?: string
 }
 
-export function StartersManagement({ isOpen, onClose, match, onSave, currentSet, onNavigateBack, onServeSelection, sacadorInicialSet5 }: StartersManagementProps) {
+export function StartersManagement({ isOpen, onClose, match, onSave, currentSet, onNavigateBack, onServeSelection, sacadorInicialSet5, teamName }: StartersManagementProps) {
   const [startingLineup, setStartingLineup] = useState<StartingLineup>({
     position1: null,
     position2: null,
@@ -167,8 +168,8 @@ export function StartersManagement({ isOpen, onClose, match, onSave, currentSet,
 
   if (!isOpen) return null
 
-  // Get team name from match - use a fallback if not available
-  const teamName = match.opponent ? 'Mi Equipo' : 'Equipo'
+  // Get team name from prop or fallback
+  const displayTeamName = teamName || 'Mi Equipo'
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -219,7 +220,7 @@ export function StartersManagement({ isOpen, onClose, match, onSave, currentSet,
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
-                  {teamName}
+                  {displayTeamName}
                 </button>
                 <button
                   onClick={() => handleServeSelection(false)}

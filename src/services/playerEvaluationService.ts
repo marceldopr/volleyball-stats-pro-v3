@@ -98,7 +98,7 @@ export const playerEvaluationService = {
             .from('player_team_season_evaluations')
             .select(`
                 *,
-                teams:team_id(name),
+                teams:team_id(custom_name),
                 seasons:season_id(name)
             `)
             .eq('player_id', playerId)

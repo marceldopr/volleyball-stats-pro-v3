@@ -177,7 +177,7 @@ export function CreateTrainingModal({ isOpen, onClose, activeTeamId, availableTe
                                 <option value="" disabled>Selecciona un equipo</option>
                                 {availableTeams.map(team => (
                                     <option key={team.id} value={team.id}>
-                                        {team.category} {team.gender === 'male' ? 'Masc' : team.gender === 'female' ? 'Fem' : 'Mixto'} - {team.name || 'Sin nombre'}
+                                        {team.category} {team.gender === 'male' ? 'Masc' : team.gender === 'female' ? 'Fem' : 'Mixto'} - {team.custom_name || 'Sin nombre'}
                                     </option>
                                 ))}
                             </select>

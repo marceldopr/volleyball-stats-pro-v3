@@ -80,7 +80,7 @@ export function TeamPlansListPage() {
     }, [profile?.club_id, isDT, isCoach, assignedTeamIds])
 
     const filteredTeams = teams.filter(team =>
-        (team.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (team.custom_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         team.category_stage.toLowerCase().includes(searchTerm.toLowerCase())
     )
 

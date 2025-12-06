@@ -1922,6 +1922,7 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
           onUpdateMatch(match.id, { sacadorInicialSet5: startingServerForStore })
         }}
         sacadorInicialSet5={match.sacadorInicialSet5}
+        teamName={teamName}
       />
 
       <PlayerSelectionPopup

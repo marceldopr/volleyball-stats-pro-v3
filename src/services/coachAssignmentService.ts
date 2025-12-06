@@ -79,28 +79,28 @@ export const coachAssignmentService = {
             // Don't throw - continue with empty assignments
         }
 
-        // 3. Get team names for assignments (separate query to avoid join issues)
-        let teamNames: Record<string, string> = {}
+        // 3. Get team data for assignments (separate query to avoid join issues)
+        let teamsMap: Record<string, { custom_name: string | null; category: string; gender: string }> = {}
         if (assignments && assignments.length > 0) {
             const teamIds = [...new Set(assignments.map(a => a.team_id))]
-            console.log('[getCoachesWithAssignments] Fetching team names for IDs:', teamIds)
+            console.log('[getCoachesWithAssignments] Fetching team data for IDs:', teamIds)
 
             const { data: teams, error: teamsError } = await supabase
                 .from('teams')
-                .select('id, name')
+                .select('id, custom_name, category, gender')
                 .in('id', teamIds)
 
             console.log('[getCoachesWithAssignments] Teams query result:', {
                 count: teams?.length || 0,
-                teams: teams?.map(t => ({ id: t.id, name: t.name })),
+                teams: teams?.map(t => ({ id: t.id, custom_name: t.custom_name, category: t.category, gender: t.gender })),
                 error: teamsError
             })
 
             if (!teamsError && teams) {
-                teamNames = teams.reduce((acc, team) => {
-                    acc[team.id] = team.name
+                teamsMap = teams.reduce((acc, team) => {
+                    acc[team.id] = { custom_name: team.custom_name, category: team.category, gender: team.gender }
                     return acc
-                }, {} as Record<string, string>)
+                }, {} as Record<string, { custom_name: string | null; category: string; gender: string }>)
             }
         }
 
@@ -112,12 +112,32 @@ export const coachAssignmentService = {
             role: coach.role || 'coach',
             assignments: (assignments || [])
                 .filter(a => a.user_id === coach.id)
-                .map(a => ({
-                    id: a.id,
-                    team_id: a.team_id,
-                    team_name: teamNames[a.team_id] || 'Equipo desconocido',
-                    season_id: a.season_id
-                }))
+                .map(a => {
+                    const team = teamsMap[a.team_id]
+                    let teamName = 'Equipo desconocido'
+
+                    if (team) {
+                        if (team.custom_name) {
+                            // If team has explicit name, use it
+                            teamName = team.custom_name
+                        } else {
+                            // Generate name from category and gender
+                            const genderLabel = team.gender === 'male' ? 'Masculino' :
+                                team.gender === 'female' ? 'Femenino' :
+                                    'Mixto'
+                            teamName = team.category
+                                ? `${team.category} ${genderLabel}`
+                                : genderLabel
+                        }
+                    }
+
+                    return {
+                        id: a.id,
+                        team_id: a.team_id,
+                        team_name: teamName,
+                        season_id: a.season_id
+                    }
+                })
         }))
 
         console.log('[getCoachesWithAssignments] Final result:', {

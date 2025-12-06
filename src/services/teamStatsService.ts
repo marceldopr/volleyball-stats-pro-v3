@@ -117,42 +117,38 @@ export const teamStatsService = {
 
     /**
      * Calculate points/errors ratio for the team based on recent matches
+     * Now uses server-side calculation via Postgres function
      */
     async getPointsErrorsRatio(teamId: string, limit: number = 5): Promise<number | null> {
         try {
-            // Get recent finished matches
-            const { data: matches } = await supabase
-                .from('matches')
-                .select('id')
-                .eq('team_id', teamId)
-                .eq('status', 'finished')
-                .order('match_date', { ascending: false })
-                .limit(limit)
-
-            if (!matches || matches.length === 0) return null
-
-            const matchIds = matches.map(m => m.id)
-
-            // Get stats for these matches
-            const { data: stats } = await supabase
-                .from('match_player_set_stats')
-                .select('kills, aces, blocks, attack_errors, serve_errors, block_errors, reception_errors')
-                .in('match_id', matchIds)
-                .eq('team_id', teamId)
-
-            if (!stats || stats.length === 0) return null
-
-            let totalPoints = 0
-            let totalErrors = 0
-
-            stats.forEach(s => {
-                totalPoints += (s.kills || 0) + (s.aces || 0) + (s.blocks || 0)
-                totalErrors += (s.attack_errors || 0) + (s.serve_errors || 0) + (s.block_errors || 0) + (s.reception_errors || 0)
+            const { data, error } = await supabase.rpc('get_points_errors_ratio', {
+                p_team_id: teamId,
+                p_limit: limit,
             })
 
-            if (totalErrors === 0) return totalPoints > 0 ? totalPoints : null
+            if (error) {
+                console.error('Error from get_points_errors_ratio RPC:', error)
+                return null
+            }
 
-            return parseFloat((totalPoints / totalErrors).toFixed(2))
+            if (!data || data.length === 0) {
+                return null
+            }
+
+            const { total_points, total_errors } = data[0]
+
+            // If no points and no errors, return null
+            if (!total_points && !total_errors) {
+                return null
+            }
+
+            // If no errors but there are points, return total points
+            if (total_errors === 0) {
+                return total_points > 0 ? total_points : null
+            }
+
+            // Calculate and return ratio
+            return parseFloat((total_points / total_errors).toFixed(2))
 
         } catch (error) {
             console.error('Error calculating points/error ratio:', error)

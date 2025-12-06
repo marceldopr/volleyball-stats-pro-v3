@@ -12,7 +12,7 @@
  */
 export function getTeamDisplayName(team: {
     category_stage?: string
-    name?: string | null
+    custom_name?: string | null
     gender?: string
 }): string {
     const genderMap: Record<string, string> = {
@@ -24,7 +24,7 @@ export function getTeamDisplayName(team: {
 
     return [
         team.category_stage,
-        team.name, // The 'label' or identifier (e.g. "A", "Verde")
+        team.custom_name, // The 'label' or identifier (e.g. "A", "Verde")
         genderDisplay
     ]
         .filter(Boolean)
@@ -40,11 +40,11 @@ export function getTeamDisplayName(team: {
  */
 export function getTeamShortDisplayName(team: {
     category_stage?: string
-    name?: string | null
+    custom_name?: string | null
 }): string {
     return [
         team.category_stage,
-        team.name
+        team.custom_name
     ]
         .filter(Boolean)
         .join(' ')
