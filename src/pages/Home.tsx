@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { CreateTrainingModal } from '@/components/trainings/CreateTrainingModal';
+import { Button } from '@/components/ui/Button';
 
 type HomeTab = 'club' | string; // 'club' or teamId
 
@@ -151,17 +152,21 @@ export function Home() {
                 actions={
                     <>
 
-                        <button
+                        <Button
+                            variant="primary"
+                            size="md"
+                            icon={Plus}
                             onClick={() => setIsTrainingModalOpen(true)}
-                            className="btn-primary flex items-center gap-2"
                         >
-                            <Plus className="w-4 h-4" />
-                            <span>Crear entrenamiento</span>
-                        </button>
-                        <button className="btn-secondary flex items-center gap-2">
-                            <Plus className="w-4 h-4" />
-                            <span>Crear partido</span>
-                        </button>
+                            Crear entrenamiento
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            size="md"
+                            icon={Plus}
+                        >
+                            Crear partido
+                        </Button>
                     </>
                 }
             />

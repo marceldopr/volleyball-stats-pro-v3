@@ -36,6 +36,7 @@ interface LiveMatchScoutingProps {
 export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, onNavigateToWizardStep, teamName }: LiveMatchScoutingProps) {
   const { hasUnsavedChanges, setHasUnsavedChanges } = useMatchStore()
   const [isSaving, setIsSaving] = useState(false)
+  const [isFinishingMatch, setIsFinishingMatch] = useState(false)  // NUEVO: Flag para desactivar blocker durante guardado
   const [homeScore, setHomeScore] = useState(0)
   const [awayScore, setAwayScore] = useState(0)
   const [estadoSaque, setEstadoSaque] = useState<'myTeamServing' | 'myTeamReceiving' | null>(null)
@@ -1465,7 +1466,10 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
   // 2. Navigation blocker (React Router)
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }: { currentLocation: any; nextLocation: any }) =>
-      hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname
+      hasUnsavedChanges &&
+      !isFinishingMatch &&  // No bloquejar si estem finalitzant el partit
+      match.status !== 'completed' &&  // No bloquejar si el partit ja està finalitzat
+      currentLocation.pathname !== nextLocation.pathname
   )
 
   // NUEVO: Función para guardar estadísticas en Supabase al finalizar el partido
@@ -1475,6 +1479,7 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
       return
     }
 
+    setIsFinishingMatch(true)  // Desactivar blocker durante el proceso de guardado
     setIsSaving(true)
     const loadingToast = toast.loading('Guardando estadísticas...')
 
@@ -1611,6 +1616,9 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
 
       toast.dismiss(loadingToast)
       toast.success('Partido guardado correctamente')
+
+      // Update local match status to completed
+      onUpdateMatch(match.id, { status: 'completed' })
 
       // Reset unsaved changes flag
       setHasUnsavedChanges(false)

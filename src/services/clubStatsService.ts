@@ -98,35 +98,32 @@ export const clubStatsService = {
 
             const teamIds = teams.map(t => t.id)
 
+
             // Calculate matches win/loss ratio
             const { data: matches } = await supabase
                 .from('matches')
-                .select('result, status, home_away')
+                .select('result, status, home_away, our_sets, opponent_sets')
                 .in('team_id', teamIds)
                 .eq('status', 'finished')
 
             let wins = 0
             let losses = 0
 
-            if (matches) {
-                matches.forEach(match => {
-                    if (match.result && match.home_away) {
-                        // Parse result in LOCAL-VISITOR format
-                        const parts = match.result.split('-')
-                        if (parts.length === 2) {
-                            const localSets = parseInt(parts[0])
-                            const visitorSets = parseInt(parts[1])
-                            if (!isNaN(localSets) && !isNaN(visitorSets)) {
-                                // Interpret based on home_away
-                                const ourSets = match.home_away === 'home' ? localSets : visitorSets
-                                const theirSets = match.home_away === 'home' ? visitorSets : localSets
-                                if (ourSets > theirSets) wins++
-                                else if (theirSets > ourSets) losses++
-                            }
-                        }
-                    }
-                })
-            }
+            matches?.forEach(match => {
+                const sets = getSetsFromMatch(match)
+
+                if (sets.ourSets === null || sets.theirSets === null) {
+                    // No podem determinar el resultat
+                    return
+                }
+
+                if (sets.ourSets > sets.theirSets) {
+                    wins++
+                } else if (sets.theirSets > sets.ourSets) {
+                    losses++
+                }
+                // Si són iguals, no comptem res (empat teòric, poc habitual en voleibol)
+            })
 
             const winLossRatio = losses > 0 ? parseFloat((wins / losses).toFixed(2)) : wins > 0 ? wins : null
 
@@ -505,4 +502,42 @@ export const clubStatsService = {
 
         return alerts
     }
+}
+
+/**
+ * Helper function: Extreu els sets d'un partit amb lògica de fallback robusta
+ * Prioritza our_sets/opponent_sets, i fa fallback a result (string) amb validació
+ */
+function getSetsFromMatch(match: any): { ourSets: number | null; theirSets: number | null } {
+    // 1. Prioritat: utilitzar columnes numèriques
+    if (match.our_sets !== null && match.opponent_sets !== null) {
+        return {
+            ourSets: match.our_sets,
+            theirSets: match.opponent_sets
+        }
+    }
+
+    // 2. Fallback: parsejar result (string) amb validació robusta
+    if (!match.result) {
+        return { ourSets: null, theirSets: null }
+    }
+
+    if (!match.result.includes('-')) {
+        return { ourSets: null, theirSets: null }
+    }
+
+    const parts = match.result.split('-')
+
+    if (parts.length !== 2) {
+        return { ourSets: null, theirSets: null }
+    }
+
+    const ourSets = Number(parts[0])
+    const theirSets = Number(parts[1])
+
+    if (Number.isNaN(ourSets) || Number.isNaN(theirSets)) {
+        return { ourSets: null, theirSets: null }
+    }
+
+    return { ourSets, theirSets }
 }
