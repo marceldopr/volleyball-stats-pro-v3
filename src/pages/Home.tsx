@@ -19,6 +19,7 @@ import { getTeamDisplayName } from '@/utils/teamDisplay';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { CreateTrainingModal } from '@/components/trainings/CreateTrainingModal';
 
 type HomeTab = 'club' | string; // 'club' or teamId
 
@@ -36,6 +37,7 @@ export function Home() {
 
     const [clubSummary, setClubSummary] = useState<ClubOverviewSummary | null>(null)
     const [loadingClubSummary, setLoadingClubSummary] = useState(false)
+    const [isTrainingModalOpen, setIsTrainingModalOpen] = useState(false)
 
     // Load teams and set initial tab
     useEffect(() => {
@@ -148,7 +150,11 @@ export function Home() {
                 subtitle="Gestión global de equipos, entrenadores y estadísticas del club."
                 actions={
                     <>
-                        <button className="btn-primary flex items-center gap-2">
+
+                        <button
+                            onClick={() => setIsTrainingModalOpen(true)}
+                            className="btn-primary flex items-center gap-2"
+                        >
                             <Plus className="w-4 h-4" />
                             <span>Crear entrenamiento</span>
                         </button>
@@ -158,6 +164,13 @@ export function Home() {
                         </button>
                     </>
                 }
+            />
+
+            <CreateTrainingModal
+                isOpen={isTrainingModalOpen}
+                onClose={() => setIsTrainingModalOpen(false)}
+                activeTeamId={activeTab}
+                availableTeams={teams}
             />
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -372,7 +385,7 @@ export function Home() {
                             <div className="flex flex-wrap gap-3">
                                 <button
                                     disabled={!activeTab}
-                                    onClick={() => activeTab && navigate(`/teams/${activeTab}/trainings/new`)}
+                                    onClick={() => setIsTrainingModalOpen(true)}
                                     className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <Activity className="w-4 h-4" />

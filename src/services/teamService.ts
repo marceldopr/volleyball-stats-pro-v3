@@ -115,5 +115,30 @@ export const teamService = {
             throw error
         }
         return data
+    },
+
+    // Fetch players for a specific team (CURRENT SEASON)
+    // This assumes players are linked via player_team_season
+    getTeamPlayers: async (teamId: string): Promise<any[]> => {
+        const { data, error } = await supabase
+            .from('player_team_season')
+            .select(`
+                player:club_players (
+                    *
+                )
+            `)
+            .eq('team_id', teamId)
+
+        if (error) {
+            console.error('Error fetching team players:', error)
+            throw error
+        }
+
+        // Flatten the structure
+        return (data || []).map((item: any) => ({
+            ...item.player,
+            // If number is in player_team_season, use it. If not, use player number?
+            // Assuming simplified logic for now: player object returned directly
+        }))
     }
 }

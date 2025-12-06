@@ -21,6 +21,7 @@ import { TeamSeasonSummaryPage } from '@/pages/TeamSeasonSummaryPage'
 import { TeamPlansListPage } from '@/pages/TeamPlansListPage'
 import { TeamDashboardPage } from '@/pages/TeamDashboardPage'
 import { CoachReportsPage } from './pages/CoachReportsPage'
+import { TrainingAttendancePage } from '@/pages/TrainingAttendancePage'
 import { CoachAssignments } from './pages/CoachAssignments'
 import { ClubDashboardPage } from '@/pages/ClubDashboardPage'
 import { StatsPage } from '@/pages/StatsPage'
@@ -81,6 +82,11 @@ function App() {
                     <Route path="/teams/:teamId/season/:seasonId/summary" element={
                       <RoleGuard allowedForDT allowedForCoach>
                         <TeamSeasonSummaryPage />
+                      </RoleGuard>
+                    } />
+                    <Route path="/trainings/:id/attendance" element={
+                      <RoleGuard allowedForDT allowedForCoach>
+                        <TrainingAttendancePage />
                       </RoleGuard>
                     } />
 
