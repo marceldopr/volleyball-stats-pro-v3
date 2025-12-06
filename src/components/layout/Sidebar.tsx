@@ -73,8 +73,9 @@ export function Sidebar() {
       {
         title: 'CLUB',
         items: [
-          { name: 'Jugadoras', href: '/players', icon: Users },
           { name: 'Equipos', href: '/teams', icon: Users },
+          { name: 'Jugadores', href: '/players', icon: Users },
+          { name: 'Entrenadores', href: '/coach-assignments', icon: UserCog },
           { name: 'Partidos', href: '/matches', icon: Trophy },
           { name: 'Estadísticas', href: '/stats', icon: BarChart3 }
         ]
@@ -82,15 +83,14 @@ export function Sidebar() {
       {
         title: 'GESTIÓN',
         items: [
+          { name: 'Dashboard Club', href: '/club/dashboard', icon: BarChart3 },
           { name: 'Planificación', href: '/reports/team-plans', icon: FileText },
-          { name: 'Informes', href: '/reports/players', icon: BarChart3 },
-          { name: 'Dashboard Club', href: '/club/dashboard', icon: BarChart3 }
+          { name: 'Informes', href: '/reports/players', icon: BarChart3 }
         ]
       },
       {
         title: 'ADMINISTRACIÓN',
         items: [
-          { name: 'Entrenadores', href: '/coach-assignments', icon: UserCog },
           { name: 'Configuración', href: '/settings', icon: Settings }
         ]
       }
