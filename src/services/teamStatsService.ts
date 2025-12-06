@@ -109,19 +109,105 @@ export const teamStatsService = {
             teamId,
             attendance,
             lastMatchText: lastMatch,
-            pointsErrorRatio: null, // TODO: Implement when match stats are available
+            pointsErrorRatio: await this.getPointsErrorsRatio(teamId),
             nextEvent,
             alerts
         }
     },
 
     /**
+     * Calculate points/errors ratio for the team based on recent matches
+     */
+    async getPointsErrorsRatio(teamId: string, limit: number = 5): Promise<number | null> {
+        try {
+            // Get recent finished matches
+            const { data: matches } = await supabase
+                .from('matches')
+                .select('id')
+                .eq('team_id', teamId)
+                .eq('status', 'finished')
+                .order('match_date', { ascending: false })
+                .limit(limit)
+
+            if (!matches || matches.length === 0) return null
+
+            const matchIds = matches.map(m => m.id)
+
+            // Get stats for these matches
+            const { data: stats } = await supabase
+                .from('match_player_set_stats')
+                .select('kills, aces, blocks, attack_errors, serve_errors, block_errors, reception_errors')
+                .in('match_id', matchIds)
+                .eq('team_id', teamId)
+
+            if (!stats || stats.length === 0) return null
+
+            let totalPoints = 0
+            let totalErrors = 0
+
+            stats.forEach(s => {
+                totalPoints += (s.kills || 0) + (s.aces || 0) + (s.blocks || 0)
+                totalErrors += (s.attack_errors || 0) + (s.serve_errors || 0) + (s.block_errors || 0) + (s.reception_errors || 0)
+            })
+
+            if (totalErrors === 0) return totalPoints > 0 ? totalPoints : null
+
+            return parseFloat((totalPoints / totalErrors).toFixed(2))
+
+        } catch (error) {
+            console.error('Error calculating points/error ratio:', error)
+            return null
+        }
+    },
+
+    /**
      * Calculate team attendance percentage for last N days
      */
-    async getTeamAttendance(_teamId: string, _days: number = 30): Promise<number | null> {
-        // TODO: Implement when training attendance tracking is available
-        // For now, return null
-        return null
+    async getTeamAttendance(teamId: string, days: number = 30): Promise<number | null> {
+        try {
+            // 1. Get trainings in the date range
+            const startDate = new Date()
+            startDate.setDate(startDate.getDate() - days)
+
+            const { data: trainings, error: trainingError } = await supabase
+                .from('trainings')
+                .select('id')
+                .eq('team_id', teamId)
+                .gte('date', startDate.toISOString())
+                .lte('date', new Date().toISOString())
+
+            if (trainingError || !trainings || trainings.length === 0) {
+                return null
+            }
+
+            const trainingIds = trainings.map(t => t.id)
+
+            // 2. Get attendance records for these trainings
+            const { data: attendance, error: attendanceError } = await supabase
+                .from('training_attendance')
+                .select('status')
+                .in('training_id', trainingIds)
+
+            if (attendanceError || !attendance || attendance.length === 0) {
+                return null
+            }
+
+            // 3. Calculate percentage
+            // Valid attendance: 'present' or 'justified'
+            const validAttendance = attendance.filter(
+                r => r.status === 'present' || r.status === 'justified'
+            ).length
+
+            const totalRecords = attendance.length
+
+            if (totalRecords === 0) return null
+
+            return Math.round((validAttendance / totalRecords) * 100)
+
+        } catch (error) {
+            console.error('Error calculating team attendance:', error)
+            return null
+        }
     },
 
     /**

@@ -130,10 +130,6 @@ export const clubStatsService = {
 
             const winLossRatio = losses > 0 ? parseFloat((wins / losses).toFixed(2)) : wins > 0 ? wins : null
 
-            // Count trainings (when training system is implemented)
-            // For now, return 0
-            const totalTrainings = 0
-
             // Count evaluations
             const { data: evaluations } = await supabase
                 .from('player_team_season_evaluations')
@@ -143,13 +139,37 @@ export const clubStatsService = {
             const totalReportsExpected = teams.length * 2 // Assuming 2 evaluations per team (initial + mid/final)
             const completedReports = evaluations?.filter(e => e.overall_rating !== null).length || 0
 
-            // Attendance calculation (placeholder for now)
-            const attendanceGlobal = null
+            // Attendance calculation
+            let attendanceGlobal = null
+
+            // 1. Get all trainings for these teams in the last 30 days
+            const startDate = new Date()
+            startDate.setDate(startDate.getDate() - 30)
+
+            const { data: globalTrainings } = await supabase
+                .from('trainings')
+                .select('id')
+                .in('team_id', teamIds)
+                .gte('date', startDate.toISOString())
+                .lte('date', new Date().toISOString())
+
+            if (globalTrainings && globalTrainings.length > 0) {
+                const trainingIds = globalTrainings.map(t => t.id)
+                const { data: attendance } = await supabase
+                    .from('training_attendance')
+                    .select('status')
+                    .in('training_id', trainingIds)
+
+                if (attendance && attendance.length > 0) {
+                    const valid = attendance.filter(r => r.status === 'present' || r.status === 'justified').length
+                    attendanceGlobal = Math.round((valid / attendance.length) * 100)
+                }
+            }
 
             return {
                 attendanceGlobal,
                 winLossRatio,
-                totalTrainings,
+                totalTrainings: 0,
                 completedReports,
                 totalReportsExpected
             }
@@ -238,10 +258,37 @@ export const clubStatsService = {
                     else riskLevel = 'high'
                 }
 
+                // Calculate attendance for this category
+                let categoryAttendance: number | null = null
+
+                // Get trainings for teams in this category (last 30 days)
+                const startDate = new Date()
+                startDate.setDate(startDate.getDate() - 30)
+
+                const { data: catTrainings } = await supabase
+                    .from('trainings')
+                    .select('id')
+                    .in('team_id', teamIds)
+                    .gte('date', startDate.toISOString())
+                    .lte('date', new Date().toISOString())
+
+                if (catTrainings && catTrainings.length > 0) {
+                    const tIds = catTrainings.map(t => t.id)
+                    const { data: att } = await supabase
+                        .from('training_attendance')
+                        .select('status')
+                        .in('training_id', tIds)
+
+                    if (att && att.length > 0) {
+                        const valid = att.filter(r => r.status === 'present' || r.status === 'justified').length
+                        categoryAttendance = Math.round((valid / att.length) * 100)
+                    }
+                }
+
                 categoriesSummary.push({
                     id: categoryName,
                     name: categoryName,
-                    attendance: null, // TODO: Implement when attendance tracking is available
+                    attendance: categoryAttendance,
                     winLossRatio,
                     riskLevel,
                     teamsCount: teamIds.length
