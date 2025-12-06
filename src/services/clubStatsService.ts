@@ -130,14 +130,25 @@ export const clubStatsService = {
 
             const winLossRatio = losses > 0 ? parseFloat((wins / losses).toFixed(2)) : wins > 0 ? wins : null
 
-            // Count evaluations
+            // Count evaluations (Team Reports)
             const { data: evaluations } = await supabase
                 .from('player_team_season_evaluations')
-                .select('id, overall_rating')
+                .select('team_id, phase')
                 .in('team_id', teamIds)
 
-            const totalReportsExpected = teams.length * 2 // Assuming 2 evaluations per team (initial + mid/final)
-            const completedReports = evaluations?.filter(e => e.overall_rating !== null).length || 0
+            const totalReportsExpected = teams.length * 3 // Expecting 3 evaluations per team (start, mid, end)
+
+            // Count unique team-phase pairs
+            const uniqueReports = new Set(
+                evaluations?.map(e => `${e.team_id}-${e.phase}`) || []
+            )
+            const completedReports = uniqueReports.size
+
+            // Get total trainings count
+            const { count: totalTrainingsCount } = await supabase
+                .from('trainings')
+                .select('*', { count: 'exact', head: true })
+                .in('team_id', teamIds)
 
             // Attendance calculation
             let attendanceGlobal = null
@@ -169,7 +180,7 @@ export const clubStatsService = {
             return {
                 attendanceGlobal,
                 winLossRatio,
-                totalTrainings: 0,
+                totalTrainings: totalTrainingsCount || 0,
                 completedReports,
                 totalReportsExpected
             }
@@ -331,7 +342,7 @@ export const clubStatsService = {
                 const { data: assignments } = await supabase
                     .from('coach_team_assignments')
                     .select('team_id')
-                    .eq('coach_id', profile.id)
+                    .eq('user_id', profile.id)
 
                 const teamsCount = assignments?.length || 0
 
@@ -342,12 +353,16 @@ export const clubStatsService = {
 
                     const { data: evaluations } = await supabase
                         .from('player_team_season_evaluations')
-                        .select('id, overall_rating')
+                        .select('id, team_id, phase')
                         .in('team_id', teamIds)
 
                     if (evaluations) {
-                        const totalExpected = teamsCount * 2 // 2 evaluations per team
-                        const completed = evaluations.filter(e => e.overall_rating !== null).length
+                        const totalExpected = teamsCount * 3 // 3 evaluations per team (start, mid, end)
+                        // Count unique team-phase pairs
+                        const uniqueReports = new Set(
+                            evaluations?.map(e => `${e.team_id}-${e.phase}`) || []
+                        )
+                        const completed = uniqueReports.size
                         reportsCompletion = totalExpected > 0 ? Math.round((completed / totalExpected) * 100) : 0
                     }
                 }
