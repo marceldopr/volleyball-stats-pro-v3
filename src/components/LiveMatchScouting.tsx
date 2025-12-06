@@ -2025,65 +2025,7 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
               <button
                 onClick={async () => {
                   setShowMatchCompleteModal(false)
-
-                  console.log('🏐 Saving match - IDs:', {
-                    matchId: match.id,
-                    dbMatchId: match.dbMatchId,
-                    willUpdateStatus: true
-                  })
-
-                  // Persist stats to Supabase
                   await handleSaveMatchStats()
-
-                  // Calculate final result (sets won)
-                  // Calculate final result (sets won)
-                  console.log('🔍 Calculating match result from sets:', match.sets)
-
-                  let setsWonLocal = 0
-                  let setsWonVisitor = 0
-
-                  match.sets.forEach(s => {
-                    if (s.status === 'completed') {
-                      if (s.homeScore > s.awayScore) setsWonLocal++
-                      else if (s.awayScore > s.homeScore) setsWonVisitor++
-                    }
-                  })
-
-                  console.log('🔍 Sets won - Local:', setsWonLocal, 'Visitor:', setsWonVisitor)
-
-                  // If I am 'local', result is Local-Visitor
-                  // If I am 'visitante', result is Visitor-Local (MySets-OpponentSets)
-                  const matchResult = match.teamSide === 'local'
-                    ? `${setsWonLocal}-${setsWonVisitor}`
-                    : `${setsWonVisitor}-${setsWonLocal}`
-
-                  console.log('🔍 Final match result:', matchResult)
-
-                  // Update match status in local store
-                  onUpdateMatch(match.id, { status: 'completed' })
-
-                  // Update match status and result in Supabase
-                  // Use match.id (which is the Supabase ID) instead of match.dbMatchId
-                  // IMPORTANT: Database expects 'finished' not 'completed'
-                  try {
-                    console.log('🏐 Updating match in Supabase:', {
-                      id: match.id,
-                      status: 'finished',
-                      result: matchResult
-                    })
-                    await matchService.updateMatch(match.id, {
-                      status: 'finished',
-                      result: matchResult
-                    })
-                    console.log('✅ Match status and result updated successfully')
-                  } catch (err) {
-                    console.error('❌ Error updating match:', err)
-                  }
-
-                  // Clear unsaved changes flag to prevent blocker popup
-                  setHasUnsavedChanges(false)
-
-                  onNavigateToMatches()
                 }}
                 className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold transition-colors"
               >

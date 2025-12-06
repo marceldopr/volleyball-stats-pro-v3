@@ -131,7 +131,7 @@ export const teamStatsService = {
         try {
             const { data, error } = await supabase
                 .from('matches')
-                .select('match_date, opponent_name, result, home_away')
+                .select('match_date, opponent_name, result, home_away, actions')
                 .eq('team_id', teamId)
                 .eq('status', 'finished')
                 .order('match_date', { ascending: false })
@@ -140,10 +140,64 @@ export const teamStatsService = {
 
             if (error || !data) return null
 
-            const location = data.home_away === 'home' ? 'Local' : 'Visitante'
-            const result = data.result || 'Sin resultado'
+            let resultText = data.result || 'Sin resultado'
 
-            return `${location} vs ${data.opponent_name} - ${result}`
+            // Calculate actual result from actions if available (source of truth)
+            if (data.actions && Array.isArray(data.actions)) {
+                const setCompletedEvents = data.actions.filter((a: any) => a.tipo === 'set_completed')
+
+                if (setCompletedEvents.length > 0) {
+                    let setsWonHome = 0
+                    let setsWonAway = 0
+
+                    setCompletedEvents.forEach((event: any) => {
+                        if (event.homeScore > event.awayScore) {
+                            setsWonHome++
+                        } else if (event.awayScore > event.homeScore) {
+                            setsWonAway++
+                        }
+                    })
+
+                    resultText = `${setsWonHome}-${setsWonAway}`
+                }
+            }
+
+            let outcome = ''
+
+            // Parse result to determine win/loss and correct score order
+            if (resultText && resultText !== 'Sin resultado') {
+                // Try to handle "3-1 (25-20...)" format by taking just the set score part
+                const simpleResult = resultText.split(' ')[0]
+                const parts = simpleResult.split('-')
+
+                if (parts.length >= 2) {
+                    const homeSets = parseInt(parts[0])
+                    const awaySets = parseInt(parts[1])
+
+                    if (!isNaN(homeSets) && !isNaN(awaySets)) {
+                        let mySets = 0
+                        let oppSets = 0
+
+                        if (data.home_away === 'home') {
+                            mySets = homeSets
+                            oppSets = awaySets
+                        } else {
+                            mySets = awaySets
+                            oppSets = homeSets
+                        }
+
+                        if (mySets > oppSets) outcome = 'Victoria'
+                        else if (mySets < oppSets) outcome = 'Derrota'
+                        else outcome = 'Empate'
+
+                        resultText = `${mySets}-${oppSets}`
+                    }
+                }
+            }
+
+            const prefix = outcome ? `${outcome} ` : ''
+
+            return `${prefix}${resultText} vs ${data.opponent_name}`
         } catch (error) {
             console.error('Error fetching last match:', error)
             return null
