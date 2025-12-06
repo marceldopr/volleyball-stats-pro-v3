@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Save, Calendar, Clock, CheckCircle, XCircle, AlertCircle, Users } from 'lucide-react'
+import { ArrowLeft, Save, Calendar, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { trainingService, TrainingDB, TrainingAttendanceDB } from '@/services/trainingService'
+import { trainingService, TrainingDB } from '@/services/trainingService'
 import { teamService } from '@/services/teamService'
 import { PlayerDB } from '@/services/playerService'
-import { getTeamDisplayName } from '@/utils/teamDisplay'
+
 import { cn } from '@/lib/utils'
 
 interface TeamPlayer extends PlayerDB {
