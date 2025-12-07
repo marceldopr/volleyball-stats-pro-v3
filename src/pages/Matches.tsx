@@ -274,12 +274,15 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
 
 
   return (
-    <div className="p-6 space-y-6 min-h-screen bg-gray-900">
+    <div className="max-w-6xl mx-auto px-6 lg:px-8 pt-6 lg:pt-8 pb-10">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Partidos</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Gestiona tu calendario y resultados</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            Gestiona tu calendario y resultados
+            {currentSeason && <span className="text-xs text-gray-400 ml-2">· Temporada: {currentSeason.name}</span>}
+          </p>
         </div>
         {!isCoach && (
           <Button
@@ -296,18 +299,18 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
       {/* Loading state */}
       {(loading || roleLoading) && (
         <div className="text-center py-12">
-          <div className="text-gray-500 dark:text-gray-400">Cargando partidos...</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">Cargando partidos...</div>
         </div>
       )}
 
       {/* Empty state */}
       {!loading && !roleLoading && supabaseMatches.length === 0 && (
-        <div className="text-center py-12 bg-gray-800/30 rounded-lg border-2 border-dashed border-gray-700/50">
-          <Trophy className="w-12 h-12 text-gray-500 dark:text-gray-500 mx-auto mb-3" />
-          <p className="text-gray-200 dark:text-gray-200 mb-2">
+        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+          <Trophy className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">
             {isCoach ? 'No tienes partidos asignados' : 'No hay partidos registrados'}
-          </p>
-          <p className="text-sm text-gray-400 dark:text-gray-400">
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             {isCoach
               ? 'Todavía no tienes equipos asignados. Contacta con Dirección Técnica.'
               : 'Crea tu primer partido usando el botón "Nuevo Partido"'
@@ -320,28 +323,28 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
       {!loading && supabaseMatches.length > 0 && (
         <div className="space-y-4">
           {supabaseMatches.map((match) => (
-            <div key={match.id} className="bg-gray-800/30 rounded-xl p-6 border border-gray-700/50 hover:shadow-md transition-all duration-200">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+            <div key={match.id} className="bg-white dark:bg-gray-800 rounded-xl p-5 lg:p-6 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
                 <div className="flex-1">
                   {/* Scoreboard: Always show visitor on the right */}
                   <div className="flex items-center gap-3 mb-3">
                     {match.home_away === 'home' ? (
                       <>
-                        <h3 className="text-2xl font-bold text-white">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                           {teamMap[match.team_id] || 'Mi Equipo'}
                         </h3>
-                        <span className="text-lg text-gray-400 font-medium">vs</span>
-                        <h3 className="text-xl font-semibold text-gray-300">
+                        <span className="text-sm text-gray-400 font-medium">vs</span>
+                        <h3 className="text-base font-semibold text-gray-600 dark:text-gray-300">
                           {match.opponent_name}
                         </h3>
                       </>
                     ) : (
                       <>
-                        <h3 className="text-xl font-semibold text-gray-300">
+                        <h3 className="text-base font-semibold text-gray-600 dark:text-gray-300">
                           {match.opponent_name}
                         </h3>
-                        <span className="text-lg text-gray-400 font-medium">vs</span>
-                        <h3 className="text-2xl font-bold text-white">
+                        <span className="text-sm text-gray-400 font-medium">vs</span>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                           {teamMap[match.team_id] || 'Mi Equipo'}
                         </h3>
                       </>
@@ -350,24 +353,24 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
 
                   {/* Status badges and result */}
                   <div className="flex items-center gap-2 mb-3">
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${match.home_away === 'home'
-                      ? 'bg-green-100 text-green-800 border border-green-200'
-                      : 'bg-blue-100 text-blue-800 border border-blue-200'
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${match.home_away === 'home'
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                      : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
                       }`}>
                       {match.home_away === 'home' ? 'LOCAL' : 'VISITANTE'}
                     </span>
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${getStatusColor(match.status)}`}>
-                      {getStatusText(match.status).toUpperCase()}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(match.status)}`}>
+                      {getStatusText(match.status)}
                     </span>
                     {match.status === 'finished' && (
-                      <span className="ml-auto text-lg font-bold text-white tabular-nums">
-                        Resultado: {getActualMatchResult(match) || match.result || '-'}
+                      <span className="ml-auto text-base font-semibold text-gray-900 dark:text-white tabular-nums">
+                        {getActualMatchResult(match) || match.result || '-'}
                       </span>
                     )}
                   </div>
 
                   {/* Date and time only - location removed */}
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <div className="flex items-center gap-2 text-xs text-gray-400">
                     <span>{new Date(match.match_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</span>
                     <span>·</span>
                     <span>{new Date(match.match_date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
@@ -381,14 +384,13 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                     icon={Trash2}
                     onClick={() => handleDeleteClick(match)}
                     title="Eliminar partido"
-                    className="p-2 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                   >
                     {''}
                   </Button>
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-gray-700/50 flex justify-end gap-3">
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap justify-end gap-3">
 
                 {match.status === 'planned' && (
                   <>

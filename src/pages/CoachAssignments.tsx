@@ -138,15 +138,16 @@ export function CoachAssignments() {
     }
 
     return (
-        <div className="p-6 max-w-7xl mx-auto">
-            <div className="mb-6">
+        <div className="max-w-6xl mx-auto px-6 lg:px-8 pt-6 lg:pt-8">
+            {/* Header */}
+            <div className="mb-8">
                 <div className="flex items-center gap-3 mb-2">
-                    <Users className="w-8 h-8 text-orange-600" />
-                    <h1 className="text-2xl font-bold text-gray-900">Gestión de Entrenadores</h1>
+                    <Users className="w-6 h-6 text-primary-600" />
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Gestión de Entrenadores</h1>
                 </div>
-                <p className="text-gray-600">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                     Asigna equipos a los entrenadores del club
-                    {currentSeason && <span className="ml-2 text-sm">• Temporada: {currentSeason.name}</span>}
+                    {currentSeason && <span className="text-xs text-gray-400 ml-2">· Temporada: {currentSeason.name}</span>}
                 </p>
             </div>
 
@@ -155,10 +156,10 @@ export function CoachAssignments() {
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
                 </div>
             ) : coaches.length === 0 ? (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
                     <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No hay entrenadores</h3>
-                    <p className="text-gray-600">
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">No hay entrenadores</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                         No se encontraron entrenadores en este club.
                     </p>
                 </div>
@@ -167,16 +168,16 @@ export function CoachAssignments() {
                     {coaches.map(coach => (
                         <div
                             key={coach.id}
-                            className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+                            className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 lg:p-6"
                         >
-                            <div className="flex items-start justify-between mb-4">
-                                <div>
-                                    <h3 className="text-lg font-semibold text-gray-900">{coach.full_name}</h3>
-                                    <p className="text-sm text-gray-600">{coach.email}</p>
+                            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-4">
+                                <div className="flex-1">
+                                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">{coach.full_name}</h3>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">{coach.email}</p>
                                 </div>
                                 <button
                                     onClick={() => handleOpenAssignModal(coach.id)}
-                                    className="btn-primary flex items-center gap-2 text-sm"
+                                    className="btn-primary flex items-center gap-2 text-sm font-medium whitespace-nowrap"
                                 >
                                     <UserPlus className="w-4 h-4" />
                                     Asignar equipo
@@ -184,17 +185,17 @@ export function CoachAssignments() {
                             </div>
 
                             <div>
-                                <p className="text-sm font-medium text-gray-700 mb-2">Equipos asignados:</p>
+                                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Equipos asignados:</p>
                                 {coach.assignments.length === 0 ? (
-                                    <p className="text-sm text-gray-500 italic">Sin equipos asignados</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 italic">Sin equipos asignados</p>
                                 ) : (
                                     <div className="space-y-2">
                                         {coach.assignments.map(assignment => (
                                             <div
                                                 key={assignment.id}
-                                                className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2"
+                                                className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 rounded-lg px-4 py-2.5"
                                             >
-                                                <span className="text-sm font-medium text-gray-900">
+                                                <span className="text-sm text-gray-900 dark:text-gray-100">
                                                     {assignment.team_name}
                                                 </span>
                                                 <button
@@ -203,7 +204,7 @@ export function CoachAssignments() {
                                                         coach.full_name,
                                                         assignment.team_name
                                                     )}
-                                                    className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
+                                                    className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                                                     title="Quitar asignación"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
@@ -221,12 +222,12 @@ export function CoachAssignments() {
             {/* Assign Team Modal */}
             {showAssignModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
-                        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                            <h2 className="text-xl font-semibold text-gray-900">Asignar Equipo</h2>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full">
+                        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Asignar Equipo</h2>
                             <button
                                 onClick={() => setShowAssignModal(false)}
-                                className="p-2 hover:bg-gray-100 rounded-lg"
+                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -234,7 +235,7 @@ export function CoachAssignments() {
 
                         <form onSubmit={handleAssignTeam} className="p-6">
                             <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Selecciona un equipo
                                 </label>
                                 <select
@@ -251,7 +252,7 @@ export function CoachAssignments() {
                                     ))}
                                 </select>
                                 {getAvailableTeamsForCoach(selectedCoachId).length === 0 && (
-                                    <p className="text-xs text-gray-500 mt-1">
+                                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                                         Todos los equipos ya están asignados a este entrenador.
                                     </p>
                                 )}
@@ -261,14 +262,14 @@ export function CoachAssignments() {
                                 <button
                                     type="button"
                                     onClick={() => setShowAssignModal(false)}
-                                    className="btn-secondary"
+                                    className="btn-secondary text-sm font-medium"
                                     disabled={assigning}
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     type="submit"
-                                    className="btn-primary"
+                                    className="btn-primary text-sm font-medium"
                                     disabled={assigning || !selectedTeamId}
                                 >
                                     {assigning ? 'Asignando...' : 'Asignar'}
