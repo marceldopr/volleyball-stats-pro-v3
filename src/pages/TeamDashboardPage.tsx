@@ -72,9 +72,14 @@ export function TeamDashboardPage() {
         return (
             <div className="p-6 text-center">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">Equipo no encontrado</h2>
-                <button onClick={() => navigate('/teams')} className="btn-primary mt-4">
+                <Button
+                    variant="primary"
+                    size="md"
+                    onClick={() => navigate('/teams')}
+                    className="mt-4"
+                >
                     Volver a Mis Equipos
-                </button>
+                </Button>
             </div>
         )
     }
@@ -94,12 +99,15 @@ export function TeamDashboardPage() {
             <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="py-4 flex items-center gap-4">
-                        <button
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={ArrowLeft}
                             onClick={() => navigate('/teams')}
-                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                            className="p-2"
                         >
-                            <ArrowLeft className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                        </button>
+                            {''}
+                        </Button>
                         <div className="flex-1">
                             <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                 {getTeamDisplayName(team)}
@@ -115,14 +123,15 @@ export function TeamDashboardPage() {
                         {/* Action Buttons */}
                         <div className="flex items-center gap-2">
                             {/* Season Summary Button */}
-                            <button
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                icon={BookOpen}
                                 onClick={() => navigate(`/teams/${team.id}/season/${currentSeason.id}/summary`)}
-                                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                                 title="Resumen de Temporada"
                             >
-                                <BookOpen className="w-4 h-4" />
                                 <span className="hidden sm:inline">Resumen</span>
-                            </button>
+                            </Button>
 
                             {/* Admin Actions (Edit/Delete) - Only for DT */}
                             {isDT && (
@@ -148,7 +157,6 @@ export function TeamDashboardPage() {
                                                 <button
                                                     onClick={() => {
                                                         setShowActionsMenu(false)
-                                                        // TODO: Implement edit team modal
                                                         toast.info('Función de edición en desarrollo')
                                                     }}
                                                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -159,7 +167,6 @@ export function TeamDashboardPage() {
                                                 <button
                                                     onClick={() => {
                                                         setShowActionsMenu(false)
-                                                        // TODO: Implement delete confirmation
                                                         toast.info('Función de eliminación en desarrollo')
                                                     }}
                                                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
