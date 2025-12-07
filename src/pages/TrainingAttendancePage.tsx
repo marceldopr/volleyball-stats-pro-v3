@@ -147,7 +147,7 @@ export function TrainingAttendancePage() {
                             {''}
                         </Button>
                         <div>
-                            <h1 className="text-lg font-semibold flex items-center gap-2">
+                            <h1 className="text-2xl font-bold flex items-center gap-2">
                                 Asistencia
                                 <span className="text-gray-400 font-normal text-sm">|</span>
                                 {training.title || 'Entrenamiento'}

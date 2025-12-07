@@ -129,7 +129,7 @@ export function TeamSeasonSummaryPage() {
                             <ArrowLeft className="w-5 h-5 text-gray-500" />
                         </button>
                         <div>
-                            <h1 className="text-xl font-bold text-gray-900">
+                            <h1 className="text-2xl font-bold text-gray-900">
                                 Resumen de Temporada
                             </h1>
                             <p className="text-sm text-gray-500">
@@ -169,7 +169,7 @@ export function TeamSeasonSummaryPage() {
                                     <div>
                                         <div className="flex items-center gap-1.5 mb-1 text-primary-700">
                                             <Target className="w-4 h-4" />
-                                            <span className="text-xs font-bold uppercase tracking-wide">Objetivo Principal</span>
+                                            <span className="text-sm font-bold uppercase tracking-wide">Objetivo Principal</span>
                                         </div>
                                         <p className="text-sm text-gray-700 line-clamp-3">
                                             {phase.primary_objective || <span className="text-gray-400 italic">No definido</span>}
@@ -181,7 +181,7 @@ export function TeamSeasonSummaryPage() {
                                         <div>
                                             <div className="flex items-center gap-1.5 mb-1 text-orange-700">
                                                 <AlertTriangle className="w-4 h-4" />
-                                                <span className="text-xs font-bold uppercase tracking-wide">Debilidad Detectada</span>
+                                                <span className="text-sm font-bold uppercase tracking-wide">Debilidad Detectada</span>
                                             </div>
                                             <p className="text-sm text-gray-700 line-clamp-2">
                                                 {phase.risks_weaknesses}
@@ -194,7 +194,7 @@ export function TeamSeasonSummaryPage() {
                                         <div>
                                             <div className="flex items-center gap-1.5 mb-1 text-purple-700">
                                                 <Zap className="w-4 h-4" />
-                                                <span className="text-xs font-bold uppercase tracking-wide">Ajuste Aplicado</span>
+                                                <span className="text-sm font-bold uppercase tracking-wide">Ajuste Aplicado</span>
                                             </div>
                                             <p className="text-sm text-gray-700 line-clamp-3 bg-purple-50 p-2 rounded-md border border-purple-100">
                                                 {evaluation.next_adjustments}

@@ -36,6 +36,7 @@ interface NavSection {
 
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false)
+  const [isClubMenuOpen, setIsClubMenuOpen] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['Configuración']))
   const [clubName, setClubName] = useState<string>('')
   const location = useLocation()
@@ -86,12 +87,6 @@ export function Sidebar() {
           { name: 'Dashboard Club', href: '/club/dashboard', icon: BarChart3 },
           { name: 'Planificación', href: '/reports/team-plans', icon: FileText },
           { name: 'Informes', href: '/reports/players', icon: BarChart3 }
-        ]
-      },
-      {
-        title: 'ADMINISTRACIÓN',
-        items: [
-          { name: 'Configuración', href: '/settings', icon: Settings }
         ]
       }
     )
@@ -201,9 +196,9 @@ export function Sidebar() {
       <Link
         to={item.href!}
         className={clsx(
-          'flex items-center gap-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-sm',
+          'flex items-center gap-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors',
           isChild ? 'py-2 pl-12 pr-4' : 'py-2.5 px-4',
-          isActive && 'bg-gray-700/50 text-white border-l-4 border-primary-500'
+          isActive && 'bg-gray-700/50 font-semibold text-primary-400 border-l-4 border-primary-500'
         )}
         onClick={() => handleItemClick(item)}
       >
@@ -240,20 +235,7 @@ export function Sidebar() {
           <p className="text-gray-400 text-xs mt-1">Pro Analytics</p>
         </div>
 
-        {/* User Profile Section */}
-        {profile && (
-          <div className="px-4 pt-4 pb-3 border-b border-gray-800 flex-shrink-0">
-            <p className="text-xs text-gray-300 font-semibold truncate" title={clubName}>
-              {clubName || 'Cargando...'}
-            </p>
-            <p className="text-xs text-white truncate" title={displayName}>
-              {displayName}
-            </p>
-            <p className="text-xs text-green-400">
-              {roleLabel}
-            </p>
-          </div>
-        )}
+
 
         {/* Navigation */}
         <nav className="mt-6 px-3 flex-1 overflow-y-auto">
@@ -261,7 +243,7 @@ export function Sidebar() {
             {navigationSections.map((section, idx) => (
               <div key={idx}>
                 {section.title && (
-                  <h3 className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-1">
+                  <h3 className="px-4 text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3 mt-1">
                     {section.title}
                   </h3>
                 )}
@@ -279,17 +261,60 @@ export function Sidebar() {
 
         {/* Footer */}
         <div className="p-4 border-t border-gray-800 bg-gray-900 flex-shrink-0">
-          <div className="text-center">
-            <p className="text-gray-500 text-xs mb-4">v1.0.0</p>
+          {/* Club Menu Dropdown */}
+          {profile && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setIsClubMenuOpen(open => !open)}
+                className="w-full flex items-center justify-between gap-3 text-left hover:bg-gray-800/50 rounded-lg p-2 transition-colors"
+              >
+                <div className="flex flex-col min-w-0">
+                  <span className="text-base font-semibold text-white truncate" title={clubName}>
+                    {clubName || 'Cargando...'}
+                  </span>
+                  <span className="text-xs text-white truncate" title={displayName}>
+                    {displayName}
+                  </span>
+                  <span className="text-xs font-medium text-primary-500">
+                    {roleLabel}
+                  </span>
+                </div>
 
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-3 py-2 w-full text-sm text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-md transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Cerrar sesión</span>
-            </button>
-          </div>
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full border border-gray-600 text-gray-200 flex-shrink-0">
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform duration-200 ${isClubMenuOpen ? 'rotate-180' : ''
+                      }`}
+                  />
+                </span>
+              </button>
+
+              {isClubMenuOpen && (
+                <div className="mt-2 space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigate('/settings')
+                      setIsClubMenuOpen(false)
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span>Configuración</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-400 hover:bg-red-900/20 hover:text-red-300 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Cerrar sesión</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

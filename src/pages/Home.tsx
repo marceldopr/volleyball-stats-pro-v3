@@ -231,36 +231,36 @@ export function Home() {
                                     {/* KPIs generales */}
                                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                                            <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                                            <h3 className="text-xs font-medium text-gray-400 dark:text-gray-400 mb-1">
                                                 Asistencia global
                                             </h3>
-                                            <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                                            <p className="text-2xl font-bold text-gray-900 dark:text-white">
                                                 {clubSummary?.attendanceGlobal !== null ? `${clubSummary?.attendanceGlobal}%` : '--'}
                                             </p>
                                         </div>
                                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                                            <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                                            <h3 className="text-xs font-medium text-gray-400 dark:text-gray-400 mb-1">
                                                 Ratio victorias/derrotas
                                             </h3>
-                                            <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                                            <p className="text-2xl font-bold text-gray-900 dark:text-white">
                                                 {clubSummary
                                                     ? formatWinLossDisplay(clubSummary.wins, clubSummary.losses)
                                                     : '--'}
                                             </p>
                                         </div>
                                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                                            <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                                            <h3 className="text-xs font-medium text-gray-400 dark:text-gray-400 mb-1">
                                                 Entrenamientos registrados
                                             </h3>
-                                            <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                                            <p className="text-2xl font-bold text-gray-900 dark:text-white">
                                                 {clubSummary?.totalTrainings ?? 0}
                                             </p>
                                         </div>
                                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                                            <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                                            <h3 className="text-xs font-medium text-gray-400 dark:text-gray-400 mb-1">
                                                 Informes completados
                                             </h3>
-                                            <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                                            <p className="text-2xl font-bold text-gray-900 dark:text-white">
                                                 {clubSummary
                                                     ? `${clubSummary.completedReports}/${clubSummary.totalReportsExpected}`
                                                     : '--'}
@@ -273,7 +273,7 @@ export function Home() {
                                         onClick={() => navigate('/club/dashboard')}
                                         className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 cursor-pointer hover:shadow-md transition-shadow group"
                                     >
-                                        <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
                                             <Trophy className="w-5 h-5 text-primary-500" />
                                             Categorías
                                         </h3>
@@ -285,11 +285,11 @@ export function Home() {
                                                         className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                                                     >
                                                         <div className="flex items-center justify-between mb-2">
-                                                            <span className="font-medium text-gray-900 dark:text-white">
+                                                            <span className="text-base font-semibold text-gray-900 dark:text-white">
                                                                 {cat.name}
                                                             </span>
                                                             <div className="flex items-center gap-1">
-                                                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                                <span className="text-xs text-gray-500 dark:text-gray-500">
                                                                     {cat.teamsCount} equipo{cat.teamsCount !== 1 ? 's' : ''}
                                                                 </span>
                                                                 {cat.riskLevel === 'high' && <span className="text-lg">⚠️</span>}
@@ -297,7 +297,7 @@ export function Home() {
                                                                 {cat.riskLevel === 'low' && <span className="text-lg">🟢</span>}
                                                             </div>
                                                         </div>
-                                                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                        <p className="text-sm text-gray-400 dark:text-gray-400">
                                                             Asistencia: {cat.attendance ?? '--'}% · Ratio V/D: {formatWinLossDisplay(cat.wins, cat.losses)}
                                                         </p>
                                                     </div>
@@ -315,7 +315,7 @@ export function Home() {
                                         onClick={() => navigate('/reports/coaches')}
                                         className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 cursor-pointer hover:shadow-md transition-shadow group"
                                     >
-                                        <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
                                             <Users className="w-5 h-5 text-blue-500" />
                                             Entrenadores
                                         </h3>
@@ -327,14 +327,14 @@ export function Home() {
                                                         className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                                                     >
                                                         <div>
-                                                            <span className="font-medium text-gray-900 dark:text-white">
+                                                            <span className="text-sm font-semibold text-gray-900 dark:text-white">
                                                                 {coach.name}
                                                             </span>
-                                                            <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+                                                            <span className="text-xs text-gray-500 dark:text-gray-500 ml-2">
                                                                 · {coach.teamsCount} equipo{coach.teamsCount !== 1 ? 's' : ''}
                                                             </span>
                                                         </div>
-                                                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                                        <span className="text-sm font-semibold text-primary-600 dark:text-primary-400">
                                                             {coach.reportsCompletion ?? '--'}% informes
                                                         </span>
                                                     </div>
@@ -349,7 +349,7 @@ export function Home() {
 
                                     {/* Alertas */}
                                     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                                        <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                                             <AlertTriangle className="w-5 h-5 text-amber-500" />
                                             Alertas del club
                                         </h3>
@@ -424,7 +424,7 @@ export function Home() {
                                 <div className="grid gap-6 md:grid-cols-2">
                                     {/* Team Status Card */}
                                     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                                        <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                                             <Activity className="w-5 h-5 text-primary-500" />
                                             Estado del equipo
                                         </h3>
@@ -454,7 +454,7 @@ export function Home() {
                                     <div className="space-y-6">
                                         {/* Next Event */}
                                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                                            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                                                 <Calendar className="w-5 h-5 text-blue-500" />
                                                 Próximo evento
                                             </h3>
@@ -474,7 +474,7 @@ export function Home() {
 
                                         {/* Alerts */}
                                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                                            <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                                                 <AlertTriangle className="w-5 h-5 text-amber-500" />
                                                 Alertas
                                             </h3>
