@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { MatchWizard } from '../components/MatchWizard'
 // MatchDetail component removed - using only MatchAnalysis now
 import { ConvocationManager } from '../components/ConvocationManager'
@@ -12,7 +12,7 @@ import { matchService } from '../services/matchService'
 import { matchConvocationService } from '../services/matchConvocationService'
 import { useRoleScope } from '@/hooks/useRoleScope'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
-import { Plus, Trophy, Trash2, Users, Play } from 'lucide-react'
+import { Plus, Trophy, Trash2, Users, Play, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 
 
@@ -188,16 +188,6 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
     setMatchToDelete(null)
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'planned': return 'bg-blue-100 text-blue-800'
-      case 'in_progress': return 'bg-red-100 text-red-800'
-      case 'finished': return 'bg-green-100 text-green-800'
-      case 'completed': return 'bg-green-100 text-green-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
   const getStatusText = (status: string) => {
     switch (status) {
       case 'planned': return 'Próximo'
@@ -321,115 +311,130 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
 
       {/* Lista de partidos */}
       {!loading && supabaseMatches.length > 0 && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {supabaseMatches.map((match) => (
-            <div key={match.id} className="bg-white dark:bg-gray-800 rounded-xl p-5 lg:p-6 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
-              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
-                <div className="flex-1">
-                  {/* Scoreboard: Always show visitor on the right */}
-                  <div className="flex items-center gap-3 mb-3">
-                    {match.home_away === 'home' ? (
-                      <>
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                          {teamMap[match.team_id] || 'Mi Equipo'}
-                        </h3>
-                        <span className="text-sm text-gray-400 font-medium">vs</span>
-                        <h3 className="text-base font-semibold text-gray-600 dark:text-gray-300">
-                          {match.opponent_name}
-                        </h3>
-                      </>
-                    ) : (
-                      <>
-                        <h3 className="text-base font-semibold text-gray-600 dark:text-gray-300">
-                          {match.opponent_name}
-                        </h3>
-                        <span className="text-sm text-gray-400 font-medium">vs</span>
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                          {teamMap[match.team_id] || 'Mi Equipo'}
-                        </h3>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Status badges and result */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${match.home_away === 'home'
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                      : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                      }`}>
-                      {match.home_away === 'home' ? 'LOCAL' : 'VISITANTE'}
+            <div
+              key={match.id}
+              className="bg-slate-900 border border-slate-800 rounded-xl px-5 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between hover:border-slate-700 transition-colors"
+            >
+              {/* Block 1: Teams + Badges */}
+              <div className="flex-1 min-w-0">
+                {/* Teams */}
+                <div className="flex items-center gap-2 mb-2">
+                  {match.home_away === 'home' ? (
+                    <>
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                        {teamMap[match.team_id] || 'Mi Equipo'}
+                      </h3>
+                      <span className="text-gray-400 flex-shrink-0">vs</span>
+                      <h3 className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                        {match.opponent_name}
+                      </h3>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                        {match.opponent_name}
+                      </h3>
+                      <span className="text-gray-400 flex-shrink-0">vs</span>
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                        {teamMap[match.team_id] || 'Mi Equipo'}
+                      </h3>
+                    </>
+                  )}
+                  {/* Result for finished matches */}
+                  {match.status === 'finished' && (
+                    <span className="ml-auto text-sm font-semibold text-gray-900 dark:text-white tabular-nums flex-shrink-0">
+                      {getActualMatchResult(match) || match.result || '-'}
                     </span>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(match.status)}`}>
-                      {getStatusText(match.status)}
-                    </span>
-                    {match.status === 'finished' && (
-                      <span className="ml-auto text-base font-semibold text-gray-900 dark:text-white tabular-nums">
-                        {getActualMatchResult(match) || match.result || '-'}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Date and time only - location removed */}
-                  <div className="flex items-center gap-2 text-xs text-gray-400">
-                    <span>{new Date(match.match_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</span>
-                    <span>·</span>
-                    <span>{new Date(match.match_date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
-                  </div>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    icon={Trash2}
-                    onClick={() => handleDeleteClick(match)}
-                    title="Eliminar partido"
-                  >
-                    {''}
-                  </Button>
+                {/* Badges */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border ${match.home_away === 'home'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                    : 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+                    }`}>
+                    {match.home_away === 'home' ? 'LOCAL' : 'VISITANTE'}
+                  </span>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border ${match.status === 'planned'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                    : match.status === 'in_progress'
+                      ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                      : 'bg-slate-700/50 border-slate-600 text-gray-300'
+                    }`}>
+                    {getStatusText(match.status)}
+                  </span>
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap justify-end gap-3">
+              {/* Block 2: Date/Time */}
+              <div className="text-xs text-gray-400 md:text-sm flex-shrink-0">
+                {new Date(match.match_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
+                {' · '}
+                {new Date(match.match_date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+              </div>
 
+              {/* Block 3: Actions + Delete */}
+              <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                {/* Gestionar Convocatoria - Only for planned/in_progress */}
+                {(match.status === 'planned' || match.status === 'in_progress') && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={Users}
+                    onClick={() => handleOpenConvocationManager(match)}
+                  >
+                    Gestionar Convocatoria
+                  </Button>
+                )}
+
+                {/* Primary Action */}
                 {match.status === 'planned' && (
-                  <>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      icon={Users}
-                      onClick={() => handleOpenConvocationManager(match)}
-                      className="py-2"
-                    >
-                      Gestionar Convocatoria
-                    </Button>
-
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      icon={Play}
-                      onClick={() => handleStartMatch(match)}
-                      disabled={!matchesWithConvocations[match.id]}
-                      title={!matchesWithConvocations[match.id] ? 'Primero debes gestionar la convocatoria' : ''}
-                      className="py-2"
-                    >
-                      Iniciar Partido
-                    </Button>
-                  </>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={Play}
+                    onClick={() => handleStartMatch(match)}
+                    disabled={!matchesWithConvocations[match.id]}
+                    title={!matchesWithConvocations[match.id] ? 'Primero debes gestionar la convocatoria' : ''}
+                  >
+                    Iniciar Partido
+                  </Button>
                 )}
 
                 {match.status === 'in_progress' && (
-                  <Link to={`/matches/${match.id}/live`} className="btn-action-danger text-sm py-2 animate-pulse flex items-center gap-2">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={Play}
+                    onClick={() => navigate(`/matches/${match.id}/live`)}
+                    className="animate-pulse"
+                  >
                     Ver en Vivo
-                  </Link>
+                  </Button>
                 )}
 
                 {match.status === 'finished' && (
-                  <Link to={`/matches/${match.id}/analysis`} className="btn-outline text-sm py-2">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={BarChart3}
+                    onClick={() => navigate(`/matches/${match.id}/analysis`)}
+                  >
                     Ver Análisis
-                  </Link>
+                  </Button>
                 )}
+
+                {/* Delete Button */}
+                <button
+                  onClick={() => handleDeleteClick(match)}
+                  className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                  title="Eliminar partido"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             </div>
           ))}
