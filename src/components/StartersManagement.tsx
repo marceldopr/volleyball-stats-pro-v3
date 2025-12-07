@@ -4,6 +4,7 @@ import { Match, StartingLineup } from '../stores/matchStore'
 import { VolleyballCourt } from './VolleyballCourt'
 import { LiberoSlot } from './LiberoSlot'
 import { PlayerSelectionModal } from './PlayerSelectionModal'
+import { Button } from '@/components/ui/Button'
 
 interface StartersManagementProps {
   isOpen: boolean
@@ -172,35 +173,36 @@ export function StartersManagement({ isOpen, onClose, match, onSave, currentSet,
   const displayTeamName = teamName || 'Mi Equipo'
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/60 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
               Seleccionar Titulares{currentSet ? ` – Set ${currentSet}` : ''}
-            </h2>
-            <p className="text-sm text-gray-600 mt-1">
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
               Selecciona las 6 jugadoras titulares para comenzar el partido
             </p>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={X}
             onClick={() => {
               setError('')
               onClose()
-              // Navigate back if the function is provided
               if (onNavigateBack) {
                 onNavigateBack()
               }
             }}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500 hover:text-gray-700"
           >
-            <X className="w-5 h-5" />
-          </button>
+            {''}
+          </Button>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[60vh]">
+        <div className="p-6 overflow-y-auto max-h-[60vh] bg-white dark:bg-slate-900">
           {/* Error Message */}
           {error && (
             <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
@@ -211,30 +213,28 @@ export function StartersManagement({ isOpen, onClose, match, onSave, currentSet,
           {/* Serve Selection for Set 1 and Set 5 */}
           {(currentSet === 1 || currentSet === 5) && (
             <div className="mb-6 space-y-3">
-              <h3 className="text-lg font-semibold text-gray-900">¿Quién saca primero?</h3>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">¿Quién saca primero?</h2>
               <div className="space-y-3">
-                <button
+                <Button
+                  variant={serveSelection === 'local' ? 'primary' : 'secondary'}
+                  size="md"
                   onClick={() => handleServeSelection(true)}
-                  className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${serveSelection === 'local'
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                  className="w-full"
                 >
                   {displayTeamName}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant={serveSelection === 'visitor' ? 'primary' : 'secondary'}
+                  size="md"
                   onClick={() => handleServeSelection(false)}
-                  className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${serveSelection === 'visitor'
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                  className="w-full"
                 >
                   {match.opponent || 'Equipo Rival'}
-                </button>
+                </Button>
               </div>
               {!serveSelection && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                  <p className="text-sm text-yellow-800">
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-400 dark:border-yellow-700 rounded-lg p-3">
+                  <p className="text-sm text-yellow-700 dark:text-yellow-400">
                     Debes seleccionar quién saca primero
                   </p>
                 </div>
@@ -280,8 +280,8 @@ export function StartersManagement({ isOpen, onClose, match, onSave, currentSet,
           />
 
           {/* Status */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-800">
+          <div className="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-700 rounded-lg p-4">
+            <p className="text-sm text-primary-600 dark:text-primary-400">
               <Users className="w-4 h-4 inline mr-1" />
               Titulares seleccionadas: {getFieldStartersCount()} de 6
             </p>
@@ -297,29 +297,29 @@ export function StartersManagement({ isOpen, onClose, match, onSave, currentSet,
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-gray-200">
-          <button
+        <div className="flex items-center justify-between p-6 border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800">
+          <Button
+            variant="secondary"
+            size="md"
             onClick={() => {
               setError('')
-              // Primero ejecutar la navegación hacia atrás para restaurar el modal de fin de set
               if (onNavigateBack) {
                 onNavigateBack()
               }
-              // Después cerrar este modal de titulares (seguridad)
               onClose()
             }}
-            className="btn-outline"
           >
             Hacia atrás
-          </button>
+          </Button>
 
-          <button
+          <Button
+            variant="primary"
+            size="md"
             onClick={handleSave}
             disabled={getFieldStartersCount() !== 6}
-            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Guardar titulares
-          </button>
+          </Button>
         </div>
       </div>
     </div>
