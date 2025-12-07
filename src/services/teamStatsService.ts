@@ -411,11 +411,57 @@ export const teamStatsService = {
      * Get attendance percentage for last 30 days
      * Returns percentage rounded to integer or null if no data
      */
-    async getAttendanceLast30Days(_teamId: string, _seasonId: string): Promise<number | null> {
-        // TODO: Implement when training attendance tracking is available
-        // This would query a trainings table and calculate average attendance
-        // For now, return null
-        return null
+    async getAttendanceLast30Days(teamId: string, _seasonId: string): Promise<number | null> {
+        try {
+            // Get trainings for this team in the last 30 days
+            const startDate = new Date()
+            startDate.setDate(startDate.getDate() - 30)
+
+            const { data: trainings, error: trainingsError } = await supabase
+                .from('trainings')
+                .select('id')
+                .eq('team_id', teamId)
+                .gte('date', startDate.toISOString())
+                .lte('date', new Date().toISOString())
+
+            if (trainingsError) {
+                console.error('[TeamStats] Error fetching trainings:', trainingsError)
+                return null
+            }
+
+            if (!trainings || trainings.length === 0) {
+                // No trainings in last 30 days
+                return null
+            }
+
+            // Get attendance records for these trainings
+            const trainingIds = trainings.map(t => t.id)
+            const { data: attendance, error: attendanceError } = await supabase
+                .from('training_attendance')
+                .select('status')
+                .in('training_id', trainingIds)
+
+            if (attendanceError) {
+                console.error('[TeamStats] Error fetching attendance:', attendanceError)
+                return null
+            }
+
+            if (!attendance || attendance.length === 0) {
+                // No attendance records
+                return null
+            }
+
+            // Calculate percentage: (present + justified) / total
+            const validAttendance = attendance.filter(
+                r => r.status === 'present' || r.status === 'justified'
+            ).length
+            const percentage = Math.round((validAttendance / attendance.length) * 100)
+
+            return percentage
+        } catch (error) {
+            console.error('[TeamStats] Error in getAttendanceLast30Days:', error)
+            return null
+        }
     },
 
     /**

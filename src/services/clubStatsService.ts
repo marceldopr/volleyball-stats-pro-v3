@@ -6,6 +6,8 @@ export interface CategorySummary {
     name: CategoryStage
     attendance: number | null
     winLossRatio: number | null
+    wins: number
+    losses: number
     riskLevel: 'low' | 'medium' | 'high' | null
     teamsCount: number
 }
@@ -29,6 +31,8 @@ export interface ClubOverviewSummary {
     // KPIs generales de club
     attendanceGlobal: number | null
     winLossRatio: number | null
+    wins: number
+    losses: number
     totalTrainings: number
     completedReports: number
     totalReportsExpected: number
@@ -69,6 +73,8 @@ export const clubStatsService = {
     async getGlobalKPIs(clubId: string, seasonId?: string): Promise<{
         attendanceGlobal: number | null
         winLossRatio: number | null
+        wins: number
+        losses: number
         totalTrainings: number
         completedReports: number
         totalReportsExpected: number
@@ -90,6 +96,8 @@ export const clubStatsService = {
                 return {
                     attendanceGlobal: null,
                     winLossRatio: null,
+                    wins: 0,
+                    losses: 0,
                     totalTrainings: 0,
                     completedReports: 0,
                     totalReportsExpected: 0
@@ -177,6 +185,8 @@ export const clubStatsService = {
             return {
                 attendanceGlobal,
                 winLossRatio,
+                wins,
+                losses,
                 totalTrainings: totalTrainingsCount || 0,
                 completedReports,
                 totalReportsExpected
@@ -186,6 +196,8 @@ export const clubStatsService = {
             return {
                 attendanceGlobal: null,
                 winLossRatio: null,
+                wins: 0,
+                losses: 0,
                 totalTrainings: 0,
                 completedReports: 0,
                 totalReportsExpected: 0
@@ -298,6 +310,8 @@ export const clubStatsService = {
                     name: categoryName,
                     attendance: categoryAttendance,
                     winLossRatio,
+                    wins,
+                    losses,
                     riskLevel,
                     teamsCount: teamIds.length
                 })

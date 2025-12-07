@@ -16,6 +16,7 @@ import { teamService, TeamDB } from '@/services/teamService';
 import { teamStatsService, TeamHomeSummary } from '@/services/teamStatsService';
 import { clubStatsService, ClubOverviewSummary } from '@/services/clubStatsService';
 import { getTeamDisplayName } from '@/utils/teamDisplay';
+import { formatWinLossDisplay } from '@/utils/formatters';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -242,7 +243,9 @@ export function Home() {
                                                 Ratio victorias/derrotas
                                             </h3>
                                             <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                                                {clubSummary?.winLossRatio ?? '--'}
+                                                {clubSummary
+                                                    ? formatWinLossDisplay(clubSummary.wins, clubSummary.losses)
+                                                    : '--'}
                                             </p>
                                         </div>
                                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
@@ -295,7 +298,7 @@ export function Home() {
                                                             </div>
                                                         </div>
                                                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                            Asistencia: {cat.attendance ?? '--'}% · Ratio V/D: {cat.winLossRatio ?? '--'}
+                                                            Asistencia: {cat.attendance ?? '--'}% · Ratio V/D: {formatWinLossDisplay(cat.wins, cat.losses)}
                                                         </p>
                                                     </div>
                                                 ))}

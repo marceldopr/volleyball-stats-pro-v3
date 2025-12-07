@@ -6,6 +6,8 @@ import { StartersManagement } from '../components/StartersManagement'
 
 import { matchService } from '../services/matchService'
 import { matchConvocationService } from '../services/matchConvocationService'
+import { teamService } from '../services/teamService'
+import { getTeamDisplayName } from '../utils/teamDisplay'
 
 
 export function LiveMatch() {
@@ -15,6 +17,7 @@ export function LiveMatch() {
 
   const [loading, setLoading] = useState(true)
   const [fetchedMatch, setFetchedMatch] = useState<any>(null)
+  const [teamName, setTeamName] = useState<string>('')
 
   // Try to find match in store first
   const storeMatch = matches.find(m => m.id === id)
@@ -67,6 +70,24 @@ export function LiveMatch() {
 
     loadMatch()
   }, [id, storeMatch])
+
+  // Load team name
+  useEffect(() => {
+    const loadTeamName = async () => {
+      if (!match?.teamId) return
+
+      try {
+        const team = await teamService.getTeamById(match.teamId)
+        if (team) {
+          setTeamName(getTeamDisplayName(team))
+        }
+      } catch (err) {
+        console.error('Error loading team name:', err)
+      }
+    }
+
+    loadTeamName()
+  }, [match?.teamId])
 
   const handleSaveStarters = async (starters: string[], startingLineup: any, serveSelection?: 'local' | 'visitor' | null) => {
     if (!match) return
@@ -191,6 +212,7 @@ export function LiveMatch() {
           match={match}
           onSave={handleSaveStarters}
           currentSet={1}
+          teamName={teamName}
         />
       </div>
     )
