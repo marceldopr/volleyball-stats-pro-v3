@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { UserPlus, ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabaseClient'
+import { Button } from '@/components/ui/Button'
 
 export function Register() {
     const [email, setEmail] = useState('')
@@ -156,10 +157,12 @@ export function Register() {
                             )}
 
                             {/* Submit Button */}
-                            <button
+                            <Button
                                 type="submit"
+                                variant="primary"
+                                size="md"
                                 disabled={loading}
-                                className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-orange-500 disabled:hover:to-orange-600"
+                                className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
                             >
                                 {loading ? (
                                     <span className="flex items-center justify-center">
@@ -172,7 +175,7 @@ export function Register() {
                                 ) : (
                                     'Registrarse'
                                 )}
-                            </button>
+                            </Button>
 
                             {/* Login Link */}
                             <div className="text-center">

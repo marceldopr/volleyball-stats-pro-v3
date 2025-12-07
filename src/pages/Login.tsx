@@ -2,6 +2,7 @@ import { useState, FormEvent, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { Trophy } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
 
 export function Login() {
     const navigate = useNavigate()
@@ -96,10 +97,12 @@ export function Login() {
                         )}
 
                         {/* Submit Button */}
-                        <button
+                        <Button
                             type="submit"
+                            variant="primary"
+                            size="md"
                             disabled={loading}
-                            className="w-full py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-orange-500 disabled:hover:to-orange-600"
+                            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
                         >
                             {loading ? (
                                 <span className="flex items-center justify-center">
@@ -112,7 +115,7 @@ export function Login() {
                             ) : (
                                 'Iniciar sesión'
                             )}
-                        </button>
+                        </Button>
 
                         {/* Register Link */}
                         <div className="text-center">

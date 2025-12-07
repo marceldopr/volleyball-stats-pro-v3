@@ -7,6 +7,7 @@ import { matchService } from '../services/matchService'
 import { teamService } from '../services/teamService'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/Button'
 
 export function MatchAnalysis() {
   const { id } = useParams<{ id: string }>()
@@ -62,13 +63,15 @@ export function MatchAnalysis() {
       <div className="p-6">
         <div className="text-center py-12">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Partido no encontrado</h2>
-          <button
+          <Button
+            variant="primary"
+            size="md"
+            icon={ArrowLeft}
             onClick={() => navigate('/matches')}
-            className="btn-primary flex items-center space-x-2 mx-auto"
+            className="mx-auto"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Volver a partidos</span>
-          </button>
+            Volver a partidos
+          </Button>
         </div>
       </div>
     )
@@ -300,13 +303,15 @@ export function MatchAnalysis() {
       {/* Header */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-6">
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={ArrowLeft}
             onClick={() => navigate('/matches')}
-            className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+            className="text-gray-600 hover:text-gray-900"
           >
-            <ArrowLeft className="w-4 h-4 mr-2" />
             Volver a partidos
-          </button>
+          </Button>
           <div className="flex items-center space-x-4 text-sm text-gray-500">
             <div className="flex items-center">
               <Calendar className="w-4 h-4 mr-1.5" />

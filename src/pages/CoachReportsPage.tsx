@@ -6,6 +6,7 @@ import { coachReportService } from '@/services/coachReportService'
 import { CoachReportDB } from '@/types/CoachReport'
 import { seasonService } from '@/services/seasonService'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui/Button'
 
 export function CoachReportsPage() {
     const { profile } = useAuthStore()
@@ -232,13 +233,14 @@ export function CoachReportsPage() {
                             </div>
                         </div>
                         {isDT && (
-                            <button
+                            <Button
+                                variant="primary"
+                                size="md"
+                                icon={Plus}
                                 onClick={handleOpenModal}
-                                className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                             >
-                                <Plus className="w-5 h-5" />
                                 Nuevo Informe
-                            </button>
+                            </Button>
                         )}
                     </div>
                 </div>
@@ -293,15 +295,17 @@ export function CoachReportsPage() {
 
                         {/* Clear Filters */}
                         <div className="flex items-end">
-                            <button
+                            <Button
+                                variant="secondary"
+                                size="md"
                                 onClick={() => {
                                     setSelectedCoachId('')
                                     // Keep season filter
                                 }}
-                                className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium"
+                                className="w-full"
                             >
                                 Limpiar filtros
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -416,12 +420,15 @@ export function CoachReportsPage() {
                             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                                 Nuevo Informe de Entrenador
                             </h2>
-                            <button
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                icon={X}
                                 onClick={() => setShowModal(false)}
-                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                className="p-2"
                             >
-                                <X className="w-5 h-5" />
-                            </button>
+                                {''}
+                            </Button>
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -563,21 +570,23 @@ export function CoachReportsPage() {
                             </div>
 
                             <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                                <button
+                                <Button
                                     type="button"
+                                    variant="secondary"
+                                    size="md"
                                     onClick={() => setShowModal(false)}
-                                    className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                                     disabled={submitting}
                                 >
                                     Cancelar
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     type="submit"
-                                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
+                                    variant="primary"
+                                    size="md"
                                     disabled={submitting}
                                 >
                                     {submitting ? 'Guardando...' : 'Crear Informe'}
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     </div>

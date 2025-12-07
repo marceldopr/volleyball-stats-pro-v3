@@ -9,6 +9,7 @@ import { teamSeasonContextService } from '@/services/teamSeasonContextService'
 import { seasonService } from '@/services/seasonService'
 import { teamService } from '@/services/teamService'
 import { PhaseEvaluationModal } from '@/components/PhaseEvaluationModal'
+import { Button } from '@/components/ui/Button'
 import { toast } from 'sonner'
 
 export function TeamSeasonPlanPage() {
@@ -255,12 +256,15 @@ export function TeamSeasonPlanPage() {
             <div className="bg-gray-800 shadow-sm border-b border-gray-700">
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     <div className="flex items-center gap-3">
-                        <button
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={ArrowLeft}
                             onClick={() => navigate('/teams')}
-                            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                            className="p-2"
                         >
-                            <ArrowLeft className="w-5 h-5 text-gray-400" />
-                        </button>
+                            {''}
+                        </Button>
                         <div>
                             <h1 className="text-2xl font-bold text-white">
                                 Planificación por Fases
@@ -368,18 +372,26 @@ export function TeamSeasonPlanPage() {
                                                 {(currentPhase.secondary_objectives || []).map((obj, idx) => (
                                                     <div key={idx} className="flex items-center gap-2">
                                                         <span className="text-gray-300 flex-1">• {obj}</span>
-                                                        <button
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            icon={X}
                                                             onClick={() => removeSecondaryObjective(idx)}
                                                             className="text-red-400 hover:text-red-300"
                                                         >
-                                                            <X className="w-4 h-4" />
-                                                        </button>
+                                                            {''}
+                                                        </Button>
                                                     </div>
                                                 ))}
-                                                <button onClick={addSecondaryObjective} className="text-gray-300 hover:text-white hover:bg-gray-700 px-3 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-2">
-                                                    <Plus className="w-4 h-4" />
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    icon={Plus}
+                                                    onClick={addSecondaryObjective}
+                                                    className="text-gray-300 hover:text-white hover:bg-gray-700 px-3 py-1.5"
+                                                >
                                                     Añadir objetivo
-                                                </button>
+                                                </Button>
                                             </div>
                                         ) : (
                                             <ul className="space-y-1">
@@ -405,16 +417,27 @@ export function TeamSeasonPlanPage() {
                                                     {(currentPhase.technical_priorities || []).map((priority, idx) => (
                                                         <div key={idx} className="inline-flex items-center gap-2 bg-yellow-900/30 text-yellow-200 border border-yellow-700/30 px-3 py-1.5 rounded-full text-sm">
                                                             <span>{priority}</span>
-                                                            <button onClick={() => removeTechnicalPriority(idx)} className="hover:text-yellow-100">
-                                                                <X className="w-3 h-3" />
-                                                            </button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                icon={X}
+                                                                onClick={() => removeTechnicalPriority(idx)}
+                                                                className="hover:text-yellow-100"
+                                                            >
+                                                                {''}
+                                                            </Button>
                                                         </div>
                                                     ))}
                                                 </div>
-                                                <button onClick={addTechnicalPriority} className="text-gray-300 hover:text-white hover:bg-gray-700 px-3 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-2">
-                                                    <Plus className="w-4 h-4" />
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    icon={Plus}
+                                                    onClick={addTechnicalPriority}
+                                                    className="text-gray-300 hover:text-white hover:bg-gray-700 px-3 py-1.5"
+                                                >
                                                     Añadir prioridad
-                                                </button>
+                                                </Button>
                                             </div>
                                         ) : (
                                             <div className="flex flex-wrap gap-2">
@@ -477,12 +500,14 @@ export function TeamSeasonPlanPage() {
                                                     <h4 className="font-semibold text-white">Evaluación de la Fase</h4>
                                                 </div>
                                                 {canEvaluate && (
-                                                    <button
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
                                                         onClick={() => handleOpenEvaluationModal(phase)}
-                                                        className="text-gray-300 hover:text-white hover:bg-gray-700 px-3 py-1.5 rounded-lg text-sm transition-colors"
+                                                        className="text-gray-300 hover:text-white hover:bg-gray-700 px-3 py-1.5"
                                                     >
                                                         {evaluation ? 'Ver/Editar Evaluación' : 'Evaluar Fase'}
-                                                    </button>
+                                                    </Button>
                                                 )}
                                                 {!canEvaluate && (
                                                     <p className="text-sm text-gray-500 italic">Solo Dirección Técnica puede evaluar fases</p>
@@ -519,18 +544,30 @@ export function TeamSeasonPlanPage() {
                                         <div className="flex gap-2 pt-4 border-t border-gray-700">
                                             {isEditing ? (
                                                 <>
-                                                    <button onClick={handleSavePhase} className="btn-primary flex items-center gap-2">
-                                                        <Save className="w-4 h-4" />
+                                                    <Button
+                                                        variant="primary"
+                                                        size="md"
+                                                        icon={Save}
+                                                        onClick={handleSavePhase}
+                                                    >
                                                         Guardar Cambios
-                                                    </button>
-                                                    <button onClick={() => setEditingPhase(null)} className="text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors border border-gray-600">
+                                                    </Button>
+                                                    <Button
+                                                        variant="secondary"
+                                                        size="md"
+                                                        onClick={() => setEditingPhase(null)}
+                                                    >
                                                         Cancelar
-                                                    </button>
+                                                    </Button>
                                                 </>
                                             ) : (
-                                                <button onClick={() => handleEditPhase(phase)} className="text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors border border-gray-600">
+                                                <Button
+                                                    variant="secondary"
+                                                    size="md"
+                                                    onClick={() => handleEditPhase(phase)}
+                                                >
                                                     Editar Fase
-                                                </button>
+                                                </Button>
                                             )}
                                         </div>
                                     )}

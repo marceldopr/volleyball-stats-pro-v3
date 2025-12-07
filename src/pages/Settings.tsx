@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 import { clubService } from '@/services/clubService'
+import { Button } from '@/components/ui/Button'
 import { toast } from 'sonner'
 
 export function SettingsPage() {
@@ -164,18 +165,16 @@ export function SettingsPage() {
                     </div>
 
                     <div className="flex justify-end">
-                      <button
+                      <Button
+                        variant="primary"
+                        size="md"
+                        icon={savingClub ? Loader2 : Save}
                         onClick={handleSaveClub}
                         disabled={savingClub || !clubName.trim()}
-                        className="bg-primary-500 hover:bg-primary-600 text-white font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className={savingClub ? "" : ""}
                       >
-                        {savingClub ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Save className="w-4 h-4" />
-                        )}
-                        <span>Guardar Cambios</span>
-                      </button>
+                        Guardar Cambios
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -256,12 +255,14 @@ export function SettingsPage() {
               <p className="text-sm text-gray-400 mb-4">
                 Importa tus datos desde archivos JSON o CSV. Esta funcionalidad estará disponible próximamente.
               </p>
-              <button
+              <Button
+                variant="secondary"
+                size="md"
                 disabled
-                className="w-full bg-gray-700 text-gray-500 font-medium py-3 px-4 rounded-lg cursor-not-allowed opacity-60"
+                className="w-full opacity-60"
               >
                 Importar Archivo
-              </button>
+              </Button>
             </div>
 
             {/* Exportar Datos */}
@@ -274,12 +275,14 @@ export function SettingsPage() {
               <p className="text-sm text-gray-400 mb-4">
                 Exporta todos tus datos en formato JSON o CSV. Esta funcionalidad estará disponible próximamente.
               </p>
-              <button
+              <Button
+                variant="secondary"
+                size="md"
                 disabled
-                className="w-full bg-gray-700 text-gray-500 font-medium py-3 px-4 rounded-lg cursor-not-allowed opacity-60"
+                className="w-full opacity-60"
               >
                 Exportar Datos
-              </button>
+              </Button>
             </div>
 
           </div>

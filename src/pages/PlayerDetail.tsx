@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, User } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import { playerService, PlayerDB } from '../services/playerService'
+import { Button } from '@/components/ui/Button'
 
 export function PlayerDetail() {
     const { id } = useParams<{ id: string }>()
@@ -50,12 +51,13 @@ export function PlayerDetail() {
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-gray-900 mb-2">Jugadora no encontrada</h1>
                     <p className="text-gray-600 mb-4">La jugadora que buscas no existe.</p>
-                    <button
+                    <Button
+                        variant="primary"
+                        size="md"
                         onClick={() => navigate('/players')}
-                        className="btn-primary"
                     >
                         Volver a jugadoras
-                    </button>
+                    </Button>
                 </div>
             </div>
         )
@@ -77,13 +79,15 @@ export function PlayerDetail() {
             {/* Header */}
             <div className="bg-white border-b border-gray-200">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        icon={ArrowLeft}
                         onClick={() => navigate('/players')}
-                        className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+                        className="mb-4"
                     >
-                        <ArrowLeft className="w-4 h-4" />
                         Volver a jugadoras
-                    </button>
+                    </Button>
 
                     <div className="flex items-start gap-6">
                         {/* Player Avatar */}

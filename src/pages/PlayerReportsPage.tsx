@@ -9,6 +9,7 @@ import { teamService } from '@/services/teamService'
 import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui/Button'
 
 export function PlayerReportsPage() {
     const { profile } = useAuthStore()
@@ -261,12 +262,14 @@ export function PlayerReportsPage() {
 
                         {/* Clear Filters Button */}
                         <div className="flex items-end">
-                            <button
+                            <Button
+                                variant="secondary"
+                                size="md"
                                 onClick={handleClearFilters}
-                                className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium"
+                                className="w-full"
                             >
                                 Limpiar filtros
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>

@@ -9,6 +9,7 @@ import { seasonService } from '@/services/seasonService'
 import { teamService } from '@/services/teamService'
 import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
 import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
+import { Button } from '@/components/ui/Button'
 
 export default function PlayerReportsPage() {
     const { playerId } = useParams<{ playerId: string }>()
@@ -207,12 +208,15 @@ export default function PlayerReportsPage() {
                         <div className="p-6 border-b border-gray-200">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-xl font-bold text-gray-900">Detalle del Informe</h3>
-                                <button
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    icon={Plus}
                                     onClick={() => setSelectedReport(null)}
-                                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                                    className="p-2 rotate-45"
                                 >
-                                    <Plus className="w-5 h-5 rotate-45" />
-                                </button>
+                                    {''}
+                                </Button>
                             </div>
                             <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
                                 <div className="flex items-center gap-1">

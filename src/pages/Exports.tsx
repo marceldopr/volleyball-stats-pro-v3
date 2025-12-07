@@ -1,4 +1,5 @@
 import { Download, FileText, FileSpreadsheet, Database } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
 
 export function Exports() {
   const exportOptions = [
@@ -88,18 +89,20 @@ export function Exports() {
                   </div>
                 </div>
               </div>
-              
+
               <p className="text-gray-600 dark:text-gray-300 mb-6 text-sm leading-relaxed">
                 {option.description}
               </p>
-              
-              <button
+
+              <Button
+                variant="secondary"
+                size="md"
+                icon={Download}
                 onClick={() => handleExport(option.format)}
-                className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg transition-colors font-medium"
+                className="w-full"
               >
-                <Download className="w-4 h-4" />
-                <span>Exportar</span>
-              </button>
+                Exportar
+              </Button>
             </div>
           ))}
         </div>
@@ -112,22 +115,33 @@ export function Exports() {
           <p className="text-gray-600 dark:text-gray-300 mb-6">
             Exporta todos tus datos de una vez en múltiples formatos
           </p>
-          
+
           <div className="flex flex-wrap gap-4">
-            <button className="flex items-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium">
-              <Download className="w-4 h-4" />
-              <span>Exportar Todo (ZIP)</span>
-            </button>
-            
-            <button className="flex items-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium">
-              <Download className="w-4 h-4" />
-              <span>Temporada Completa</span>
-            </button>
-            
-            <button className="flex items-center space-x-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium">
-              <Download className="w-4 h-4" />
-              <span>Resumen Ejecutivo</span>
-            </button>
+            <Button
+              variant="danger"
+              size="md"
+              icon={Download}
+            >
+              Exportar Todo (ZIP)
+            </Button>
+
+            <Button
+              variant="primary"
+              size="md"
+              icon={Download}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Temporada Completa
+            </Button>
+
+            <Button
+              variant="primary"
+              size="md"
+              icon={Download}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Resumen Ejecutivo
+            </Button>
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarChart3, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
 import { useAuthStore } from '@/stores/authStore'
 import { teamService, TeamDB } from '@/services/teamService'
 import { seasonService, SeasonDB } from '@/services/seasonService'
@@ -84,12 +85,13 @@ export function StatsPage() {
                         <p className="text-gray-600 dark:text-gray-400 mb-4">
                             Crea equipos para ver sus estadísticas.
                         </p>
-                        <button
+                        <Button
+                            variant="primary"
+                            size="md"
                             onClick={() => navigate('/teams')}
-                            className="btn-primary"
                         >
                             Ir a Equipos
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </div>

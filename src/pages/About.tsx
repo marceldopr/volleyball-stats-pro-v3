@@ -1,4 +1,5 @@
 import { Trophy, Users, Clock, Award, Heart } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
 
 export function About() {
   const features = [
@@ -122,12 +123,19 @@ export function About() {
             no dudes en contactarnos.
           </p>
           <div className="flex flex-wrap gap-4">
-            <button className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors">
+            <Button
+              variant="danger"
+              size="md"
+            >
               Contactar Soporte
-            </button>
-            <button className="px-6 py-3 border border-red-300 dark:border-red-600 text-red-700 dark:text-red-300 rounded-lg font-medium hover:bg-red-100 dark:hover:bg-red-800 transition-colors">
+            </Button>
+            <Button
+              variant="secondary"
+              size="md"
+              className="border-red-300 dark:border-red-600 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-800"
+            >
               Ver Documentación
-            </button>
+            </Button>
           </div>
         </div>
 
