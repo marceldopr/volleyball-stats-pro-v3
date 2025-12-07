@@ -93,6 +93,12 @@ export interface PositionStats {
     percentageOfTeamPoints: number
 }
 
+export interface AttendanceEvolutionPoint {
+    date: string                // Format: 'YYYY-MM-DD' (ISO date only)
+    attendancePercentage: number // 0–100, rounded
+    trainingsCount: number       // Number of trainings on that day
+}
+
 export const teamStatsService = {
     /**
      * Get comprehensive home page summary for a team
@@ -461,6 +467,119 @@ export const teamStatsService = {
         } catch (error) {
             console.error('[TeamStats] Error in getAttendanceLast30Days:', error)
             return null
+        }
+    },
+
+    /**
+     * Get attendance evolution over a date range, grouped by day
+     * @param teamId Team ID
+     * @param startDate Start date (inclusive)
+     * @param endDate End date (inclusive)
+     * @returns Array of daily attendance percentages, ordered by date ascending
+     */
+    async getAttendanceEvolution(
+        teamId: string,
+        startDate: Date,
+        endDate: Date
+    ): Promise<AttendanceEvolutionPoint[]> {
+        try {
+            // 1. Get all trainings for this team in the date range
+            const { data: trainings, error: trainingsError } = await supabase
+                .from('trainings')
+                .select('id, date')
+                .eq('team_id', teamId)
+                .gte('date', startDate.toISOString())
+                .lte('date', endDate.toISOString())
+                .order('date', { ascending: true })
+
+            if (trainingsError) {
+                console.error('[TeamStats] Error fetching trainings for evolution:', trainingsError)
+                return []
+            }
+
+            if (!trainings || trainings.length === 0) {
+                // No trainings in this date range
+                return []
+            }
+
+            // 2. Get all attendance records for these trainings
+            const trainingIds = trainings.map(t => t.id)
+            const { data: attendance, error: attendanceError } = await supabase
+                .from('training_attendance')
+                .select('training_id, status')
+                .in('training_id', trainingIds)
+
+            if (attendanceError) {
+                console.error('[TeamStats] Error fetching attendance for evolution:', attendanceError)
+                return []
+            }
+
+            // 3. Group trainings and attendance by day (date only, no time)
+            const dayMap = new Map<string, {
+                trainingIds: Set<string>;
+                attendanceRecords: Array<{ status: string }>;
+            }>()
+
+            // Helper function to get local date key (YYYY-MM-DD in local timezone)
+            function getLocalDateKey(dateString: string): string {
+                const d = new Date(dateString)
+                const year = d.getFullYear()
+                const month = String(d.getMonth() + 1).padStart(2, '0')
+                const day = String(d.getDate()).padStart(2, '0')
+                return `${year}-${month}-${day}` // YYYY-MM-DD en hora local
+            }
+
+            // First, group trainings by day (using local date)
+            trainings.forEach(training => {
+                const dateOnly = getLocalDateKey(training.date)
+                if (!dayMap.has(dateOnly)) {
+                    dayMap.set(dateOnly, {
+                        trainingIds: new Set(),
+                        attendanceRecords: []
+                    })
+                }
+                dayMap.get(dateOnly)!.trainingIds.add(training.id)
+            })
+
+            // Then, assign attendance records to their corresponding days
+            if (attendance && attendance.length > 0) {
+                attendance.forEach(record => {
+                    // Find which day this training belongs to
+                    for (const [_day, data] of dayMap.entries()) {
+                        if (data.trainingIds.has(record.training_id)) {
+                            data.attendanceRecords.push({ status: record.status })
+                            break
+                        }
+                    }
+                })
+            }
+
+            // 4. Calculate attendance percentage for each day
+            const result = Array.from(dayMap.entries()).map(([date, data]) => {
+                const totalRecords = data.attendanceRecords.length
+
+                // If there are trainings but no attendance records, return 0%
+                const attendancePercentage = totalRecords > 0
+                    ? Math.round(
+                        (data.attendanceRecords.filter(r => r.status === 'present' || r.status === 'justified').length / totalRecords) * 100
+                    )
+                    : 0
+
+                return {
+                    date,
+                    attendancePercentage,
+                    trainingsCount: data.trainingIds.size
+                }
+            })
+
+            // 5. Sort by date ascending (already sorted from query, but ensure it)
+            result.sort((a, b) => a.date.localeCompare(b.date))
+
+            return result
+
+        } catch (error) {
+            console.error('[TeamStats] Error in getAttendanceEvolution:', error)
+            return []
         }
     },
 

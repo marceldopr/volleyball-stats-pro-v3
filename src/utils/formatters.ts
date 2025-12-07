@@ -18,5 +18,5 @@ export function formatWinLossDisplay(wins: number, losses: number): string {
     }
 
     const ratio = (wins / losses).toFixed(2)
-    return `Ratio ${ratio} (${wins}-${losses})`
+    return `${ratio} (${wins}-${losses})`
 }

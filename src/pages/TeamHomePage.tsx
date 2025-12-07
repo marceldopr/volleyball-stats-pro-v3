@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { TrendingUp, Activity, Users, Loader2, AlertCircle } from 'lucide-react'
-// import { teamStatsService } from '@/services/teamStatsService'
+import { teamStatsService, AttendanceEvolutionPoint } from '@/services/teamStatsService'
 import { seasonService } from '@/services/seasonService'
 import { useAuthStore } from '@/stores/authStore'
 import { toast } from 'sonner'
+import { TeamAttendanceChart } from '@/components/charts/TeamAttendanceChart'
 
 export function TeamHomePage() {
     const { teamId } = useParams<{ teamId: string }>()
@@ -14,6 +15,8 @@ export function TeamHomePage() {
     const [currentPhase] = useState<any | null>(null)
     const [recentActivity] = useState<any | null>(null)
     const [teamStats] = useState<any | null>(null)
+    const [attendanceEvolution, setAttendanceEvolution] = useState<AttendanceEvolutionPoint[]>([])
+    const [loadingAttendance, setLoadingAttendance] = useState(false)
 
     useEffect(() => {
         loadHomeData()
@@ -30,6 +33,26 @@ export function TeamHomePage() {
                 toast.error('No hay temporada activa')
                 setLoading(false)
                 return
+            }
+
+            // Load attendance evolution (last 30 days)
+            setLoadingAttendance(true)
+            try {
+                const endDate = new Date()
+                const startDate = new Date()
+                startDate.setDate(startDate.getDate() - 30)
+
+                const evolutionData = await teamStatsService.getAttendanceEvolution(
+                    teamId,
+                    startDate,
+                    endDate
+                )
+                setAttendanceEvolution(evolutionData)
+            } catch (error) {
+                console.error('Error loading attendance evolution:', error)
+                // Don't show error toast, just log it
+            } finally {
+                setLoadingAttendance(false)
             }
 
             // Load basic team stats (placeholder)
@@ -61,6 +84,22 @@ export function TeamHomePage() {
     }
 
     const phaseColor = currentPhase ? getPhaseColor(currentPhase.phaseNumber) : 'gray'
+
+    // Calculate KPIs from attendance evolution
+    const totalTrainingsLast30 = attendanceEvolution.reduce(
+        (sum, point) => sum + point.trainingsCount,
+        0
+    )
+
+    const averageAttendanceLast30 =
+        totalTrainingsLast30 > 0
+            ? Math.round(
+                attendanceEvolution.reduce(
+                    (sum, point) => sum + point.attendancePercentage * point.trainingsCount,
+                    0
+                ) / totalTrainingsLast30
+            )
+            : null
 
     return (
         <div className="space-y-6">
@@ -199,6 +238,33 @@ export function TeamHomePage() {
                         <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Lesiones o ausencias</p>
                     </div>
                 </div>
+            </div>
+
+            {/* 5️⃣ Evolución de Asistencia */}
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-primary-500" />
+                    Evolución de Asistencia (últimos 30 días)
+                </h3>
+                <TeamAttendanceChart data={attendanceEvolution} loading={loadingAttendance} />
+
+                {/* Resumen últimos 30 días */}
+                {!loadingAttendance && (
+                    <div className="mt-4 flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-300">
+                        <div>
+                            <span className="font-semibold">Media últimos 30 días: </span>
+                            {averageAttendanceLast30 !== null ? (
+                                <span>{averageAttendanceLast30}%</span>
+                            ) : (
+                                <span>—</span>
+                            )}
+                        </div>
+                        <div>
+                            <span className="font-semibold">Entrenamientos en el período: </span>
+                            <span>{totalTrainingsLast30}</span>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     )
