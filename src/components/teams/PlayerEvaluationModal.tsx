@@ -4,8 +4,10 @@ import type { PlayerDB } from '@/services/playerService'
 import type { TeamDB } from '@/services/teamService'
 import type { SeasonDB } from '@/services/seasonService'
 import type { PlayerEvaluationDB, PlayerEvaluationInput } from '@/services/playerEvaluationService'
+import { playerEvaluationService } from '@/services/playerEvaluationService'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { RatingInput } from './RatingInput'
+import { PlayerEvaluationProgressChart } from '@/components/charts/PlayerEvaluationProgressChart'
 
 interface PlayerEvaluationModalProps {
     isOpen: boolean
@@ -55,6 +57,8 @@ export function PlayerEvaluationModal({
         competitive_mindset: '',
         coach_recommendation: ''
     })
+    const [evaluationHistory, setEvaluationHistory] = useState<PlayerEvaluationDB[]>([])
+    const [loadingHistory, setLoadingHistory] = useState(false)
 
     const isViewMode = mode === 'view'
 
@@ -85,6 +89,31 @@ export function PlayerEvaluationModal({
             })
         }
     }, [existingEvaluation, isOpen])
+
+    // Load evaluation history for progress chart (view mode only)
+    useEffect(() => {
+        if (mode !== 'view') return
+        if (!player?.id || !team?.id || !season?.id) return
+        if (!isOpen) return
+
+        const loadHistory = async () => {
+            setLoadingHistory(true)
+            try {
+                const data = await playerEvaluationService.getPlayerEvaluationsByTeamSeason(
+                    player.id,
+                    team.id,
+                    season.id
+                )
+                setEvaluationHistory(data)
+            } catch (error) {
+                console.error('Error loading player evaluation history:', error)
+            } finally {
+                setLoadingHistory(false)
+            }
+        }
+
+        loadHistory()
+    }, [mode, player?.id, team?.id, season?.id, isOpen])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -246,6 +275,22 @@ export function PlayerEvaluationModal({
                             </div>
                         </div>
                     </div>
+
+                    {/* Progress Chart - Only in view mode */}
+                    {isViewMode && (
+                        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                                Progresión de la jugadora
+                            </h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                Valoraciones 1–3 por fase (inicio, mitad, final)
+                            </p>
+                            <PlayerEvaluationProgressChart
+                                evaluations={evaluationHistory}
+                                loading={loadingHistory}
+                            />
+                        </div>
+                    )}
                 </form>
 
                 {/* Footer */}

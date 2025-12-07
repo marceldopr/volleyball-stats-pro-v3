@@ -113,26 +113,145 @@ export const playerEvaluationService = {
     },
 
     /**
+     * Get all evaluations for a specific player in a team/season
+     * Returns evaluations ordered by phase (start, mid, end)
+     */
+    getPlayerEvaluationsByTeamSeason: async (
+        playerId: string,
+        teamId: string,
+        seasonId: string
+    ): Promise<PlayerEvaluationDB[]> => {
+        const { data, error } = await supabase
+            .from('player_team_season_evaluations')
+            .select('*')
+            .eq('player_id', playerId)
+            .eq('team_id', teamId)
+            .eq('season_id', seasonId)
+
+        if (error) {
+            console.error('[playerEvaluationService] Error fetching player evaluations by team/season:', error)
+            return []
+        }
+
+        // Sort by phase order: start, mid, end
+        const phaseOrder: Record<string, number> = { start: 1, mid: 2, end: 3 }
+        const sorted = (data || []).sort((a, b) => phaseOrder[a.phase] - phaseOrder[b.phase])
+
+        return sorted
+    },
+
+    /**
      * Get all evaluations across all teams (for DT Reports view)
      */
     getAllEvaluations: async (clubId: string): Promise<PlayerEvaluationDB[]> => {
+        // First, get all teams for this club
+        const { data: teams, error: teamsError } = await supabase
+            .from('teams')
+            .select('id')
+            .eq('club_id', clubId)
+
+        if (teamsError) {
+            console.error('[playerEvaluationService] Error fetching teams:', teamsError)
+            throw teamsError
+        }
+
+        if (!teams || teams.length === 0) {
+            console.log('[playerEvaluationService] No teams found for club:', clubId)
+            return []
+        }
+
+        const teamIds = teams.map(t => t.id)
+        console.log('[playerEvaluationService] Found teams:', teamIds.length)
+
+        // Get evaluations for these teams
         const { data, error } = await supabase
             .from('player_team_season_evaluations')
-            .select(`
-                *,
-                player:player_id(first_name, last_name),
-                team:team_id(name, club_id),
-                season:season_id(name)
-            `)
-            .eq('team.club_id', clubId)
+            .select('*')
+            .in('team_id', teamIds)
             .order('created_at', { ascending: false })
 
         if (error) {
-            console.error('[playerEvaluationService] Error fetching all evaluations:', error)
+            console.error('[playerEvaluationService] Error fetching evaluations:', error)
             throw error
         }
 
-        return data || []
+        if (!data || data.length === 0) {
+            console.log('[playerEvaluationService] No evaluations found')
+            return []
+        }
+
+        console.log('[playerEvaluationService] Found evaluations:', data.length)
+
+        // Get unique player, team, and season IDs
+        const playerIds = [...new Set(data.map(e => e.player_id))]
+        const seasonIds = [...new Set(data.map(e => e.season_id))]
+
+        console.log('[playerEvaluationService] Fetching data for:', { players: playerIds.length, teams: teamIds.length, seasons: seasonIds.length })
+
+        // Fetch players
+        const { data: players, error: playersError } = await supabase
+            .from('club_players')
+            .select('id, first_name, last_name')
+            .in('id', playerIds)
+
+        if (playersError) {
+            console.error('[playerEvaluationService] Error fetching players:', playersError)
+        }
+
+        // Fetch teams
+        const { data: teamsData, error: teamsDataError } = await supabase
+            .from('teams')
+            .select('*')
+            .in('id', teamIds)
+
+        if (teamsDataError) {
+            console.error('[playerEvaluationService] Error fetching teams data:', teamsDataError)
+        }
+
+        // Fetch seasons
+        const { data: seasons, error: seasonsError } = await supabase
+            .from('seasons')
+            .select('id, name')
+            .in('id', seasonIds)
+
+        if (seasonsError) {
+            console.error('[playerEvaluationService] Error fetching seasons:', seasonsError)
+        }
+
+        console.log('[playerEvaluationService] Fetched related data:', {
+            players: players?.length || 0,
+            teams: teamsData?.length || 0,
+            seasons: seasons?.length || 0
+        })
+
+        console.log('[playerEvaluationService] Sample data:', {
+            player: players?.[0],
+            team: teamsData?.[0],
+            season: seasons?.[0]
+        })
+
+        // Create lookup maps
+        const playerMap = new Map(players?.map(p => [p.id, p]) || [])
+        const teamMap = new Map(teamsData?.map(t => [t.id, t]) || [])
+        const seasonMap = new Map(seasons?.map(s => [s.id, s]) || [])
+
+        // Enrich evaluations with related data
+        const enriched = data.map((evaluation: any) => {
+            const player = playerMap.get(evaluation.player_id)
+            const team = teamMap.get(evaluation.team_id)
+            const season = seasonMap.get(evaluation.season_id)
+
+            return {
+                ...evaluation,
+                player,
+                team,
+                season
+            }
+        })
+
+        console.log('[playerEvaluationService] Sample enriched evaluation:', enriched[0])
+
+        return enriched
     },
 
     /**
