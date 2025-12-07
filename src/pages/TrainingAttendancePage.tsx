@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { trainingService, TrainingDB } from '@/services/trainingService'
 import { teamService } from '@/services/teamService'
 import { PlayerDB } from '@/services/playerService'
+import { Button } from '@/components/ui/Button'
 
 import { cn } from '@/lib/utils'
 
@@ -136,9 +137,15 @@ export function TrainingAttendancePage() {
             <div className="bg-white dark:bg-gray-800 border-b border-gray-700 sticky top-0 z-10">
                 <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-white transition-colors">
-                            <ArrowLeft className="w-6 h-6" />
-                        </button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={ArrowLeft}
+                            onClick={() => navigate(-1)}
+                            className="p-2"
+                        >
+                            {''}
+                        </Button>
                         <div>
                             <h1 className="text-lg font-semibold flex items-center gap-2">
                                 Asistencia
@@ -157,14 +164,15 @@ export function TrainingAttendancePage() {
                             </div>
                         </div>
                     </div>
-                    <button
+                    <Button
+                        variant="primary"
+                        size="md"
+                        icon={Save}
                         onClick={handleSave}
                         disabled={saving}
-                        className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"
                     >
-                        <Save className="w-4 h-4" />
                         {saving ? 'Guardando...' : 'Guardar'}
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -172,12 +180,14 @@ export function TrainingAttendancePage() {
 
                 {/* Actions */}
                 <div className="flex justify-end">
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={markAllPresent}
-                        className="text-sm text-primary-400 hover:text-primary-300 transition-colors"
+                        className="text-sm text-primary-400 hover:text-primary-300"
                     >
                         Marcar todas como presentes
-                    </button>
+                    </Button>
                 </div>
 
                 {/* Player List */}
@@ -204,42 +214,48 @@ export function TrainingAttendancePage() {
                                 <div className="flex flex-col sm:items-end gap-3">
                                     {/* Status Selector */}
                                     <div className="flex bg-gray-900 rounded-lg p-1 border border-gray-700">
-                                        <button
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            icon={CheckCircle}
                                             onClick={() => handleStatusChange(player.id, 'present')}
                                             className={cn(
-                                                "px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5",
+                                                "px-3 py-1.5 rounded-md text-xs font-medium transition-all",
                                                 state.status === 'present'
                                                     ? "bg-green-500/20 text-green-400 shadow-sm"
                                                     : "text-gray-400 hover:text-gray-300"
                                             )}
                                         >
-                                            <CheckCircle className="w-3.5 h-3.5" />
                                             Presente
-                                        </button>
-                                        <button
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            icon={XCircle}
                                             onClick={() => handleStatusChange(player.id, 'absent')}
                                             className={cn(
-                                                "px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5",
+                                                "px-3 py-1.5 rounded-md text-xs font-medium transition-all",
                                                 state.status === 'absent'
                                                     ? "bg-red-500/20 text-red-400 shadow-sm"
                                                     : "text-gray-400 hover:text-gray-300"
                                             )}
                                         >
-                                            <XCircle className="w-3.5 h-3.5" />
                                             Ausente
-                                        </button>
-                                        <button
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            icon={AlertCircle}
                                             onClick={() => handleStatusChange(player.id, 'justified')}
                                             className={cn(
-                                                "px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5",
+                                                "px-3 py-1.5 rounded-md text-xs font-medium transition-all",
                                                 state.status === 'justified'
                                                     ? "bg-yellow-500/20 text-yellow-400 shadow-sm"
                                                     : "text-gray-400 hover:text-gray-300"
                                             )}
                                         >
-                                            <AlertCircle className="w-3.5 h-3.5" />
                                             Justif.
-                                        </button>
+                                        </Button>
                                     </div>
 
                                     {/* Reason Input */}

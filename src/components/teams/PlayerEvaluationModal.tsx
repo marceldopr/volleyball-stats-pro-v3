@@ -6,6 +6,7 @@ import type { SeasonDB } from '@/services/seasonService'
 import type { PlayerEvaluationDB, PlayerEvaluationInput } from '@/services/playerEvaluationService'
 import { playerEvaluationService } from '@/services/playerEvaluationService'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
+import { Button } from '@/components/ui/Button'
 import { RatingInput } from './RatingInput'
 import { CompactRatingDisplay } from './CompactRatingDisplay'
 import { CompactRoleDisplay } from './CompactRoleDisplay'
@@ -169,12 +170,16 @@ export function PlayerEvaluationModal({
                             </p>
                         </div>
                     </div>
-                    <button
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        icon={X}
                         onClick={onClose}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        className="p-2"
                     >
-                        <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                    </button>
+                        {''}
+                    </Button>
                 </div>
 
 
@@ -393,23 +398,25 @@ export function PlayerEvaluationModal({
 
                 {/* Footer */}
                 <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
-                    <button
+                    <Button
                         type="button"
+                        variant="secondary"
+                        size="md"
                         onClick={onClose}
-                        className="btn-outline"
                         disabled={saving}
                     >
                         {isViewMode ? 'Cerrar' : 'Cancelar'}
-                    </button>
+                    </Button>
                     {!isViewMode && (
-                        <button
+                        <Button
+                            variant="primary"
+                            size="md"
+                            icon={Save}
                             onClick={handleSubmit}
-                            className="btn-primary flex items-center gap-2"
                             disabled={saving}
                         >
-                            <Save className="w-4 h-4" />
                             {saving ? 'Guardando...' : 'Guardar Evaluación'}
-                        </button>
+                        </Button>
                     )}
                 </div>
             </div>

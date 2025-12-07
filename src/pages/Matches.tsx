@@ -13,6 +13,7 @@ import { matchConvocationService } from '../services/matchConvocationService'
 import { useRoleScope } from '@/hooks/useRoleScope'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { Plus, Trophy, Trash2, Users, Play } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
 
 
 export function Matches({ teamId }: { teamId?: string } = {}) {
@@ -281,10 +282,14 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Gestiona tu calendario y resultados</p>
         </div>
         {!isCoach && (
-          <button onClick={() => setIsWizardOpen(true)} className="btn-primary flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            <span>Nuevo Partido</span>
-          </button>
+          <Button
+            variant="primary"
+            size="md"
+            icon={Plus}
+            onClick={() => setIsWizardOpen(true)}
+          >
+            Nuevo Partido
+          </Button>
         )}
       </div>
 
@@ -370,9 +375,16 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button onClick={() => handleDeleteClick(match)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all" title="Eliminar partido">
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={Trash2}
+                    onClick={() => handleDeleteClick(match)}
+                    title="Eliminar partido"
+                    className="p-2 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    {''}
+                  </Button>
                 </div>
               </div>
 
@@ -380,26 +392,27 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
 
                 {match.status === 'planned' && (
                   <>
-                    <button
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={Users}
                       onClick={() => handleOpenConvocationManager(match)}
-                      className="btn-secondary text-sm py-2 flex items-center gap-2"
+                      className="py-2"
                     >
-                      <Users className="w-4 h-4" />
                       Gestionar Convocatoria
-                    </button>
+                    </Button>
 
-                    <button
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={Play}
                       onClick={() => handleStartMatch(match)}
                       disabled={!matchesWithConvocations[match.id]}
                       title={!matchesWithConvocations[match.id] ? 'Primero debes gestionar la convocatoria' : ''}
-                      className={`btn-primary text-sm py-2 flex items-center gap-2 ${!matchesWithConvocations[match.id]
-                        ? 'opacity-50 cursor-not-allowed'
-                        : ''
-                        }`}
+                      className="py-2"
                     >
-                      <Play className="w-4 h-4" />
                       Iniciar Partido
-                    </button>
+                    </Button>
                   </>
                 )}
 

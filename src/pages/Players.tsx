@@ -6,6 +6,7 @@ import { playerService, PlayerDB } from '@/services/playerService'
 import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
 import { seasonService } from '@/services/seasonService'
 import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
+import { Button } from '@/components/ui/Button'
 import { toast } from 'sonner'
 import { POSITION_NAMES } from '@/constants'
 
@@ -174,13 +175,14 @@ export function Players() {
                             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Gestión global de jugadoras del club</p>
                         </div>
                         {!isCoach && (
-                            <button
+                            <Button
+                                variant="primary"
+                                size="md"
+                                icon={Plus}
                                 onClick={() => handleOpenModal()}
-                                className="btn-primary flex items-center gap-2"
                             >
-                                <Plus className="w-4 h-4" />
-                                <span>Nueva Jugadora</span>
-                            </button>
+                                Nueva Jugadora
+                            </Button>
                         )}
                     </div>
                 </div>
@@ -291,20 +293,26 @@ export function Players() {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <div className="flex items-center justify-end gap-2">
-                                                    <button
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        icon={Eye}
                                                         onClick={() => navigate(`/players/${player.id}`)}
-                                                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                                                         title="Ver detalle"
+                                                        className="p-2 hover:text-blue-900 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                                                     >
-                                                        <Eye className="w-4 h-4" />
-                                                    </button>
-                                                    <button
+                                                        {''}
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        icon={Edit}
                                                         onClick={() => handleOpenModal(player)}
-                                                        className="text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300 p-2 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
                                                         title="Editar"
+                                                        className="p-2 hover:text-orange-900 dark:hover:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-900/20"
                                                     >
-                                                        <Edit className="w-4 h-4" />
-                                                    </button>
+                                                        {''}
+                                                    </Button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -324,12 +332,16 @@ export function Players() {
                             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                                 {editingPlayer ? 'Editar Jugadora' : 'Nueva Jugadora'}
                             </h2>
-                            <button
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                icon={X}
                                 onClick={() => setShowModal(false)}
-                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                className="p-2"
                             >
-                                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                            </button>
+                                {''}
+                            </Button>
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -457,21 +469,23 @@ export function Players() {
                             </div>
 
                             <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700 mt-6">
-                                <button
+                                <Button
                                     type="button"
+                                    variant="secondary"
+                                    size="md"
                                     onClick={() => setShowModal(false)}
-                                    className="btn-secondary"
                                     disabled={submitting}
                                 >
                                     Cancelar
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     type="submit"
-                                    className="btn-primary"
+                                    variant="primary"
+                                    size="md"
                                     disabled={submitting}
                                 >
                                     {submitting ? 'Guardando...' : 'Guardar'}
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     </div>

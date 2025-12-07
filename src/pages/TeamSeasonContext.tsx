@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/authStore'
 import { seasonService } from '../services/seasonService'
 import { teamService } from '../services/teamService'
 import { teamSeasonContextService } from '../services/teamSeasonContextService'
+import { Button } from '@/components/ui/Button'
 import { toast } from 'sonner'
 
 export function TeamSeasonContext() {
@@ -147,26 +148,29 @@ export function TeamSeasonContext() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <button
+                    <Button
+                        variant="secondary"
+                        size="md"
+                        icon={ArrowLeft}
                         onClick={() => navigate('/teams')}
-                        className="btn-outline flex items-center gap-2 mb-4"
+                        className="mb-4"
                     >
-                        <ArrowLeft className="w-4 h-4" />
                         Volver a Equipos
-                    </button>
+                    </Button>
                     <h1 className="text-3xl font-bold text-gray-900">Contexto de Temporada</h1>
                     <p className="text-gray-600 mt-1">
                         {team?.name} • {currentSeason?.name}
                     </p>
                 </div>
-                <button
+                <Button
+                    variant="primary"
+                    size="md"
+                    icon={Save}
                     onClick={handleSave}
                     disabled={saving}
-                    className="btn-primary flex items-center gap-2"
                 >
-                    <Save className="w-4 h-4" />
                     {saving ? 'Guardando...' : 'Guardar Cambios'}
-                </button>
+                </Button>
             </div>
 
             {/* A) Objetivos de la temporada */}
@@ -203,20 +207,28 @@ export function TeamSeasonContext() {
                                 placeholder="Ej: Consolidar recepción con remate de segundo tiempo"
                                 className="input-field flex-1"
                             />
-                            <button onClick={addSecondaryGoal} className="btn-secondary">
-                                <Plus className="w-4 h-4" />
-                            </button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                icon={Plus}
+                                onClick={addSecondaryGoal}
+                            >
+                                {''}
+                            </Button>
                         </div>
                         <div className="space-y-2">
                             {secondaryGoals.map((goal, index) => (
                                 <div key={index} className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg">
                                     <span className="flex-1 text-gray-700">{goal}</span>
-                                    <button
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        icon={X}
                                         onClick={() => removeSecondaryGoal(index)}
                                         className="text-red-600 hover:text-red-700"
                                     >
-                                        <X className="w-4 h-4" />
-                                    </button>
+                                        {''}
+                                    </Button>
                                 </div>
                             ))}
                         </div>
@@ -277,9 +289,14 @@ export function TeamSeasonContext() {
                             placeholder="Ej: Recepción compacta, Bloqueo en zona 2"
                             className="input-field flex-1"
                         />
-                        <button onClick={addTrainingFocus} className="btn-secondary">
-                            <Plus className="w-4 h-4" />
-                        </button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={Plus}
+                            onClick={addTrainingFocus}
+                        >
+                            {''}
+                        </Button>
                     </div>
                     <div className="flex flex-wrap gap-2">
                         {trainingFocus.map((focus, index) => (
@@ -288,12 +305,15 @@ export function TeamSeasonContext() {
                                 className="inline-flex items-center gap-2 bg-primary-100 text-primary-800 px-3 py-1.5 rounded-full text-sm font-medium"
                             >
                                 <span>{focus}</span>
-                                <button
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    icon={X}
                                     onClick={() => removeTrainingFocus(index)}
                                     className="hover:text-primary-900"
                                 >
-                                    <X className="w-3 h-3" />
-                                </button>
+                                    {''}
+                                </Button>
                             </div>
                         ))}
                     </div>
@@ -317,20 +337,28 @@ export function TeamSeasonContext() {
                             placeholder="Ej: 80% asistencia mínima"
                             className="input-field flex-1"
                         />
-                        <button onClick={addInternalRule} className="btn-secondary">
-                            <Plus className="w-4 h-4" />
-                        </button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={Plus}
+                            onClick={addInternalRule}
+                        >
+                            {''}
+                        </Button>
                     </div>
                     <div className="space-y-2">
                         {internalRules.map((rule, index) => (
                             <div key={index} className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg">
                                 <span className="flex-1 text-gray-700">• {rule}</span>
-                                <button
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    icon={X}
                                     onClick={() => removeInternalRule(index)}
                                     className="text-red-600 hover:text-red-700"
                                 >
-                                    <X className="w-4 h-4" />
-                                </button>
+                                    {''}
+                                </Button>
                             </div>
                         ))}
                     </div>

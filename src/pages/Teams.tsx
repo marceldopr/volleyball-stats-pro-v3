@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Users, Plus, Search, Target, FileText, BookOpen, Edit, Trash2, UserCog, Loader2 } from 'lucide-react'
+import { Users, Plus, Search, Target, FileText, BookOpen, Edit, Trash2, UserCog, Loader2, X } from 'lucide-react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { seasonService, SeasonDB } from '@/services/seasonService'
 import { teamService, TeamDB } from '@/services/teamService'
+import { Button } from '@/components/ui/Button'
 
 import { TeamRosterManager } from '@/components/teams/TeamRosterManager'
 import { useRoleScope } from '@/hooks/useRoleScope'
@@ -308,12 +309,13 @@ export function Teams() {
           <p className="text-yellow-600 dark:text-yellow-300 mb-4">
             Necesitas configurar una temporada actual para poder gestionar equipos.
           </p>
-          <button
-            className="btn-secondary"
+          <Button
+            variant="secondary"
+            size="md"
             onClick={() => setShowSeasonModal(true)}
           >
             Configurar Temporada
-          </button>
+          </Button>
         </div>
 
         {/* Season Modal */}
@@ -322,12 +324,15 @@ export function Teams() {
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full overflow-hidden">
               <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Nueva Temporada</h2>
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={X}
                   onClick={() => setShowSeasonModal(false)}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  className="p-2"
                 >
-                  <span className="text-xl text-gray-500 dark:text-gray-400">×</span>
-                </button>
+                  {''}
+                </Button>
               </div>
 
               <form onSubmit={handleCreateSeason} className="p-6 space-y-4">
@@ -383,21 +388,23 @@ export function Teams() {
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700 mt-6">
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
+                    size="md"
                     onClick={() => setShowSeasonModal(false)}
-                    className="btn-secondary"
                     disabled={creatingSeason}
                   >
                     Cancelar
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
-                    className="btn-primary"
+                    variant="primary"
+                    size="md"
                     disabled={creatingSeason}
                   >
                     {creatingSeason ? 'Creando...' : 'Crear Temporada'}
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>
@@ -420,13 +427,14 @@ export function Teams() {
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Temporada {currentSeason.name}</p>
             </div>
             {!isCoach && (
-              <button
+              <Button
+                variant="primary"
+                size="md"
+                icon={Plus}
                 onClick={() => handleOpenModal()}
-                className="btn-primary flex items-center gap-2"
               >
-                <Plus className="w-4 h-4" />
-                <span>Nuevo Equipo</span>
-              </button>
+                Nuevo Equipo
+              </Button>
             )}
           </div>
         </div>
@@ -576,66 +584,84 @@ export function Teams() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center justify-end gap-1">
-                            <button
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              icon={Target}
                               onClick={(e) => {
                                 e.stopPropagation()
                                 navigate(`/teams/${team.id}/context`)
                               }}
-                              className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
                               title="Contexto de Temporada"
+                              className="p-2 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
                             >
-                              <Target className="w-4 h-4" />
-                            </button>
-                            <button
+                              {''}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              icon={FileText}
                               onClick={(e) => {
                                 e.stopPropagation()
                                 navigate(`/reports/team-plan/${team.id}`)
                               }}
-                              className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
                               title="Planificación"
+                              className="p-2 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
                             >
-                              <FileText className="w-4 h-4" />
-                            </button>
-                            <button
+                              {''}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              icon={BookOpen}
                               onClick={(e) => {
                                 e.stopPropagation()
                                 navigate(`/teams/${team.id}/season/${currentSeason.id}/summary`)
                               }}
-                              className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
                               title="Resumen de Temporada"
+                              className="p-2 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
                             >
-                              <BookOpen className="w-4 h-4" />
-                            </button>
-                            <button
+                              {''}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              icon={Users}
                               onClick={(e) => {
                                 e.stopPropagation()
                                 setManagingRosterTeam(team)
                               }}
-                              className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                               title="Gestionar Plantilla"
+                              className="p-2 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                             >
-                              <Users className="w-4 h-4" />
-                            </button>
-                            <button
+                              {''}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              icon={Edit}
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleOpenModal(team)
                               }}
-                              className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
                               title="Editar"
+                              className="p-2 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20"
                             >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
+                              {''}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              icon={Trash2}
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleDelete(team.id)
                               }}
-                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                               title="Eliminar"
+                              className="p-2 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                             >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                              {''}
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -656,12 +682,15 @@ export function Teams() {
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 {editingTeam ? 'Editar Equipo' : 'Nuevo Equipo'}
               </h2>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={X}
                 onClick={() => setShowModal(false)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="p-2"
               >
-                <span className="text-xl text-gray-500 dark:text-gray-400">×</span>
-              </button>
+                {''}
+              </Button>
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -733,21 +762,23 @@ export function Teams() {
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700 mt-6">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="md"
                   onClick={() => setShowModal(false)}
-                  className="btn-secondary"
                   disabled={submitting}
                 >
                   Cancelar
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  className="btn-primary"
+                  variant="primary"
+                  size="md"
                   disabled={submitting}
                 >
                   {submitting ? 'Guardando...' : 'Guardar'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
