@@ -70,8 +70,8 @@ export function PlayerEvaluationProgressChart({ evaluations, loading }: PlayerEv
                         className="text-gray-600 dark:text-gray-400"
                     />
                     <YAxis
-                        domain={[0, 3]}
-                        ticks={[0, 1, 2, 3]}
+                        domain={[0, 5]}
+                        ticks={[0, 1, 2, 3, 4, 5]}
                         allowDecimals={false}
                         tick={{ fontSize: 12 }}
                         className="text-gray-600 dark:text-gray-400"

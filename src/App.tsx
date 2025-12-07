@@ -14,7 +14,7 @@ import { Login } from '@/pages/Login'
 import { Register } from '@/pages/Register'
 import { Players } from './pages/Players'
 import { PlayerDetail } from './pages/PlayerDetail'
-import PlayerReports from './pages/PlayerReports'
+// DEPRECATED: Flux A - import PlayerReports from './pages/PlayerReports'
 import { DTReportsPage } from './pages/DTReportsPage'
 import { TeamSeasonPlanPage } from './pages/TeamSeasonPlanPage'
 import { TeamSeasonSummaryPage } from '@/pages/TeamSeasonSummaryPage'
@@ -111,11 +111,12 @@ function App() {
                         <PlayerDetail />
                       </RoleGuard>
                     } />
-                    <Route path="/players/:playerId/reports" element={
+                    {/* DEPRECATED: Flux A - Ruta de informes estructurados */}
+                    {/* <Route path="/players/:playerId/reports" element={
                       <RoleGuard allowedForDT allowedForCoach>
                         <PlayerReports />
                       </RoleGuard>
-                    } />
+                    } /> */}
                     <Route path="/reports/players" element={
                       <RoleGuard allowedForDT allowedForCoach>
                         <DTReportsPage />

@@ -1,5 +1,14 @@
 import { supabase } from '@/lib/supabaseClient'
 
+/**
+ * @deprecated Este servicio es parte del Flux A (informes desde Jugadoras)
+ * que ha sido deprecado. Utiliza playerEvaluationService.ts para las
+ * evaluaciones de equipo (Flux B).
+ * 
+ * Mantenido solo para compatibilidad con datos existentes.
+ * NO crear nuevos informes con este servicio.
+ */
+
 // TODO: LEGACY - This service is no longer used since Phase 9B.
 // The new structured reports use playerReportService.ts and the player_reports table.
 // This service uses the old 'reports' table with simple text-based reports.

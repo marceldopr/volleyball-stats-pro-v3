@@ -7,6 +7,9 @@ import type { PlayerEvaluationDB, PlayerEvaluationInput } from '@/services/playe
 import { playerEvaluationService } from '@/services/playerEvaluationService'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { RatingInput } from './RatingInput'
+import { CompactRatingDisplay } from './CompactRatingDisplay'
+import { CompactRoleDisplay } from './CompactRoleDisplay'
+import { StackedTextDisplay } from './StackedTextDisplay'
 import { PlayerEvaluationProgressChart } from '@/components/charts/PlayerEvaluationProgressChart'
 
 interface PlayerEvaluationModalProps {
@@ -61,6 +64,13 @@ export function PlayerEvaluationModal({
     const [loadingHistory, setLoadingHistory] = useState(false)
 
     const isViewMode = mode === 'view'
+
+    // Get available phases from evaluation history
+    const availablePhases = {
+        start: evaluationHistory.find(e => e.phase === 'start'),
+        mid: evaluationHistory.find(e => e.phase === 'mid'),
+        end: evaluationHistory.find(e => e.phase === 'end')
+    }
 
     useEffect(() => {
         if (existingEvaluation) {
@@ -141,7 +151,7 @@ export function PlayerEvaluationModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-3">
@@ -152,7 +162,7 @@ export function PlayerEvaluationModal({
                         )}
                         <div>
                             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                {isViewMode ? 'Ver Evaluación' : 'Evaluación'}: {PHASE_LABELS[phase]}
+                                {isViewMode ? 'Ver Evolución' : `Evaluación: ${PHASE_LABELS[phase]}`}
                             </h2>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                                 {player.first_name} {player.last_name} • {getTeamDisplayName(team)} • {season.name}
@@ -167,114 +177,202 @@ export function PlayerEvaluationModal({
                     </button>
                 </div>
 
+
+
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-8">
-                    {/* Block 1: Performance Ratings */}
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-                            Rendimiento (1-3)
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <RatingInput
-                                label="Saque"
-                                value={formData.service_rating}
-                                onChange={(val) => setFormData({ ...formData, service_rating: val })}
-                                disabled={isViewMode}
-                            />
-                            <RatingInput
-                                label="Recepción"
-                                value={formData.reception_rating}
-                                onChange={(val) => setFormData({ ...formData, reception_rating: val })}
-                                disabled={isViewMode}
-                            />
-                            <RatingInput
-                                label="Ataque"
-                                value={formData.attack_rating}
-                                onChange={(val) => setFormData({ ...formData, attack_rating: val })}
-                                disabled={isViewMode}
-                            />
-                            <RatingInput
-                                label="Bloqueo"
-                                value={formData.block_rating}
-                                onChange={(val) => setFormData({ ...formData, block_rating: val })}
-                                disabled={isViewMode}
-                            />
-                            <RatingInput
-                                label="Defensa"
-                                value={formData.defense_rating}
-                                onChange={(val) => setFormData({ ...formData, defense_rating: val })}
-                                disabled={isViewMode}
-                            />
-                            <RatingInput
-                                label="Impacto de Errores"
-                                value={formData.error_impact_rating}
-                                onChange={(val) => setFormData({ ...formData, error_impact_rating: val })}
-                                disabled={isViewMode}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Block 2: Role */}
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-                            Rol en el Equipo
-                        </h3>
-                        <select
-                            value={formData.role_in_team || ''}
-                            onChange={(e) => setFormData({ ...formData, role_in_team: e.target.value as any })}
-                            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                            disabled={isViewMode}
-                        >
-                            <option value="">Selecciona un rol</option>
-                            {ROLE_OPTIONS.map(option => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Block 3: Competitive Mindset */}
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-                            Mentalidad / Actitud Competitiva
-                        </h3>
-                        <div className="relative">
-                            <textarea
-                                value={formData.competitive_mindset}
-                                onChange={(e) => setFormData({ ...formData, competitive_mindset: e.target.value })}
-                                placeholder="Describe la mentalidad competitiva de la jugadora..."
-                                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                                rows={3}
-                                maxLength={200}
-                                disabled={isViewMode}
-                            />
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right">
-                                {formData.competitive_mindset?.length || 0} / 200
+                    {isViewMode ? (
+                        <>
+                            {/* Comparative View: All 3 Phases */}
+                            {/* Block 1: Performance Ratings */}
+                            <div className="space-y-4">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                                        Rendimiento (1-5)
+                                    </h3>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                        1=Muy mejorable • 2=Mejorable • 3=Adecuado • 4=Bueno • 5=Excelente
+                                    </p>
+                                </div>
+                                <div className="grid grid-cols-1 gap-4">
+                                    <CompactRatingDisplay
+                                        label="Saque"
+                                        startValue={availablePhases.start?.service_rating}
+                                        midValue={availablePhases.mid?.service_rating}
+                                        endValue={availablePhases.end?.service_rating}
+                                    />
+                                    <CompactRatingDisplay
+                                        label="Recepción"
+                                        startValue={availablePhases.start?.reception_rating}
+                                        midValue={availablePhases.mid?.reception_rating}
+                                        endValue={availablePhases.end?.reception_rating}
+                                    />
+                                    <CompactRatingDisplay
+                                        label="Ataque"
+                                        startValue={availablePhases.start?.attack_rating}
+                                        midValue={availablePhases.mid?.attack_rating}
+                                        endValue={availablePhases.end?.attack_rating}
+                                    />
+                                    <CompactRatingDisplay
+                                        label="Bloqueo"
+                                        startValue={availablePhases.start?.block_rating}
+                                        midValue={availablePhases.mid?.block_rating}
+                                        endValue={availablePhases.end?.block_rating}
+                                    />
+                                    <CompactRatingDisplay
+                                        label="Defensa"
+                                        startValue={availablePhases.start?.defense_rating}
+                                        midValue={availablePhases.mid?.defense_rating}
+                                        endValue={availablePhases.end?.defense_rating}
+                                    />
+                                    <CompactRatingDisplay
+                                        label="Impacto de Errores"
+                                        startValue={availablePhases.start?.error_impact_rating}
+                                        midValue={availablePhases.mid?.error_impact_rating}
+                                        endValue={availablePhases.end?.error_impact_rating}
+                                    />
+                                </div>
                             </div>
-                        </div>
-                    </div>
 
-                    {/* Block 4: Coach Recommendation */}
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-                            Recomendaciones para Próximo Entrenador
-                        </h3>
-                        <div className="relative">
-                            <textarea
-                                value={formData.coach_recommendation}
-                                onChange={(e) => setFormData({ ...formData, coach_recommendation: e.target.value })}
-                                placeholder="Ej: Tiene potencial para subir a Juvenil si mantiene constancia en recepción"
-                                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                                rows={3}
-                                maxLength={250}
-                                disabled={isViewMode}
+                            {/* Block 2: Role */}
+                            <CompactRoleDisplay
+                                startRole={availablePhases.start?.role_in_team}
+                                midRole={availablePhases.mid?.role_in_team}
+                                endRole={availablePhases.end?.role_in_team}
                             />
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right">
-                                {formData.coach_recommendation?.length || 0} / 250
+
+                            {/* Block 3: Competitive Mindset */}
+                            <StackedTextDisplay
+                                title="Mentalidad / Actitud Competitiva"
+                                startText={availablePhases.start?.competitive_mindset}
+                                midText={availablePhases.mid?.competitive_mindset}
+                                endText={availablePhases.end?.competitive_mindset}
+                            />
+
+                            {/* Block 4: Coach Recommendation */}
+                            <StackedTextDisplay
+                                title="Recomendaciones para Próximo Entrenador"
+                                startText={availablePhases.start?.coach_recommendation}
+                                midText={availablePhases.mid?.coach_recommendation}
+                                endText={availablePhases.end?.coach_recommendation}
+                            />
+                        </>
+                    ) : (
+                        <>
+                            {/* Edit Mode: Original Form */}
+                            {/* Block 1: Performance Ratings */}
+                            <div className="space-y-4">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                                        Rendimiento (1-5)
+                                    </h3>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                        1=Muy mejorable • 2=Mejorable • 3=Adecuado • 4=Bueno • 5=Excelente
+                                    </p>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <RatingInput
+                                        label="Saque"
+                                        value={formData.service_rating}
+                                        onChange={(val) => setFormData({ ...formData, service_rating: val })}
+                                        disabled={isViewMode}
+                                    />
+                                    <RatingInput
+                                        label="Recepción"
+                                        value={formData.reception_rating}
+                                        onChange={(val) => setFormData({ ...formData, reception_rating: val })}
+                                        disabled={isViewMode}
+                                    />
+                                    <RatingInput
+                                        label="Ataque"
+                                        value={formData.attack_rating}
+                                        onChange={(val) => setFormData({ ...formData, attack_rating: val })}
+                                        disabled={isViewMode}
+                                    />
+                                    <RatingInput
+                                        label="Bloqueo"
+                                        value={formData.block_rating}
+                                        onChange={(val) => setFormData({ ...formData, block_rating: val })}
+                                        disabled={isViewMode}
+                                    />
+                                    <RatingInput
+                                        label="Defensa"
+                                        value={formData.defense_rating}
+                                        onChange={(val) => setFormData({ ...formData, defense_rating: val })}
+                                        disabled={isViewMode}
+                                    />
+                                    <RatingInput
+                                        label="Impacto de Errores"
+                                        value={formData.error_impact_rating}
+                                        onChange={(val) => setFormData({ ...formData, error_impact_rating: val })}
+                                        disabled={isViewMode}
+                                    />
+                                </div>
                             </div>
-                        </div>
-                    </div>
+
+                            {/* Block 2: Role */}
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                                    Rol en el Equipo
+                                </h3>
+                                <select
+                                    value={formData.role_in_team || ''}
+                                    onChange={(e) => setFormData({ ...formData, role_in_team: e.target.value as any })}
+                                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                    disabled={isViewMode}
+                                >
+                                    <option value="">Selecciona un rol</option>
+                                    {ROLE_OPTIONS.map(option => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Block 3: Competitive Mindset */}
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                                    Mentalidad / Actitud Competitiva
+                                </h3>
+                                <div className="relative">
+                                    <textarea
+                                        value={formData.competitive_mindset}
+                                        onChange={(e) => setFormData({ ...formData, competitive_mindset: e.target.value })}
+                                        placeholder="Describe la mentalidad competitiva de la jugadora..."
+                                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                        rows={3}
+                                        maxLength={200}
+                                        disabled={isViewMode}
+                                    />
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right">
+                                        {formData.competitive_mindset?.length || 0} / 200
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Block 4: Coach Recommendation */}
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                                    Recomendaciones para Próximo Entrenador
+                                </h3>
+                                <div className="relative">
+                                    <textarea
+                                        value={formData.coach_recommendation}
+                                        onChange={(e) => setFormData({ ...formData, coach_recommendation: e.target.value })}
+                                        placeholder="Ej: Tiene potencial para subir a Juvenil si mantiene constancia en recepción"
+                                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                        rows={3}
+                                        maxLength={250}
+                                        disabled={isViewMode}
+                                    />
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right">
+                                        {formData.coach_recommendation?.length || 0} / 250
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
 
                     {/* Progress Chart - Only in view mode */}
                     {isViewMode && (

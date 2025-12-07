@@ -99,7 +99,7 @@ export function DTReportsPage() {
         fetchData()
     }, [profile?.club_id, isCoach, isDT, assignedTeamIds])
 
-    // Apply filters
+    // Apply filters and group by player
     useEffect(() => {
         let filtered = [...evaluations]
 
@@ -125,7 +125,27 @@ export function DTReportsPage() {
             )
         }
 
-        setFilteredEvaluations(filtered)
+        // Group by player and keep only the latest evaluation
+        const playerMap = new Map<string, PlayerEvaluationDB>()
+
+        filtered.forEach(evaluation => {
+            const playerId = evaluation.player_id
+            const existing = playerMap.get(playerId)
+
+            if (!existing) {
+                playerMap.set(playerId, evaluation)
+            } else {
+                // Keep the most recent evaluation (by created_at)
+                if (new Date(evaluation.created_at) > new Date(existing.created_at)) {
+                    playerMap.set(playerId, evaluation)
+                }
+            }
+        })
+
+        // Convert map back to array
+        const groupedEvaluations = Array.from(playerMap.values())
+
+        setFilteredEvaluations(groupedEvaluations)
     }, [selectedTeamId, selectedSeasonId, selectedPhase, searchTerm, evaluations])
 
     const handleViewEvaluation = (evaluation: PlayerEvaluationDB) => {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, User, FileText } from 'lucide-react'
+import { ArrowLeft, User } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import { playerService, PlayerDB } from '../services/playerService'
 
@@ -126,17 +126,6 @@ export function PlayerDetail() {
                                     })}
                                 </div>
                             )}
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="mt-4">
-                            <button
-                                onClick={() => navigate(`/players/${player.id}/reports`)}
-                                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
-                            >
-                                <FileText className="w-4 h-4" />
-                                Ver Informes de Evaluación
-                            </button>
                         </div>
                     </div>
                 </div>
