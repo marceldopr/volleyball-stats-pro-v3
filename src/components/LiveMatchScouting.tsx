@@ -1463,17 +1463,9 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
     }
   }, [hasUnsavedChanges])
 
-  // 2. Navigation blocker (React Router)
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }: { currentLocation: any; nextLocation: any }) =>
-      hasUnsavedChanges &&
-      !isFinishingMatch &&  // No bloquejar si estem finalitzant el partit
-      match.status !== 'completed' &&  // No bloquejar si el partit ja està finalitzat
-      currentLocation.pathname !== nextLocation.pathname
-  )
-
-  // NUEVO: Función para guardar estadísticas en Supabase al finalizar el partido
-  const handleSaveMatchStats = async () => {
+  // NUEVO: Función para guardar progreso SIN finalizar el partido
+  // NUEVO: Función para guardar progreso SIN finalizar el partido
+  const saveMatchProgress = async () => {
     if (!match.dbMatchId) {
       console.warn('[Stats] No dbMatchId for current match, skipping Supabase stats persist.')
       return
@@ -1481,10 +1473,10 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
 
     setIsFinishingMatch(true)  // Desactivar blocker durante el proceso de guardado
     setIsSaving(true)
-    const loadingToast = toast.loading('Guardando estadísticas...')
+    const loadingToast = toast.loading('Guardando progreso...')
 
     try {
-      console.log('[Stats] Starting stats persistence for match:', match.dbMatchId)
+      console.log('[Stats] Starting progress save for match:', match.dbMatchId)
 
       // 1. Preparar datos de estadísticas por set y jugador
       const statsPayloads: any[] = []
@@ -1605,20 +1597,28 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
       const matchResult = `${localSetsWon}-${visitorSetsWon}`
       console.log('[Stats] Match result (LOCAL-VISITOR format):', matchResult, '| My team is:', match.teamSide)
 
+      // Determinar el status correcto
+      // Si el partido tiene acciones o puntos, debe estar en 'in_progress'
+      const hasMatchStarted = match.acciones.length > 0 || match.sets.some(s => s.homeScore > 0 || s.awayScore > 0)
+      const currentStatus = match.status === 'upcoming' && hasMatchStarted ? 'live' : match.status
+
       // Persist match actions (timeline) and result to Supabase
+      // IMPORTANTE: NO marcar como 'finished', solo guardar progreso
       await matchService.updateMatch(match.dbMatchId, {
         actions: match.acciones,
         result: matchResult,
-        status: 'finished'
+        status: currentStatus === 'live' ? 'in_progress' : currentStatus === 'upcoming' ? 'planned' : 'in_progress'
       })
 
-      console.log('[Stats] Actions saved to Supabase')
+      console.log('[Stats] Progress saved to Supabase with status:', currentStatus)
 
       toast.dismiss(loadingToast)
-      toast.success('Partido guardado correctamente')
+      toast.success('Progreso guardado correctamente')
 
-      // Update local match status to completed
-      onUpdateMatch(match.id, { status: 'completed' })
+      // Update local match status (keep as live/in_progress, NOT completed)
+      if (currentStatus === 'upcoming' && hasMatchStarted) {
+        onUpdateMatch(match.id, { status: 'live' })
+      }
 
       // Reset unsaved changes flag
       setHasUnsavedChanges(false)
@@ -1629,17 +1629,66 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
       } else {
         onNavigateToMatches()
       }
-
-    } catch (err) {
-      console.error('[Stats] Error al guardar estadísticas en Supabase', err)
-      toast.dismiss(loadingToast)
-      toast.error('Error al guardar el partido. Inténtalo de nuevo.')
+    } catch (error) {
+      console.error('[Stats] Error saving progress:', error)
+      toast.error('Error al guardar el progreso')
     } finally {
       setIsSaving(false)
+      setIsFinishingMatch(false)
     }
   }
 
+  // NUEVO: Función para finalizar explícitamente el partido
+  const finishMatch = async () => {
+    if (!match.dbMatchId) {
+      console.warn('[Stats] No dbMatchId for current match, skipping finish.')
+      return
+    }
 
+    setIsFinishingMatch(true)
+    setIsSaving(true)
+    const loadingToast = toast.loading('Finalizando partido...')
+
+    try {
+      console.log('[Stats] Finishing match:', match.dbMatchId)
+
+      // 1. Primero guardar todo el progreso (stats, actions, result)
+      await saveMatchProgress()
+
+      // 2. Luego marcar explícitamente como finalizado
+      await matchService.updateMatch(match.dbMatchId, {
+        status: 'finished'
+      })
+
+      console.log('[Stats] Match marked as finished')
+
+      toast.dismiss(loadingToast)
+      toast.success('Partido finalizado correctamente')
+
+      // Update local match status to completed
+      onUpdateMatch(match.id, { status: 'completed' })
+
+      // Reset unsaved changes flag
+      setHasUnsavedChanges(false)
+
+      // Navigate back
+      onNavigateToMatches()
+    } catch (error) {
+      console.error('[Stats] Error finishing match:', error)
+      toast.error('Error al finalizar el partido')
+    } finally {
+      setIsSaving(false)
+      setIsFinishingMatch(false)
+    }
+  }
+
+  // Blocker para evitar salir sin guardar
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hasUnsavedChanges &&
+      !isFinishingMatch &&
+      currentLocation.pathname !== nextLocation.pathname
+  )
 
   return (
     <div className="min-h-screen bg-gray-900 text-white pb-20">
@@ -1658,7 +1707,7 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
 
             <div className="flex flex-col gap-3">
               <button
-                onClick={handleSaveMatchStats}
+                onClick={saveMatchProgress}
                 disabled={isSaving}
                 className={`w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
               >
@@ -2034,7 +2083,7 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
               <button
                 onClick={async () => {
                   setShowMatchCompleteModal(false)
-                  await handleSaveMatchStats()
+                  await finishMatch()
                 }}
                 className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold transition-colors"
               >
