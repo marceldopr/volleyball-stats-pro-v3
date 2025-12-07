@@ -4,7 +4,6 @@ import { FileText, Plus, Calendar, TrendingUp, Users, Heart, Target } from 'luci
 import { playerReportService } from '@/services/playerReportService'
 import { PlayerReportDB } from '@/types/ReportTypes'
 import { useAuthStore } from '@/stores/authStore'
-import { PlayerReportForm } from '@/components/reports/PlayerReportForm'
 import { seasonService } from '@/services/seasonService'
 import { teamService } from '@/services/teamService'
 import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
@@ -18,7 +17,6 @@ export default function PlayerReportsPage() {
 
     const [reports, setReports] = useState<PlayerReportDB[]>([])
     const [loading, setLoading] = useState(true)
-    const [isFormOpen, setIsFormOpen] = useState(false)
     const [selectedReport, setSelectedReport] = useState<PlayerReportDB | null>(null)
 
     // State for team and season
@@ -106,10 +104,7 @@ export default function PlayerReportsPage() {
         }
     }
 
-    const handleSaved = () => {
-        setIsFormOpen(false)
-        loadReports()
-    }
+
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString)
@@ -161,19 +156,6 @@ export default function PlayerReportsPage() {
                     <FileText className="w-6 h-6" />
                     Informes de Evaluación
                 </h2>
-                {/* DEPRECATED: Flux A - Informes estructurados desde Jugadoras */}
-                {/* Este botón ha sido desactivado. Usa las evaluaciones por fase desde el equipo. */}
-                {false && (
-                    <button
-                        onClick={() => setIsFormOpen(true)}
-                        className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={!currentTeamId || !currentSeasonId || !canCreateReport}
-                        title={!canCreateReport ? permissionMessage : ''}
-                    >
-                        <Plus className="w-4 h-4" />
-                        Nuevo Informe
-                    </button>
-                )}
             </div>
 
             {!currentTeamId || !currentSeasonId && (
@@ -188,18 +170,7 @@ export default function PlayerReportsPage() {
                 </div>
             )}
 
-            {/* DEPRECATED: Flux A - Modal de creación de informes */}
-            {false && isFormOpen && playerId && currentTeamId && currentSeasonId && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <PlayerReportForm
-                        playerId={playerId as string}
-                        teamId={currentTeamId}
-                        seasonId={currentSeasonId}
-                        onSaved={handleSaved}
-                        onCancel={() => setIsFormOpen(false)}
-                    />
-                </div>
-            )}
+
 
             {/* Report Details Modal */}
             {selectedReport && (
