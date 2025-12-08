@@ -10,6 +10,7 @@ import { seasonService } from '../services/seasonService'
 import { teamService } from '../services/teamService'
 import { matchService } from '../services/matchService'
 import { matchConvocationService } from '../services/matchConvocationService'
+import { matchServiceV2 } from '../services/matchServiceV2'
 import { useRoleScope } from '@/hooks/useRoleScope'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { Plus, Trophy, Trash2, Users, Play, BarChart3 } from 'lucide-react'
@@ -420,15 +421,23 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                     variant="primary"
                     size="sm"
                     icon={Play}
-                    onClick={() => {
+                    onClick={async () => {
                       if (match.engine === 'v2') {
-                        navigate(`/matches/v2/${match.id}/convocation`)
+                        try {
+                          if (match.status !== 'in_progress') {
+                            await matchServiceV2.startMatchV2(match.id)
+                          }
+                          navigate(`/live-match-v2/${match.id}`)
+                        } catch (e) {
+                          console.error('Error starting V2 match:', e)
+                          alert('Error al iniciar el partido V2')
+                        }
                       } else {
                         handleStartMatch(match)
                       }
                     }}
-                    disabled={match.engine !== 'v2' && !matchesWithConvocations[match.id]}
-                    title={match.engine !== 'v2' && !matchesWithConvocations[match.id] ? 'Primero debes gestionar la convocatoria' : ''}
+                    disabled={!matchesWithConvocations[match.id]}
+                    title={!matchesWithConvocations[match.id] ? 'Primero debes gestionar la convocatoria' : ''}
                   >
                     Iniciar Partido
                   </Button>

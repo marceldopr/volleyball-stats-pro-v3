@@ -11,6 +11,7 @@ export type MatchEventType =
     | 'SET_START'
     | 'SET_END'
     | 'SET_LINEUP'
+    | 'SET_SERVICE_CHOICE'
 
 export interface PlayerV2 {
     id: string
@@ -29,6 +30,7 @@ export interface MatchEvent {
         setNumber?: number
         winner?: 'home' | 'away'
         score?: { home: number; away: number }
+        initialServingSide?: 'our' | 'opponent'
         lineup?: {
             position: 1 | 2 | 3 | 4 | 5 | 6
             playerId: string
@@ -56,6 +58,8 @@ export interface DerivedMatchState {
     }[]
     rotation: any[]
     hasLineupForCurrentSet: boolean
+    // New: Scores history by set
+    setsScores: { setNumber: number; home: number; away: number }[]
 }
 
 export interface MatchV2State {
@@ -93,7 +97,8 @@ const INITIAL_DERIVED_STATE: DerivedMatchState = {
     servingSide: 'our', // default
     onCourtPlayers: [],
     rotation: [],
-    hasLineupForCurrentSet: false
+    hasLineupForCurrentSet: false,
+    setsScores: []
 }
 
 function calculateDerivedState(events: MatchEvent[], ourSide: 'home' | 'away', initialPlayers: PlayerV2[]): DerivedMatchState {
@@ -101,40 +106,104 @@ function calculateDerivedState(events: MatchEvent[], ourSide: 'home' | 'away', i
     state.ourSide = ourSide
     state.opponentSide = ourSide === 'home' ? 'away' : 'home'
 
-    // Fallback/Legacy init
+    // Internal tracker for scores per set
+    // Start with Set 1 initialized
+    const setScoresMap: Record<number, { home: number; away: number }> = {
+        1: { home: 0, away: 0 }
+    }
+
+    // Internal tracker for initial service choice per set
+    const initialServeBySet: Record<number, 'our' | 'opponent'> = {}
+
+
+
+    // Fallback/Legacy init for players
     state.onCourtPlayers = initialPlayers.map((p, i) => ({
         position: ((i + 1) % 6 || 6) as 1 | 2 | 3 | 4 | 5 | 6,
         player: p
     }))
 
     for (const event of events) {
+        // Ensure we have a score object for the current set logic
+        if (!setScoresMap[state.currentSet]) {
+            setScoresMap[state.currentSet] = { home: 0, away: 0 }
+        }
+
         switch (event.type) {
-            case 'POINT_US':
-                if (state.ourSide === 'home') {
-                    state.homeScore++
-                } else {
-                    state.awayScore++
+            case 'SET_SERVICE_CHOICE':
+                if (event.payload?.setNumber && event.payload?.initialServingSide) {
+                    initialServeBySet[event.payload.setNumber] = event.payload.initialServingSide
+                    // If this choice is for the current set (e.g. at start of Set 1 or Set 5), apply it immediately
+                    if (event.payload.setNumber === state.currentSet) {
+                        state.servingSide = event.payload.initialServingSide
+                    }
                 }
+                break
+
+            case 'SET_START':
+                // Move to next set.
+                // If payload has setNumber, use it. Otherwise increment.
+                if (event.payload?.setNumber) {
+                    state.currentSet = event.payload.setNumber
+                } else {
+                    state.currentSet++
+                }
+
+                // Initialize score for new set if not present
+                if (!setScoresMap[state.currentSet]) {
+                    setScoresMap[state.currentSet] = { home: 0, away: 0 }
+                }
+
+                // Determine serving side for this new set
+                if (state.currentSet === 5) {
+                    // Set 5: Independent choice (wait for SET_SERVICE_CHOICE or use if already present)
+                    if (initialServeBySet[5]) {
+                        state.servingSide = initialServeBySet[5]
+                    }
+                } else {
+                    // Sets 2, 3, 4: Alternating from Set 1
+                    const set1Choice = initialServeBySet[1] || 'our' // Default to 'our' if missing
+                    if (state.currentSet === 3) {
+                        state.servingSide = set1Choice
+                    } else {
+                        // Sets 2 and 4 are opposite
+                        state.servingSide = set1Choice === 'our' ? 'opponent' : 'our'
+                    }
+                }
+                break
+
+            case 'POINT_US':
+                let scoreUs = setScoresMap[state.currentSet]
+                if (state.ourSide === 'home') {
+                    scoreUs.home++
+                } else {
+                    scoreUs.away++
+                }
+                setScoresMap[state.currentSet] = scoreUs // Re-assign not strictly needed if obj ref, but clarity
                 state.servingSide = 'our'
                 break
 
             case 'POINT_OPPONENT':
+                let scoreOpp = setScoresMap[state.currentSet]
                 if (state.opponentSide === 'home') {
-                    state.homeScore++
+                    scoreOpp.home++
                 } else {
-                    state.awayScore++
+                    scoreOpp.away++
                 }
+                setScoresMap[state.currentSet] = scoreOpp
                 state.servingSide = 'opponent'
                 break
 
             case 'RECEPTION_EVAL':
                 const val = event.payload?.reception?.value
                 if (val === 0) {
+                    let scoreRec = setScoresMap[state.currentSet]
                     if (state.opponentSide === 'home') {
-                        state.homeScore++
+                        scoreRec.home++
                     } else {
-                        state.awayScore++
+                        scoreRec.away++
                     }
+                    setScoresMap[state.currentSet] = scoreRec
                     state.servingSide = 'opponent'
                 }
                 break
@@ -149,6 +218,7 @@ function calculateDerivedState(events: MatchEvent[], ourSide: 'home' | 'away', i
 
             case 'SET_LINEUP':
                 if (event.payload?.setNumber === state.currentSet && event.payload.lineup) {
+                    state.hasLineupForCurrentSet = true
                     state.onCourtPlayers = event.payload.lineup.map(item => ({
                         position: item.position,
                         player: item.player
@@ -157,6 +227,41 @@ function calculateDerivedState(events: MatchEvent[], ourSide: 'home' | 'away', i
                 break
         }
     }
+
+    // After processing all events, verify/re-apply serving side logic if no points have been scored in current set
+    // This handles cases where SET_START happened but no points yet, ensuring correct serving side is displayed
+    const currentScoresCheck = setScoresMap[state.currentSet] || { home: 0, away: 0 }
+    if (currentScoresCheck.home === 0 && currentScoresCheck.away === 0) {
+        // Apply serving logic again for 0-0 state to be sure
+        if (state.currentSet === 1) {
+            if (initialServeBySet[1]) state.servingSide = initialServeBySet[1]
+        } else if (state.currentSet === 5) {
+            if (initialServeBySet[5]) state.servingSide = initialServeBySet[5]
+        } else {
+            const set1Choice = initialServeBySet[1] || 'our'
+            if (state.currentSet === 3) {
+                state.servingSide = set1Choice
+            } else {
+                state.servingSide = set1Choice === 'our' ? 'opponent' : 'our'
+            }
+        }
+    }
+
+    // After processing all events, verify/re-apply serving side logic if no points have been scored in current set
+    // This handles cases where SET_START happened but no points yet, ensuring correct serving side is displayed
+
+
+    // After processing all events, update the top-level score from the current set
+    const currentScores = setScoresMap[state.currentSet] || { home: 0, away: 0 }
+    state.homeScore = currentScores.home
+    state.awayScore = currentScores.away
+
+    // Populate setsScores array for UI
+    state.setsScores = Object.entries(setScoresMap).map(([setNum, scores]) => ({
+        setNumber: parseInt(setNum),
+        home: scores.home,
+        away: scores.away
+    }))
 
     return state
 }
