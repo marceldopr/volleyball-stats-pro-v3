@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { rotateLineup } from '../lib/volleyball/rotationLogic'
+import { matchServiceV2 } from '@/services/matchServiceV2'
 
 // --- Types ---
 
@@ -455,10 +456,15 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                     futureEvents: [],
                     derivedState: finalDerived
                 })
+
+                // Persist to DB
+                matchServiceV2.updateMatchV2(dbMatchId, { actions: tempEvents }).catch(err => {
+                    console.error('Failed to persist events (addEvent):', err)
+                })
             },
 
             undoEvent: () => {
-                const { events, futureEvents, ourSide, initialOnCourtPlayers } = get()
+                const { dbMatchId, events, futureEvents, ourSide, initialOnCourtPlayers } = get()
                 if (events.length === 0) return
 
                 const lastEvent = events[events.length - 1]
@@ -471,10 +477,17 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                     futureEvents: newFuture,
                     derivedState: newDerived
                 })
+
+                // Persist to DB
+                if (dbMatchId) {
+                    matchServiceV2.updateMatchV2(dbMatchId, { actions: newEvents }).catch(err => {
+                        console.error('Failed to persist events (undoEvent):', err)
+                    })
+                }
             },
 
             redoEvent: () => {
-                const { events, futureEvents, ourSide, initialOnCourtPlayers } = get()
+                const { dbMatchId, events, futureEvents, ourSide, initialOnCourtPlayers } = get()
                 if (futureEvents.length === 0) return
 
                 const nextEvent = futureEvents[0]
@@ -487,6 +500,13 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                     futureEvents: newFuture,
                     derivedState: newDerived
                 })
+
+                // Persist to DB
+                if (dbMatchId) {
+                    matchServiceV2.updateMatchV2(dbMatchId, { actions: newEvents }).catch(err => {
+                        console.error('Failed to persist events (redoEvent):', err)
+                    })
+                }
             },
 
             reset: () => set({

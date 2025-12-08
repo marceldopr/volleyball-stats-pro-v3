@@ -59,10 +59,23 @@ export function LiveMatchScoutingV2() {
         }
     }, [derivedState.isMatchFinished])
 
-    const handleConfirmFinish = () => {
-        toast.success("Partido finalizado correctamente")
-        // TODO: Call finalizeMatch API if needed for status update
-        navigate('/matches')
+    const handleConfirmFinish = async () => {
+        if (!matchId || !derivedState.isMatchFinished) return
+
+        try {
+            const resultString = `${derivedState.setsWonHome}-${derivedState.setsWonAway}`
+
+            await matchServiceV2.updateMatchV2(matchId, {
+                status: 'finished',
+                result: resultString
+            })
+
+            toast.success("Partido finalizado correctamente")
+            navigate('/matches')
+        } catch (error) {
+            console.error('Error finalizando partico:', error)
+            toast.error("Error al finalizar el partido")
+        }
     }
 
     const handleUndoFinish = () => {
