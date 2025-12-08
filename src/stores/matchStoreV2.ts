@@ -154,6 +154,11 @@ function calculateDerivedState(events: MatchEvent[], ourSide: 'home' | 'away', i
                     setScoresMap[state.currentSet] = { home: 0, away: 0 }
                 }
 
+                // Reset lineup state for the new set
+                state.hasLineupForCurrentSet = false
+                state.onCourtPlayers = []
+
+
                 // Determine serving side for this new set
                 if (state.currentSet === 5) {
                     // Set 5: Independent choice (wait for SET_SERVICE_CHOICE or use if already present)

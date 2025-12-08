@@ -162,16 +162,23 @@ export function MatchConvocationV2() {
                                         <Check size={14} />
                                     </div>
                                     <div>
-                                        <h3 className={`font-medium ${isSelected ? 'text-blue-900 dark:text-blue-100' : 'text-gray-900 dark:text-white'}`}>
-                                            {getPlayerDisplayName(player)}
-                                        </h3>
-                                        {(item.jersey_number || player.position) && (
-                                            <p className="text-sm text-gray-500">
-                                                {item.jersey_number ? `#${item.jersey_number}` : ''}
-                                                {item.jersey_number && item.role ? ' · ' : ''}
-                                                {item.role || player.main_position || ''}
-                                            </p>
-                                        )}
+                                        <div className="flex flex-col">
+                                            <h3 className={`font-medium ${isSelected ? 'text-blue-900 dark:text-blue-100' : 'text-gray-900 dark:text-white'}`}>
+                                                {getPlayerDisplayName(player)}
+                                            </h3>
+                                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                                                <span className="font-mono bg-gray-100 dark:bg-gray-800 px-1.5 rounded text-gray-700 dark:text-gray-300">
+                                                    #{item.jersey_number || player.jersey_number || '?'}
+                                                </span>
+                                                <span className="uppercase text-xs font-bold text-gray-400">
+                                                    {(() => {
+                                                        const role = item.role && !['starter', 'convocado'].includes(item.role.toLowerCase()) ? item.role : null;
+                                                        const rawRole = role || player.main_position || item.expected_category || 'Sin posición';
+                                                        return rawRole;
+                                                    })()}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

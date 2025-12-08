@@ -4,6 +4,7 @@ import { ArrowLeft, Undo2, Redo2, RotateCw, Users } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useMatchStoreV2 } from '@/stores/matchStoreV2'
 import { matchServiceV2 } from '@/services/matchServiceV2'
+import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
 import { toast } from 'sonner'
 
 export function LiveMatchScoutingV2() {
@@ -57,22 +58,61 @@ export function LiveMatchScoutingV2() {
                 // 2. Load Match into Store
                 loadMatch(match.id, match.actions || [], ourSide)
 
-                // 3. Load Convocations to get players
+                // 3. Load Roster (Context for numbers/roles)
+                const roster = await playerTeamSeasonService.getRosterByTeamAndSeason(match.team_id, match.season_id)
+
+                // 4. Load Convocations
                 const convos = await matchServiceV2.getConvocationsV2(matchId)
 
-                // Map all available players
+                // Map all available players merging Roster info
                 const players = convos
                     .filter(c => c.status === 'convocado' || c.status === undefined)
                     .map(c => {
+                        // Find roster entry for this player to get the correct season number/role
+                        const rosterItem = roster.find(r => r.player_id === c.player_id)
                         const pData = c.club_players || {}
-                        const number = c.jersey_number || pData.jersey_number || '?'
+
+                        // Priority: Roster Number > Player Profile Number > '?'
+                        const number = rosterItem?.jersey_number || pData.jersey_number || '?'
+
+                        // Priority: Custom Match Role > Roster Role > Player Profile Position > '?'
+                        // Priority: Custom Match Role (if not generic) > Roster Role > Player Profile Position > '?'
+                        let effectiveRole = c.role_in_match
+                        if (effectiveRole && (effectiveRole.toLowerCase() === 'starter' || effectiveRole.toLowerCase() === 'convocado')) {
+                            effectiveRole = null
+                        }
+
+                        let rosterRole = rosterItem?.role
+                        if (rosterRole && (rosterRole.toLowerCase() === 'starter' || rosterRole.toLowerCase() === 'convocado')) {
+                            rosterRole = null
+                        }
+
+                        const rawRole = effectiveRole || rosterRole || pData.main_position || '?'
+
+                        // Map Spanish/Full names to Codes
+                        const roleMap: Record<string, string> = {
+                            'Central': 'MB',
+                            'Receptora': 'OH',
+                            'Receptor': 'OH',
+                            'Punta': 'OH',
+                            'Opuesta': 'OPP',
+                            'Opuesto': 'OPP',
+                            'Colocadora': 'S',
+                            'Colocador': 'S',
+                            'Armadora': 'S',
+                            'Líbero': 'L',
+                            'Libero': 'L'
+                        }
+
+                        const role = roleMap[rawRole] || rawRole && roleMap[Object.keys(roleMap).find(k => rawRole.includes(k)) || ''] || rawRole
+
                         const name = pData.nickname || pData.first_name || `J${number}`
 
                         return {
                             id: c.player_id,
                             name,
                             number,
-                            role: c.role_in_match || pData.position || '?'
+                            role
                         }
                     })
 
@@ -108,19 +148,37 @@ export function LiveMatchScoutingV2() {
                 setShowStartersModal(false)
             }
         }
+        // Initial load check
+        else if (lastSetRef.current === derivedState.currentSet && !derivedState.hasLineupForCurrentSet && !showStartersModal) {
+            // If we are on the current set, have no lineup, and modal is closed... 
+            // This might be redundant if the initial load handled it, but safety for "mid-set" with no lineup.
+            // Actually user asked for specific logic: "Al empezar el set 1: Si no hay lineup → se muestra el modal".
+            // "Cuando se cierra el set 1 y se genera SET_START del set 2: ... modal".
+        }
     }, [derivedState.currentSet, derivedState.hasLineupForCurrentSet])
 
     // Initial mount check for reload scenarios
     useEffect(() => {
-        // If we load the page, have no lineup, and haven't tracked it yet
-        if (derivedState.currentSet && !derivedState.hasLineupForCurrentSet && lastSetRef.current === null) {
-            lastSetRef.current = derivedState.currentSet
+        if (loading) return
+        // If we load the page, have no lineup, we must ensure modal opens
+        if (derivedState.currentSet && !derivedState.hasLineupForCurrentSet) {
+            // Only if we haven't tracked this set yet or just need to force it
             setShowStartersModal(true)
-        } else if (derivedState.currentSet && lastSetRef.current === null) {
-            // If we DO have lineup, just sync the ref
             lastSetRef.current = derivedState.currentSet
         }
-    }, [derivedState.currentSet, derivedState.hasLineupForCurrentSet])
+    }, [loading, derivedState.currentSet, derivedState.hasLineupForCurrentSet])
+
+    // Helper to get player display info
+    const getPlayerDisplay = (playerId: string | undefined | null) => {
+        if (!playerId) return { number: '?', name: '-' }
+        const p = availablePlayers.find(ap => ap.id === playerId)
+        if (!p) return { number: '?', name: 'Unknown' }
+        return {
+            number: p.number,
+            name: p.name,
+            role: p.role
+        }
+    }
 
     // Helper for safe actions (Anti-Double-Tap)
     const handleAction = (fn: () => void) => {
@@ -348,10 +406,14 @@ export function LiveMatchScoutingV2() {
                         <div className="flex justify-center gap-1 w-full border-b border-zinc-800/50 pb-1">
                             {[4, 3, 2].map(pos => {
                                 const p = getPlayerAt(pos)
+                                const display = getPlayerDisplay(p?.id)
                                 return (
-                                    <div key={pos} className="flex-1 h-10 bg-zinc-800/80 rounded border border-zinc-700/50 flex flex-col items-center justify-center shadow-sm">
-                                        <span className="text-xs font-bold text-zinc-300">{p?.number || '-'}</span>
-                                        <span className="text-[7px] text-zinc-500 uppercase">P{pos} {p?.role}</span>
+                                    <div key={pos} className="flex-1 h-10 bg-zinc-800/80 rounded border border-zinc-700/50 flex flex-col items-center justify-center shadow-sm relative overflow-hidden">
+                                        <span className="text-xs font-bold text-zinc-200 z-10">{display.number}</span>
+                                        <span className="text-[7px] text-zinc-400 uppercase z-10 leading-none truncate w-full text-center px-0.5">{display.name}</span>
+                                        <div className="absolute top-0 right-0 p-0.5 opacity-50">
+                                            <span className="text-[6px] text-zinc-600">P{pos}</span>
+                                        </div>
                                     </div>
                                 )
                             })}
@@ -359,10 +421,14 @@ export function LiveMatchScoutingV2() {
                         <div className="flex justify-center gap-1 w-full pt-1">
                             {[5, 6, 1].map(pos => {
                                 const p = getPlayerAt(pos)
+                                const display = getPlayerDisplay(p?.id)
                                 return (
-                                    <div key={pos} className="flex-1 h-10 bg-zinc-800/50 rounded border border-zinc-700/30 flex flex-col items-center justify-center shadow-sm">
-                                        <span className="text-xs font-bold text-zinc-400">{p?.number || '-'}</span>
-                                        <span className="text-[7px] text-zinc-600 uppercase">P{pos} {p?.role}</span>
+                                    <div key={pos} className="flex-1 h-10 bg-zinc-800/50 rounded border border-zinc-700/30 flex flex-col items-center justify-center shadow-sm relative overflow-hidden">
+                                        <span className="text-xs font-bold text-zinc-300 z-10">{display.number}</span>
+                                        <span className="text-[7px] text-zinc-500 uppercase z-10 leading-none truncate w-full text-center px-0.5">{display.name}</span>
+                                        <div className="absolute bottom-0 right-0 p-0.5 opacity-50">
+                                            <span className="text-[6px] text-zinc-700">P{pos}</span>
+                                        </div>
                                     </div>
                                 )
                             })}
@@ -446,7 +512,7 @@ export function LiveMatchScoutingV2() {
                                     <div className="grid grid-cols-3 gap-3 mb-4">
                                         {[4, 3, 2].map(pos => {
                                             const selectedId = selectedStarters[pos];
-                                            const player = availablePlayers.find(p => p.id === selectedId);
+                                            const display = getPlayerDisplay(selectedId);
                                             const isActive = activePosition === pos
 
                                             // Filter logic: Only show players NOT selected elsewhere (or the one currently selected in this pos)
@@ -471,14 +537,25 @@ export function LiveMatchScoutingV2() {
                                                                 : 'bg-zinc-800 border-dashed border-zinc-600 text-zinc-500 hover:border-zinc-400 hover:bg-zinc-800/80'
                                                             }`}
                                                     >
-                                                        <span className={`text-[10px] font-bold mb-0.5 ${isActive ? 'text-emerald-300' : 'opacity-70'}`}>P{pos}</span>
+
+
                                                         {selectedId ? (
                                                             <>
-                                                                <span className="text-xl font-bold">{player?.number}</span>
-                                                                <span className="text-[9px] truncate max-w-[90%] px-1 opacity-90 leading-tight">{player?.name}</span>
+                                                                <span className="text-2xl font-bold">{display.number}</span>
+                                                                <span className="text-xs truncate max-w-[95%] px-1 opacity-90 leading-tight text-center">{display.name}</span>
+
+                                                                {/* Role Badge */}
+                                                                {display.role && display.role.toLowerCase() !== 'starter' && (
+                                                                    <span className="absolute -bottom-1 right-1 rounded-full bg-zinc-800 px-1.5 py-[1px] text-[10px] font-bold text-zinc-300 border border-zinc-600 shadow-sm z-10">
+                                                                        {display.role}
+                                                                    </span>
+                                                                )}
                                                             </>
                                                         ) : (
-                                                            <span className="text-xs font-bold text-zinc-600">+</span>
+                                                            <div className="flex flex-col items-center justify-center opacity-70">
+                                                                <span className="text-[10px] font-bold text-zinc-500 mb-0.5">P{pos}</span>
+                                                                <span className="text-xl font-bold text-zinc-600 leading-none">+</span>
+                                                            </div>
                                                         )}
                                                     </div>
 
@@ -502,9 +579,11 @@ export function LiveMatchScoutingV2() {
                                                                             }`}
                                                                     >
                                                                         <span className={`font-bold w-5 text-center ${selectedId === p.id ? 'text-emerald-400' : 'text-zinc-500'}`}>{p.number}</span>
-                                                                        <div className="flex flex-col leading-none">
+                                                                        <div className="flex items-center gap-2 leading-none">
                                                                             <span>{p.name}</span>
-                                                                            <span className="text-[9px] text-zinc-500 uppercase">{p.role}</span>
+                                                                            {p.role && p.role.toLowerCase() !== 'starter' && (
+                                                                                <span className="text-[10px] text-zinc-500 uppercase font-bold">{p.role}</span>
+                                                                            )}
                                                                         </div>
                                                                     </button>
                                                                 ))
@@ -520,7 +599,7 @@ export function LiveMatchScoutingV2() {
                                     <div className="grid grid-cols-3 gap-3">
                                         {[5, 6, 1].map(pos => {
                                             const selectedId = selectedStarters[pos];
-                                            const player = availablePlayers.find(p => p.id === selectedId);
+                                            const display = getPlayerDisplay(selectedId);
                                             const isActive = activePosition === pos;
 
                                             // Same filter logic
@@ -545,14 +624,25 @@ export function LiveMatchScoutingV2() {
                                                                 : 'bg-zinc-800 border-dashed border-zinc-600 text-zinc-500 hover:border-zinc-400 hover:bg-zinc-800/80'
                                                             }`}
                                                     >
-                                                        <span className={`text-[10px] font-bold mb-0.5 ${isActive ? 'text-emerald-300' : 'opacity-70'}`}>P{pos}</span>
+
+
                                                         {selectedId ? (
                                                             <>
-                                                                <span className="text-xl font-bold">{player?.number}</span>
-                                                                <span className="text-[9px] truncate max-w-[90%] px-1 opacity-90 leading-tight">{player?.name}</span>
+                                                                <span className="text-2xl font-bold">{display.number}</span>
+                                                                <span className="text-xs truncate max-w-[95%] px-1 opacity-90 leading-tight text-center">{display.name}</span>
+
+                                                                {/* Role Badge */}
+                                                                {display.role && display.role.toLowerCase() !== 'starter' && (
+                                                                    <span className="absolute -bottom-1 right-1 rounded-full bg-zinc-800 px-1.5 py-[1px] text-[10px] font-bold text-zinc-300 border border-zinc-600 shadow-sm z-10">
+                                                                        {display.role}
+                                                                    </span>
+                                                                )}
                                                             </>
                                                         ) : (
-                                                            <span className="text-xs font-bold text-zinc-600">+</span>
+                                                            <div className="flex flex-col items-center justify-center opacity-70">
+                                                                <span className="text-[10px] font-bold text-zinc-500 mb-0.5">P{pos}</span>
+                                                                <span className="text-xl font-bold text-zinc-600 leading-none">+</span>
+                                                            </div>
                                                         )}
                                                     </div>
 
@@ -578,7 +668,9 @@ export function LiveMatchScoutingV2() {
                                                                         <span className={`font-bold w-5 text-center ${selectedId === p.id ? 'text-emerald-400' : 'text-zinc-500'}`}>{p.number}</span>
                                                                         <div className="flex flex-col leading-none">
                                                                             <span>{p.name}</span>
-                                                                            <span className="text-[9px] text-zinc-500 uppercase">{p.role}</span>
+                                                                            {p.role && p.role.toLowerCase() !== 'starter' && (
+                                                                                <span className="text-[9px] text-zinc-500 uppercase">{p.role}</span>
+                                                                            )}
                                                                         </div>
                                                                     </button>
                                                                 ))
@@ -627,21 +719,42 @@ export function LiveMatchScoutingV2() {
                                     {/* Front: 4-3-2 */}
                                     {[4, 3, 2].map(pos => {
                                         const p = getPlayerAt(pos)
+                                        const display = getPlayerDisplay(p?.id)
                                         return (
-                                            <div key={pos} className="aspect-square bg-zinc-800 rounded-lg border border-zinc-700 flex flex-col items-center justify-center shadow-lg relative overflow-hidden">
-                                                <span className="text-2xl font-bold text-white z-10">{p?.number || '-'}</span>
-                                                <span className="text-[10px] text-zinc-500 uppercase z-10">P{pos}</span>
-                                                <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/10 to-transparent" />
+                                            <div key={pos} className="aspect-square bg-zinc-800 rounded-lg border border-zinc-700 flex flex-col items-center justify-center shadow-lg relative overflow-visible">
+                                                <span className="text-2xl font-bold text-white z-10">{display.number}</span>
+                                                <span className="text-[10px] text-zinc-500 uppercase z-10 truncate w-full text-center px-1">{display.name}</span>
+
+
+
+                                                {/* Role Badge */}
+                                                {display.role && display.role.toLowerCase() !== 'starter' && (
+                                                    <div className="absolute -bottom-1.5 right-1 rounded-full bg-zinc-900 px-1.5 py-[1px] border border-zinc-700">
+                                                        <span className="text-[7px] text-zinc-400 font-bold uppercase">{display.role}</span>
+                                                    </div>
+                                                )}
+
+                                                <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/10 to-transparent rounded-lg" />
                                             </div>
                                         )
                                     })}
                                     {/* Back: 5-6-1 */}
                                     {[5, 6, 1].map(pos => {
                                         const p = getPlayerAt(pos)
+                                        const display = getPlayerDisplay(p?.id)
                                         return (
-                                            <div key={pos} className="aspect-square bg-zinc-800/50 rounded-lg border border-zinc-700/50 flex flex-col items-center justify-center shadow-sm">
-                                                <span className="text-2xl font-bold text-zinc-400">{p?.number || '-'}</span>
-                                                <span className="text-[10px] text-zinc-600 uppercase">P{pos}</span>
+                                            <div key={pos} className="aspect-square bg-zinc-800/50 rounded-lg border border-zinc-700/50 flex flex-col items-center justify-center shadow-sm relative overflow-visible">
+                                                <span className="text-2xl font-bold text-zinc-400 z-10">{display.number}</span>
+                                                <span className="text-[9px] text-zinc-600 uppercase z-10 truncate w-full text-center px-1">{display.name}</span>
+
+
+
+                                                {/* Role Badge */}
+                                                {display.role && display.role.toLowerCase() !== 'starter' && (
+                                                    <div className="absolute -bottom-1.5 right-1 rounded-full bg-zinc-900/80 px-1.5 py-[1px] border border-zinc-700/50">
+                                                        <span className="text-[7px] text-zinc-500 font-bold uppercase">{display.role}</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         )
                                     })}
