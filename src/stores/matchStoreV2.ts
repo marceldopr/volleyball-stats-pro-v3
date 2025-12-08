@@ -8,6 +8,9 @@ export type MatchEventType =
     | 'POINT_OPPONENT'
     | 'FREEBALL'
     | 'RECEPTION_EVAL'
+    | 'SET_START'
+    | 'SET_END'
+    | 'SET_LINEUP'
 
 export interface PlayerV2 {
     id: string
@@ -23,6 +26,14 @@ export interface MatchEvent {
     type: MatchEventType
     payload?: {
         reason?: string
+        setNumber?: number
+        winner?: 'home' | 'away'
+        score?: { home: number; away: number }
+        lineup?: {
+            position: 1 | 2 | 3 | 4 | 5 | 6
+            playerId: string
+            player: PlayerV2 // Snapshot
+        }[]
         reception?: {
             playerId: string
             value: 0 | 1 | 2 | 3 | 4
@@ -39,21 +50,25 @@ export interface DerivedMatchState {
     ourSide: 'home' | 'away'
     opponentSide: 'home' | 'away'
     servingSide: 'our' | 'opponent'
-    onCourtPlayers: PlayerV2[]
-    rotation: any[] // Kept for compatibility if needed, but onCourtPlayers is primary
+    onCourtPlayers: {
+        position: 1 | 2 | 3 | 4 | 5 | 6
+        player: PlayerV2
+    }[]
+    rotation: any[]
+    hasLineupForCurrentSet: boolean
 }
 
 export interface MatchV2State {
     // Current Match Data
     dbMatchId: string | null
     ourSide: 'home' | 'away'
-    initialOnCourtPlayers: PlayerV2[] // Store initial lineup to re-calculate derived state correctly from event 0
+    initialOnCourtPlayers: PlayerV2[]
 
     // Event Sourcing
     events: MatchEvent[]
-    futureEvents: MatchEvent[] // For Redo
+    futureEvents: MatchEvent[]
 
-    // Derived State (Cached for UI)
+    // Derived State
     derivedState: DerivedMatchState
 
     // Actions
@@ -73,20 +88,24 @@ const INITIAL_DERIVED_STATE: DerivedMatchState = {
     setsWonHome: 0,
     setsWonAway: 0,
     currentSet: 1,
-    ourSide: 'home', // default, will be overwritten on load
+    ourSide: 'home', // default
     opponentSide: 'away',
     servingSide: 'our', // default
     onCourtPlayers: [],
-    rotation: []
+    rotation: [],
+    hasLineupForCurrentSet: false
 }
 
 function calculateDerivedState(events: MatchEvent[], ourSide: 'home' | 'away', initialPlayers: PlayerV2[]): DerivedMatchState {
     const state = { ...INITIAL_DERIVED_STATE }
     state.ourSide = ourSide
     state.opponentSide = ourSide === 'home' ? 'away' : 'home'
-    state.onCourtPlayers = [...initialPlayers] // Reset to initial before applying events
 
-    // TODO: Initial Serving Side logic. Defaults to 'our' for now.
+    // Fallback/Legacy init
+    state.onCourtPlayers = initialPlayers.map((p, i) => ({
+        position: ((i + 1) % 6 || 6) as 1 | 2 | 3 | 4 | 5 | 6,
+        player: p
+    }))
 
     for (const event of events) {
         switch (event.type) {
@@ -96,8 +115,6 @@ function calculateDerivedState(events: MatchEvent[], ourSide: 'home' | 'away', i
                 } else {
                     state.awayScore++
                 }
-
-                // Serve logic: We win point -> We serve
                 state.servingSide = 'our'
                 break
 
@@ -107,15 +124,12 @@ function calculateDerivedState(events: MatchEvent[], ourSide: 'home' | 'away', i
                 } else {
                     state.awayScore++
                 }
-
-                // Serve logic: Opponent wins point -> Opponent serves
                 state.servingSide = 'opponent'
                 break
 
             case 'RECEPTION_EVAL':
                 const val = event.payload?.reception?.value
                 if (val === 0) {
-                    // Direct Error -> Opponent Point
                     if (state.opponentSide === 'home') {
                         state.homeScore++
                     } else {
@@ -125,14 +139,44 @@ function calculateDerivedState(events: MatchEvent[], ourSide: 'home' | 'away', i
                 }
                 break
 
-            // FREEBALL doesn't change score or serve directly
-        }
+            case 'SET_END':
+                if (event.payload?.winner === 'home') {
+                    state.setsWonHome++
+                } else if (event.payload?.winner === 'away') {
+                    state.setsWonAway++
+                }
+                break
 
-        // Set Logic (Simplified for MVP)
-        // Normal sets to 25, Tiebreak to 15. Win by 2.
+            case 'SET_LINEUP':
+                if (event.payload?.setNumber === state.currentSet && event.payload.lineup) {
+                    state.onCourtPlayers = event.payload.lineup.map(item => ({
+                        position: item.position,
+                        player: item.player
+                    }))
+                }
+                break
+        }
     }
 
     return state
+}
+
+
+// Helper to check if set should end
+function checkSetEnd(state: DerivedMatchState): { shouldEnd: boolean; winner: 'home' | 'away' | null } {
+    const { homeScore, awayScore, currentSet } = state
+
+    // Tie-break rules (Set 5)
+    if (currentSet === 5) {
+        if (homeScore >= 15 && homeScore - awayScore >= 2) return { shouldEnd: true, winner: 'home' }
+        if (awayScore >= 15 && awayScore - homeScore >= 2) return { shouldEnd: true, winner: 'away' }
+    } else {
+        // Normal Sets (1-4)
+        if (homeScore >= 25 && homeScore - awayScore >= 2) return { shouldEnd: true, winner: 'home' }
+        if (awayScore >= 25 && awayScore - homeScore >= 2) return { shouldEnd: true, winner: 'away' }
+    }
+
+    return { shouldEnd: false, winner: null }
 }
 
 // --- Store ---
@@ -148,21 +192,16 @@ export const useMatchStoreV2 = create<MatchV2State>()(
             derivedState: INITIAL_DERIVED_STATE,
 
             loadMatch: (dbMatchId, events, ourSide) => {
-                // RESET STRATEGY:
-                // When loading a new match, we must ensure NO data from the previous match (A) persists into (B).
-                // We reset initialOnCourtPlayers to [] immediately.
-                // The component will call setInitialOnCourtPlayers() shortly after with the correct V2 players.
                 const initialPlayers: PlayerV2[] = []
-
                 const safeEvents = (events || []) as MatchEvent[]
                 const derived = calculateDerivedState(safeEvents, ourSide, initialPlayers)
 
                 set({
                     dbMatchId,
                     ourSide,
-                    initialOnCourtPlayers: initialPlayers, // Clear previous match players
+                    initialOnCourtPlayers: initialPlayers,
                     events: safeEvents,
-                    futureEvents: [], // Clear redo history on reload
+                    futureEvents: [],
                     derivedState: derived
                 })
             },
@@ -188,13 +227,61 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                     payload
                 }
 
-                const newEvents = [...events, newEvent]
-                const newDerived = calculateDerivedState(newEvents, ourSide, initialOnCourtPlayers)
+                // 1. Add current event (e.g., POINT)
+                let tempEvents = [...events, newEvent]
+                let tempDerived = calculateDerivedState(tempEvents, ourSide, initialOnCourtPlayers)
+
+                // 2. Check for Set End
+                const { shouldEnd, winner } = checkSetEnd(tempDerived)
+
+                if (shouldEnd && winner) {
+                    const currentSet = tempDerived.currentSet
+
+                    // Create SET_END
+                    const setEndEvent: MatchEvent = {
+                        id: crypto.randomUUID(),
+                        matchId: dbMatchId,
+                        timestamp: new Date().toISOString(),
+                        type: 'SET_END',
+                        payload: {
+                            setNumber: currentSet,
+                            winner,
+                            score: { home: tempDerived.homeScore, away: tempDerived.awayScore }
+                        }
+                    }
+                    tempEvents.push(setEndEvent)
+
+                    // Note: We deliberately do NOT recalculate derived here to prevent double increment 
+                    // if we were in a loop, but here it's linear. SET_END will increment setsWon in next calc.
+
+                    // Check if match should end completely (Best of 5 -> 3 sets won)
+                    // We calculate state *after* SET_END to see setsWon
+                    const stateAfterSetEnd = calculateDerivedState(tempEvents, ourSide, initialOnCourtPlayers)
+                    const homeWins = stateAfterSetEnd.setsWonHome
+                    const awayWins = stateAfterSetEnd.setsWonAway
+
+                    // If no one reached 3 sets, start next set
+                    if (homeWins < 3 && awayWins < 3) {
+                        const setStartEvent: MatchEvent = {
+                            id: crypto.randomUUID(),
+                            matchId: dbMatchId,
+                            timestamp: new Date().toISOString(),
+                            type: 'SET_START',
+                            payload: {
+                                setNumber: currentSet + 1
+                            }
+                        }
+                        tempEvents.push(setStartEvent)
+                    }
+                }
+
+                // 3. Final calculation with all auto-generated events
+                const finalDerived = calculateDerivedState(tempEvents, ourSide, initialOnCourtPlayers)
 
                 set({
-                    events: newEvents,
-                    futureEvents: [], // Clears redo history
-                    derivedState: newDerived
+                    events: tempEvents,
+                    futureEvents: [],
+                    derivedState: finalDerived
                 })
             },
 

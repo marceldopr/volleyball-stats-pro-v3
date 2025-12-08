@@ -195,7 +195,7 @@ export const matchServiceV2 = {
         try {
             const { data, error } = await supabase
                 .from('match_convocations')
-                .select('*')
+                .select('*, club_players!inner(*)')
                 .eq('match_id', matchId)
 
             if (error) throw error
