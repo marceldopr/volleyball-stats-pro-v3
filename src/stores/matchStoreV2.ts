@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { rotateLineup } from '../lib/volleyball/rotationLogic'
 
 // --- Types ---
 
@@ -36,6 +37,7 @@ export interface MatchEvent {
             playerId: string
             player: PlayerV2 // Snapshot
         }[]
+        liberoId?: string
         reception?: {
             playerId: string
             value: 0 | 1 | 2 | 3 | 4
@@ -58,8 +60,13 @@ export interface DerivedMatchState {
     }[]
     rotation: any[]
     hasLineupForCurrentSet: boolean
+    currentLiberoId: string | null
     // New: Scores history by set
     setsScores: { setNumber: number; home: number; away: number }[]
+    homeTeamName?: string
+    awayTeamName?: string
+    isSetFinished: boolean
+    isMatchFinished: boolean
 }
 
 export interface MatchV2State {
@@ -76,15 +83,13 @@ export interface MatchV2State {
     derivedState: DerivedMatchState
 
     // Actions
-    loadMatch: (dbMatchId: string, events: any[], ourSide: 'home' | 'away') => void
+    loadMatch: (dbMatchId: string, events: any[], ourSide: 'home' | 'away', teamNames?: { home: string; away: string }) => void
     setInitialOnCourtPlayers: (players: PlayerV2[]) => void
     addEvent: (type: MatchEventType, payload?: any) => void
     undoEvent: () => void
     redoEvent: () => void
     reset: () => void
 }
-
-// --- Helper: State Calculation ---
 
 const INITIAL_DERIVED_STATE: DerivedMatchState = {
     homeScore: 0,
@@ -98,7 +103,13 @@ const INITIAL_DERIVED_STATE: DerivedMatchState = {
     onCourtPlayers: [],
     rotation: [],
     hasLineupForCurrentSet: false,
-    setsScores: []
+    currentLiberoId: null,
+
+    setsScores: [],
+    homeTeamName: 'Local',
+    awayTeamName: 'Visitante',
+    isSetFinished: false,
+    isMatchFinished: false
 }
 
 function calculateDerivedState(events: MatchEvent[], ourSide: 'home' | 'away', initialPlayers: PlayerV2[]): DerivedMatchState {
@@ -157,6 +168,10 @@ function calculateDerivedState(events: MatchEvent[], ourSide: 'home' | 'away', i
                 // Reset lineup state for the new set
                 state.hasLineupForCurrentSet = false
                 state.onCourtPlayers = []
+                state.currentLiberoId = null
+
+                // Reset set finished flag
+                state.isSetFinished = false
 
 
                 // Determine serving side for this new set
@@ -185,6 +200,28 @@ function calculateDerivedState(events: MatchEvent[], ourSide: 'home' | 'away', i
                     scoreUs.away++
                 }
                 setScoresMap[state.currentSet] = scoreUs // Re-assign not strictly needed if obj ref, but clarity
+
+                // Side-out: If opponent was serving, we rotate
+                if (state.servingSide === 'opponent') {
+                    // Extract current IDs sorted by position [P1...P6]
+                    const currentIds = [1, 2, 3, 4, 5, 6].map(pos =>
+                        state.onCourtPlayers.find(p => p.position === pos)?.player.id
+                    ).filter((id): id is string => id !== undefined)
+
+                    if (currentIds.length === 6) {
+                        const rotatedIds = rotateLineup(currentIds)
+
+                        // Create map to lookup player objects by ID
+                        const playerMap = new Map(state.onCourtPlayers.map(p => [p.player.id, p.player]))
+
+                        // Update positions
+                        state.onCourtPlayers = rotatedIds.map((id, index) => ({
+                            position: (index + 1) as 1 | 2 | 3 | 4 | 5 | 6,
+                            player: playerMap.get(id)!
+                        }))
+                    }
+                }
+
                 state.servingSide = 'our'
                 break
 
@@ -219,6 +256,10 @@ function calculateDerivedState(events: MatchEvent[], ourSide: 'home' | 'away', i
                 } else if (event.payload?.winner === 'away') {
                     state.setsWonAway++
                 }
+                state.isSetFinished = true
+                if (state.setsWonHome >= 3 || state.setsWonAway >= 3) {
+                    state.isMatchFinished = true
+                }
                 break
 
             case 'SET_LINEUP':
@@ -228,6 +269,7 @@ function calculateDerivedState(events: MatchEvent[], ourSide: 'home' | 'away', i
                         position: item.position,
                         player: item.player
                     }))
+                    state.currentLiberoId = event.payload.liberoId || null
                 }
                 break
         }
@@ -301,18 +343,27 @@ export const useMatchStoreV2 = create<MatchV2State>()(
             futureEvents: [],
             derivedState: INITIAL_DERIVED_STATE,
 
-            loadMatch: (dbMatchId, events, ourSide) => {
-                const initialPlayers: PlayerV2[] = []
-                const safeEvents = (events || []) as MatchEvent[]
-                const derived = calculateDerivedState(safeEvents, ourSide, initialPlayers)
+            loadMatch: (dbMatchId, events, ourSide, teamNames) => {
+                set((state) => {
+                    const mappedEvents = events.map(e => ({
+                        ...e,
+                        timestamp: e.timestamp || new Date().toISOString()
+                    }))
 
-                set({
-                    dbMatchId,
-                    ourSide,
-                    initialOnCourtPlayers: initialPlayers,
-                    events: safeEvents,
-                    futureEvents: [],
-                    derivedState: derived
+                    const derived = calculateDerivedState(mappedEvents, ourSide, state.initialOnCourtPlayers)
+
+                    if (teamNames) {
+                        derived.homeTeamName = teamNames.home
+                        derived.awayTeamName = teamNames.away
+                    }
+
+                    return {
+                        dbMatchId,
+                        ourSide,
+                        events: mappedEvents,
+                        futureEvents: [],
+                        derivedState: derived
+                    }
                 })
             },
 
@@ -328,6 +379,20 @@ export const useMatchStoreV2 = create<MatchV2State>()(
             addEvent: (type, payload) => {
                 const { dbMatchId, events, ourSide, initialOnCourtPlayers } = get()
                 if (!dbMatchId) return
+
+                // Guard: Prevent modifications if match is finished
+                // Exception: Undo/Redo are separate actions.
+                if (get().derivedState.isMatchFinished) {
+                    console.warn('Match is finished. Cannot add new events.')
+                    return
+                }
+
+                // Guard: Prevent scoring if set is finished (but match not over)
+                // Actually, if SET_END happened, we shouldn't allow POINTs.
+                if (get().derivedState.isSetFinished && (type === 'POINT_US' || type === 'POINT_OPPONENT')) {
+                    console.warn('Set is finished. Cannot add points.')
+                    return
+                }
 
                 const newEvent: MatchEvent = {
                     id: crypto.randomUUID(),
@@ -360,9 +425,6 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                         }
                     }
                     tempEvents.push(setEndEvent)
-
-                    // Note: We deliberately do NOT recalculate derived here to prevent double increment 
-                    // if we were in a loop, but here it's linear. SET_END will increment setsWon in next calc.
 
                     // Check if match should end completely (Best of 5 -> 3 sets won)
                     // We calculate state *after* SET_END to see setsWon

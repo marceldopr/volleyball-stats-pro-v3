@@ -11,6 +11,8 @@ import { SubstitutionPopup } from './SubstitutionPopup'
 import { LineupGrid } from './LineupGrid'
 import { matchStatsService } from '../services/matchStatsService'
 import { matchService } from '../services/matchService'
+import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
+import { rotateLineup } from '../lib/volleyball/rotationLogic'
 
 
 interface ActionHistory {
@@ -44,7 +46,7 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
   const [actionHistory, setActionHistory] = useState<ActionHistory[]>([])
   const [redoHistory, setRedoHistory] = useState<ActionHistory[]>([])
   const [currentRotationOrder, setCurrentRotationOrder] = useState<string[]>([])
-  const [displayRotationOrder, setDisplayRotationOrder] = useState<string[]>([])
+  const [displayRotationOrder, setDisplayRotationOrder] = useState<(string | null)[]>([])
   const [showSetCompleteModal, setShowSetCompleteModal] = useState(false)
   const [showMatchCompleteModal, setShowMatchCompleteModal] = useState(false)
   // Auto-open starters modal if no lineup is set for set 1
@@ -311,36 +313,13 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
   }
 
   // Calculate display rotation with libero substitution rules
-  const calculateDisplayRotation = (baseRotation: string[], liberoId: string | null, isServing: boolean): string[] => {
-    // If no libero, return base rotation unchanged
-    if (!liberoId) {
-      return [...baseRotation]
-    }
-
-    const displayRotation = [...baseRotation]
-
-    // Back row positions: 5, 6, 1 (in volleyball court layout)
-    const backRowPositions = [4, 5, 0] // Array indices for positions 5, 6, 1
-
-    backRowPositions.forEach(arrayIndex => {
-      const playerId = baseRotation[arrayIndex]
-      const player = match.players.find(p => p.playerId === playerId)
-
-      // Only substitute if player is MB
-      if (player?.position === 'MB') {
-        const positionNumber = [5, 6, 1][backRowPositions.indexOf(arrayIndex)]
-
-        // Rule a) MB in position 1 (array index 5) and team is serving: no substitution
-        if (positionNumber === 1 && isServing) {
-          // Keep MB, no substitution
-        } else {
-          // Rule b) MB in back row (5, 6) or position 1 not serving: substitute with libero
-          displayRotation[arrayIndex] = liberoId
-        }
-      }
-    })
-
-    return displayRotation
+  const calculateDisplayRotation = (baseRotation: string[], liberoId: string | null, isServing: boolean): (string | null)[] => {
+    return calculateLiberoRotation(
+      baseRotation,
+      liberoId,
+      isServing,
+      (id) => match.players.find(p => p.playerId === id)?.position
+    )
   }
 
   // Get team name from prop or fallback
@@ -436,13 +415,9 @@ export function LiveMatchScouting({ match, onUpdateMatch, onNavigateToMatches, o
     }
   }, [match.currentSet, match.startingLineup, showStartersModal])
 
-  // Rotate players - clockwise rotation: 1â†’6â†’5â†’4â†’3â†’2â†’1
+  // Rotate players - clockwise rotation: 1→6→5→4→3→2→1
   const rotatePlayers = () => {
-    setCurrentRotationOrder(prev => {
-      const rotated = [...prev]
-      // Official volleyball rotation: [z2, z3, z4, z5, z6, z1]
-      return [rotated[1], rotated[2], rotated[3], rotated[4], rotated[5], rotated[0]]
-    })
+    setCurrentRotationOrder(prev => rotateLineup(prev))
     setRotation(prev => prev === 6 ? 1 : prev + 1)
   }
 

@@ -6,6 +6,8 @@ import { useMatchStoreV2 } from '@/stores/matchStoreV2'
 import { matchServiceV2 } from '@/services/matchServiceV2'
 import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
 import { toast } from 'sonner'
+import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
+import { MatchFinishedModal } from '@/components/matches/MatchFinishedModal'
 
 export function LiveMatchScoutingV2() {
     const { matchId } = useParams<{ matchId: string }>()
@@ -39,7 +41,38 @@ export function LiveMatchScoutingV2() {
     const [initialServerChoice, setInitialServerChoice] = useState<'our' | 'opponent' | null>(null)
     const [selectedStarters, setSelectedStarters] = useState<{ [pos: number]: string }>({})
     const [selectedLiberoId, setSelectedLiberoId] = useState<string | null>(null)
+
     const lastSetRef = useRef<number | null>(null)
+
+    // Match Finished Logic
+    const [isMatchFinishedModalOpen, setIsMatchFinishedModalOpen] = useState(false)
+    const hasShownFinishModal = useRef(false)
+
+    useEffect(() => {
+        if (derivedState.isMatchFinished && !hasShownFinishModal.current) {
+            setIsMatchFinishedModalOpen(true)
+            hasShownFinishModal.current = true
+        } else if (!derivedState.isMatchFinished) {
+            // Reset if undone
+            hasShownFinishModal.current = false
+            setIsMatchFinishedModalOpen(false)
+        }
+    }, [derivedState.isMatchFinished])
+
+    const handleConfirmFinish = () => {
+        toast.success("Partido finalizado correctamente")
+        // TODO: Call finalizeMatch API if needed for status update
+        navigate('/matches')
+    }
+
+    const handleUndoFinish = () => {
+        setIsMatchFinishedModalOpen(false)
+        undoEvent()
+    }
+
+    const handleViewReadOnly = () => {
+        setIsMatchFinishedModalOpen(false)
+    }
 
     // Load Match & Convocations only once
     useEffect(() => {
@@ -56,8 +89,15 @@ export function LiveMatchScoutingV2() {
                 // 1. Determine Our Side
                 const ourSide = match.home_away === 'home' ? 'home' : 'away'
 
-                // 2. Load Match into Store
-                loadMatch(match.id, match.actions || [], ourSide)
+                // 2. Determine Names
+                const teamName = match.teams?.custom_name || 'Nuestro Equipo'
+                const opponentName = match.opponent_name || 'Rival'
+
+                const homeTeamName = ourSide === 'home' ? teamName : opponentName
+                const awayTeamName = ourSide === 'away' ? teamName : opponentName
+
+                // 3. Load Match into Store
+                loadMatch(match.id, match.actions || [], ourSide, { home: homeTeamName, away: awayTeamName })
 
                 // 3. Load Roster (Context for numbers/roles)
                 const roster = await playerTeamSeasonService.getRosterByTeamAndSeason(match.team_id, match.season_id)
@@ -191,15 +231,6 @@ export function LiveMatchScoutingV2() {
         }, 350)
     }
 
-    // Handlers
-    const handlePointUs = (reason: string) => {
-        handleAction(() => addEvent('POINT_US', { reason }))
-    }
-
-    const handlePointOpponent = (reason: string) => {
-        handleAction(() => addEvent('POINT_OPPONENT', { reason }))
-    }
-
     // Get Player at Position Helper
     const getPlayerAt = (pos: number) => {
         const { onCourtPlayers } = derivedState
@@ -222,6 +253,14 @@ export function LiveMatchScoutingV2() {
                 }, 100)
             }
         })
+    }
+
+    // Handlers
+    const handlePointOpponent = (reason: string) => {
+        handleAction(() => addEvent('POINT_OPPONENT', { reason }))
+    }
+    const handlePointUs = (reason: string) => {
+        handleAction(() => addEvent('POINT_US', { reason }))
     }
 
     // Confirm Starters Handler
@@ -290,56 +329,94 @@ export function LiveMatchScoutingV2() {
         <div className="min-h-screen bg-zinc-950 flex justify-center text-white font-sans overflow-y-auto">
             <div className="w-full max-w-md bg-zinc-950 shadow-2xl min-h-screen flex flex-col pb-4 text-white">
 
-                {/* HEADER */}
-                <header className="flex-none bg-zinc-900/90 border-b border-zinc-800 py-3 px-4 flex items-center justify-between z-20 sticky top-0 backdrop-blur-md shadow-md">
-                    <Button variant="ghost" size="sm" onClick={() => navigate('/matches')} className="h-10 w-10 text-zinc-400 hover:text-white p-0">
-                        <ArrowLeft size={24} />
-                    </Button>
-
-                    <div className="flex flex-col items-center flex-1">
-                        <div className="flex flex-col items-center mb-2">
-                            <span className="text-zinc-500 font-mono text-[10px] font-bold tracking-widest uppercase">Set {derivedState.currentSet}</span>
-                            <span className="text-[10px] text-zinc-600 font-mono font-bold">
-                                ({matchData?.home_away === 'home' ? derivedState.setsWonHome : derivedState.setsWonAway} - {matchData?.home_away === 'home' ? derivedState.setsWonAway : derivedState.setsWonHome})
-                            </span>
-                        </div>
-
-                        <div className="flex items-center gap-6">
-                            {/* HOME SCORE */}
-                            <div className={`flex flex-col items-center px-3 py-1 rounded-lg transition-all duration-300 border ${(derivedState.servingSide === 'our' && derivedState.ourSide === 'home') || (derivedState.servingSide === 'opponent' && derivedState.ourSide === 'away')
-                                ? "bg-zinc-800/80 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
-                                : "border-transparent opacity-60"
-                                }`}>
-                                <span className={`text-4xl font-black tracking-tighter leading-none ${derivedState.ourSide === 'home' ? 'text-white' : 'text-zinc-500'}`}>
-                                    {derivedState.homeScore}
-                                </span>
-                            </div>
-
-                            <div className="flex flex-col gap-1 items-center opacity-30">
-                                <div className="w-1 h-1 bg-zinc-500 rounded-full" />
-                                <div className="w-1 h-1 bg-zinc-500 rounded-full" />
-                            </div>
-
-                            {/* AWAY SCORE */}
-                            <div className={`flex flex-col items-center px-3 py-1 rounded-lg transition-all duration-300 border ${(derivedState.servingSide === 'our' && derivedState.ourSide === 'away') || (derivedState.servingSide === 'opponent' && derivedState.ourSide === 'home')
-                                ? "bg-zinc-800/80 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
-                                : "border-transparent opacity-60"
-                                }`}>
-                                <span className={`text-4xl font-black tracking-tighter leading-none ${derivedState.ourSide !== 'home' ? 'text-white' : 'text-zinc-500'}`}>
-                                    {derivedState.awayScore}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Serving Label */}
-                        <div className="mt-2 flex items-center justify-center gap-2">
-                            <div className={`w-1.5 h-1.5 rounded-full ${derivedState.servingSide === 'our' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500 animate-pulse'}`} />
-                            <span className={`text-[10px] uppercase font-bold tracking-widest ${derivedState.servingSide === 'our' ? 'text-emerald-100' : 'text-rose-100/70'}`}>
-                                Saca: {derivedState.servingSide === 'our' ? 'Nosotros' : 'Rival'}
-                            </span>
+                {/* READ ONLY BANNER */}
+                {derivedState.isMatchFinished && !isMatchFinishedModalOpen && (
+                    <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex items-center justify-between sticky top-0 z-30 backdrop-blur-md">
+                        <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">
+                            🏁 Partido Finalizado — Solo Lectura
+                        </span>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={undoEvent}
+                                className="h-6 text-[10px] text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 px-2"
+                            >
+                                <Undo2 size={12} className="mr-1" />
+                                Deshacer
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => navigate('/matches')}
+                                className="h-6 text-[10px] text-zinc-400 hover:text-white hover:bg-zinc-800 px-2"
+                            >
+                                Salir
+                            </Button>
                         </div>
                     </div>
-                    <div className="w-10" />
+                )}
+
+                {/* HEADER */}
+                <header className="flex-none bg-zinc-900/90 border-b border-zinc-800 py-3 px-4 flex flex-col z-20 sticky top-0 backdrop-blur-md shadow-md">
+                    <div className="flex items-center justify-between mb-2">
+                        <Button variant="ghost" size="sm" onClick={() => navigate('/matches')} className="h-8 w-8 text-zinc-400 hover:text-white p-0">
+                            <ArrowLeft size={20} />
+                        </Button>
+                        <span className="text-zinc-500 font-mono text-[10px] font-bold tracking-widest uppercase">Set {derivedState.currentSet}</span>
+                        <div className="w-8" />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 px-2">
+                        {/* HOME SIDE (Fixed Left) */}
+                        <div className="flex flex-col items-center flex-1">
+                            <span className="text-[10px] uppercase font-bold text-zinc-400 truncate w-full text-center mb-1">
+                                {derivedState.homeTeamName || 'Local'}
+                            </span>
+                            <div className={`flex flex-col items-center px-4 py-2 rounded-lg transition-all duration-300 w-full relative overflow-hidden ${derivedState.servingSide === (derivedState.ourSide === 'home' ? 'our' : 'opponent')
+                                ? "bg-zinc-800 border border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                                : "bg-zinc-900/50 border border-zinc-800"
+                                }`}>
+                                <span className={`text-5xl font-black tracking-tighter leading-none ${derivedState.ourSide === 'home' ? 'text-white' : 'text-zinc-500'
+                                    }`}>
+                                    {derivedState.homeScore}
+                                </span>
+                                {derivedState.servingSide === (derivedState.ourSide === 'home' ? 'our' : 'opponent') && (
+                                    <div className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                                )}
+                            </div>
+                        </div>
+
+                        {/* CENTER INFO */}
+                        <div className="flex flex-col items-center gap-1 opacity-50">
+                            <span className="text-xs font-bold text-zinc-600">vs</span>
+                        </div>
+
+                        {/* AWAY SIDE (Fixed Right) */}
+                        <div className="flex flex-col items-center flex-1">
+                            <span className="text-[10px] uppercase font-bold text-zinc-400 truncate w-full text-center mb-1">
+                                {derivedState.awayTeamName || 'Visitante'}
+                            </span>
+                            <div className={`flex flex-col items-center px-4 py-2 rounded-lg transition-all duration-300 w-full relative overflow-hidden ${derivedState.servingSide === (derivedState.ourSide === 'away' ? 'our' : 'opponent')
+                                ? "bg-zinc-800 border border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.1)]"
+                                : "bg-zinc-900/50 border border-zinc-800"
+                                }`}>
+                                <span className={`text-5xl font-black tracking-tighter leading-none ${derivedState.ourSide === 'away' ? 'text-white' : 'text-zinc-500'
+                                    }`}>
+                                    {derivedState.awayScore}
+                                </span>
+                                {derivedState.servingSide === (derivedState.ourSide === 'away' ? 'our' : 'opponent') && (
+                                    <div className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-center mt-2">
+                        <span className="text-[10px] text-zinc-600 font-mono font-bold">
+                            Sets: {derivedState.setsWonHome} - {derivedState.setsWonAway}
+                        </span>
+                    </div>
                 </header>
 
                 {/* MAIN GRID */}
@@ -407,16 +484,35 @@ export function LiveMatchScoutingV2() {
                         Freeball
                     </button>
 
-                    {/* ROTATION STRIP */}
+                    {/* ROTATION STRIP - Uses shared libero logic */}
                     <div className="mt-4 bg-zinc-900/50 border border-zinc-800/50 rounded-xl p-2 flex flex-col gap-1 items-center cursor-pointer hover:bg-zinc-800/50 transition-colors" onClick={() => setShowRotationModal(true)}>
-                        <div className="flex justify-center gap-1 w-full border-b border-zinc-800/50 pb-1">
-                            {[4, 3, 2].map(pos => {
-                                const p = getPlayerAt(pos)
-                                const display = getPlayerDisplay(p?.id)
+                        {(() => {
+                            // 1. Prepare base rotation array P1-P6 from state
+                            const currentRotationPlayers = [1, 2, 3, 4, 5, 6].map(pos => getPlayerAt(pos));
+                            const baseRotationIds = currentRotationPlayers.map(p => p?.id || null);
+
+                            // 2. Calculate display rotation (with libero swap)
+                            const isServing = derivedState.servingSide === 'our';
+                            const displayRotationIds = calculateLiberoRotation(
+                                baseRotationIds,
+                                derivedState.currentLiberoId,
+                                isServing,
+                                (id) => availablePlayers.find(p => p.id === id)?.role
+                            );
+
+                            // Helper to render a position box
+                            const renderPositionBox = (posIndex: number, originalPosLabel: number) => {
+                                const playerId = displayRotationIds[posIndex]; // 0-based index from calc function
+                                const display = getPlayerDisplay(playerId);
+
+                                // Determine actual P-label to show (logical position on court)
+                                // The array from calculateLiberoRotation is [P1, P2, P3, P4, P5, P6] (indices 0-5)
+                                // So index 0 is P1, index 1 is P2...
+
                                 return (
-                                    <div key={pos} className="flex-1 h-14 bg-zinc-800/80 rounded border border-zinc-700/50 flex flex-col items-center justify-center shadow-sm relative overflow-visible">
+                                    <div key={originalPosLabel} className="flex-1 h-14 bg-zinc-800/80 rounded border border-zinc-700/50 flex flex-col items-center justify-center shadow-sm relative overflow-visible">
                                         <div className="absolute top-0.5 left-1 opacity-80">
-                                            <span className="text-[9px] font-bold text-white">P{pos}</span>
+                                            <span className="text-[9px] font-bold text-white">P{originalPosLabel}</span>
                                         </div>
                                         {display.role && display.role.toLowerCase() !== 'starter' && (
                                             <div className="absolute top-0.5 right-1">
@@ -427,30 +523,26 @@ export function LiveMatchScoutingV2() {
                                         <span className="text-xl font-bold text-zinc-200 z-10 leading-none mb-0.5 mt-2">{display.number}</span>
                                         <span className="text-[10px] text-zinc-400 uppercase z-10 leading-none truncate w-full text-center px-0.5">{display.name}</span>
                                     </div>
-                                )
-                            })}
-                        </div>
-                        <div className="flex justify-center gap-1 w-full pt-1">
-                            {[5, 6, 1].map(pos => {
-                                const p = getPlayerAt(pos)
-                                const display = getPlayerDisplay(p?.id)
-                                return (
-                                    <div key={pos} className="flex-1 h-14 bg-zinc-800/50 rounded border border-zinc-700/30 flex flex-col items-center justify-center shadow-sm relative overflow-visible">
-                                        <div className="absolute top-0.5 left-1 opacity-80">
-                                            <span className="text-[9px] font-bold text-white">P{pos}</span>
-                                        </div>
-                                        {display.role && display.role.toLowerCase() !== 'starter' && (
-                                            <div className="absolute top-0.5 right-1">
-                                                <span className="text-[8px] font-bold text-zinc-500 bg-zinc-900/50 px-1 rounded leading-none">{display.role}</span>
-                                            </div>
-                                        )}
+                                );
+                            };
 
-                                        <span className="text-xl font-bold text-zinc-300 z-10 leading-none mb-0.5 mt-1.5">{display.number}</span>
-                                        <span className="text-[10px] text-zinc-500 uppercase z-10 leading-none truncate w-full text-center px-0.5">{display.name}</span>
+                            return (
+                                <>
+                                    <div className="flex justify-center gap-1 w-full border-b border-zinc-800/50 pb-1">
+                                        {/* Front Row: P4 (index 3), P3 (index 2), P2 (index 1) */}
+                                        {renderPositionBox(3, 4)}
+                                        {renderPositionBox(2, 3)}
+                                        {renderPositionBox(1, 2)}
                                     </div>
-                                )
-                            })}
-                        </div>
+                                    <div className="flex justify-center gap-1 w-full pt-1">
+                                        {/* Back Row: P5 (index 4), P6 (index 5), P1 (index 0) */}
+                                        {renderPositionBox(4, 5)}
+                                        {renderPositionBox(5, 6)}
+                                        {renderPositionBox(0, 1)}
+                                    </div>
+                                </>
+                            );
+                        })()}
                     </div>
 
                 </div>
@@ -903,7 +995,22 @@ export function LiveMatchScoutingV2() {
                     )
                 }
 
-            </div >
+            </div>
+
+            {/* Match Finished Modal */}
+            < MatchFinishedModal
+                isOpen={isMatchFinishedModalOpen}
+                onConfirm={handleConfirmFinish}
+                onUndo={handleUndoFinish}
+                onViewReadOnly={handleViewReadOnly}
+                homeTeamName={derivedState.homeTeamName || 'Local'}
+                awayTeamName={derivedState.awayTeamName || 'Visitante'}
+                setsWonHome={derivedState.setsWonHome}
+                setsWonAway={derivedState.setsWonAway}
+                finalSetScore={derivedState.setsScores[derivedState.setsScores.length - 1] || { home: 0, away: 0 }}
+            />
+
+            {/* Close outer wrapper div */}
         </div >
     )
 }

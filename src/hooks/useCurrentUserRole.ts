@@ -32,11 +32,11 @@ export function useCurrentUserRole(): UseCurrentUserRoleReturn {
 
     useEffect(() => {
         const fetchAssignedTeams = async () => {
-            console.log('[useCurrentUserRole] Starting fetch:', { isCoach, profileId: profile?.id, clubId: profile?.club_id })
+            // console.log('[useCurrentUserRole] Starting fetch:', { isCoach, profileId: profile?.id, clubId: profile?.club_id })
 
             // Only fetch assignments for coaches
             if (!isCoach || !profile?.id || !profile?.club_id) {
-                console.log('[useCurrentUserRole] Skipping fetch - not coach or missing data')
+                // console.log('[useCurrentUserRole] Skipping fetch - not coach or missing data')
                 setAssignedTeamIds([])
                 return
             }
@@ -45,10 +45,10 @@ export function useCurrentUserRole(): UseCurrentUserRoleReturn {
             try {
                 // Get current season
                 const currentSeason = await seasonService.getCurrentSeasonByClub(profile.club_id)
-                console.log('[useCurrentUserRole] Current season:', currentSeason)
+                // console.log('[useCurrentUserRole] Current season:', currentSeason)
 
                 if (!currentSeason) {
-                    console.log('[useCurrentUserRole] No current season found')
+                    // console.log('[useCurrentUserRole] No current season found')
                     setAssignedTeamIds([])
                     setLoading(false)
                     return
@@ -60,7 +60,7 @@ export function useCurrentUserRole(): UseCurrentUserRoleReturn {
                     currentSeason.id
                 )
 
-                console.log('[useCurrentUserRole] Fetched team IDs:', teamIds)
+                // console.log('[useCurrentUserRole] Fetched team IDs:', teamIds)
                 setAssignedTeamIds(teamIds)
             } catch (error) {
                 console.error('[useCurrentUserRole] Error fetching assigned teams:', error)

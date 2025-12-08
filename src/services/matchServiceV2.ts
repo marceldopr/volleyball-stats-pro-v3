@@ -26,6 +26,9 @@ export interface MatchV2DB {
     engine: 'v2'  // SEMPRE 'v2'
     created_at: string
     updated_at: string
+    teams?: {
+        custom_name: string
+    }
 }
 
 export interface CreateMatchV2Input {
@@ -85,7 +88,7 @@ export const matchServiceV2 = {
         try {
             const { data, error } = await supabase
                 .from('matches')
-                .select('*')
+                .select('*, teams(custom_name)')
                 .eq('id', id)
                 .eq('engine', 'v2')  // NOMÉS V2
                 .single()
