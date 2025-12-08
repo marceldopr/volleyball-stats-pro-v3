@@ -275,14 +275,24 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
           </p>
         </div>
         {!isCoach && (
-          <Button
-            variant="primary"
-            size="md"
-            icon={Plus}
-            onClick={() => setIsWizardOpen(true)}
-          >
-            Nuevo Partido
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="primary"
+              size="md"
+              icon={Plus}
+              onClick={() => setIsWizardOpen(true)}
+            >
+              Nuevo Partido
+            </Button>
+            <Button
+              variant="danger"
+              size="md"
+              icon={Plus}
+              onClick={() => navigate('/matches/create-v2')}
+            >
+              🔴 Crear Partido V2
+            </Button>
+          </div>
         )}
       </div>
 
@@ -352,6 +362,14 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
 
                 {/* Badges */}
                 <div className="flex items-center gap-2 flex-wrap">
+                  {/* ENGINE BADGE */}
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold border ${match.engine === 'v2'
+                    ? 'bg-purple-500/10 border-purple-500/30 text-purple-400'
+                    : 'bg-gray-500/10 border-gray-500/30 text-gray-400'
+                    }`}>
+                    {match.engine === 'v2' ? 'V2' : 'V1'}
+                  </span>
+
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border ${match.home_away === 'home'
                     ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
                     : 'bg-blue-500/10 border-blue-500/30 text-blue-400'
@@ -384,7 +402,13 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                     variant="secondary"
                     size="sm"
                     icon={Users}
-                    onClick={() => handleOpenConvocationManager(match)}
+                    onClick={() => {
+                      if (match.engine === 'v2') {
+                        navigate(`/matches/v2/${match.id}/convocation`)
+                      } else {
+                        handleOpenConvocationManager(match)
+                      }
+                    }}
                   >
                     Gestionar Convocatoria
                   </Button>
@@ -396,9 +420,15 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                     variant="primary"
                     size="sm"
                     icon={Play}
-                    onClick={() => handleStartMatch(match)}
-                    disabled={!matchesWithConvocations[match.id]}
-                    title={!matchesWithConvocations[match.id] ? 'Primero debes gestionar la convocatoria' : ''}
+                    onClick={() => {
+                      if (match.engine === 'v2') {
+                        navigate(`/matches/v2/${match.id}/convocation`)
+                      } else {
+                        handleStartMatch(match)
+                      }
+                    }}
+                    disabled={match.engine !== 'v2' && !matchesWithConvocations[match.id]}
+                    title={match.engine !== 'v2' && !matchesWithConvocations[match.id] ? 'Primero debes gestionar la convocatoria' : ''}
                   >
                     Iniciar Partido
                   </Button>
@@ -409,7 +439,13 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                     variant="primary"
                     size="sm"
                     icon={Play}
-                    onClick={() => navigate(`/matches/${match.id}/live`)}
+                    onClick={() => {
+                      if (match.engine === 'v2') {
+                        navigate(`/live-match-v2/${match.id}`)
+                      } else {
+                        navigate(`/matches/${match.id}/live`)
+                      }
+                    }}
                     className="animate-pulse"
                   >
                     Ver en Vivo
@@ -421,7 +457,13 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                     variant="primary"
                     size="sm"
                     icon={BarChart3}
-                    onClick={() => navigate(`/matches/${match.id}/analysis`)}
+                    onClick={() => {
+                      if (match.engine === 'v2') {
+                        navigate(`/live-match-v2/${match.id}`)
+                      } else {
+                        navigate(`/matches/${match.id}/analysis`)
+                      }
+                    }}
                   >
                     Ver Análisis
                   </Button>

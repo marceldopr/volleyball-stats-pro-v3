@@ -4,6 +4,9 @@ import { Teams } from '@/pages/Teams'
 import { TeamSeasonContext } from '@/pages/TeamSeasonContext'
 import { Matches } from '@/pages/Matches'
 import { LiveMatch } from '@/pages/LiveMatch'
+import { MatchWizardV2 } from '@/pages/MatchWizardV2'
+import { MatchConvocationV2 } from '@/components/matches/MatchConvocationV2'
+import { LiveMatchScoutingV2 } from '@/pages/LiveMatchScoutingV2'
 import { MatchAnalysis } from '@/pages/MatchAnalysis'
 import { Analytics } from '@/pages/Analytics'
 import { SettingsPage } from '@/pages/Settings'
@@ -152,6 +155,28 @@ function App() {
                     <Route path="/matches/:id/analysis" element={
                       <RoleGuard allowedForDT allowedForCoach>
                         <MatchAnalysis />
+                      </RoleGuard>
+                    } />
+
+                    {/* V2 Match System Routes (Event-Sourcing) */}
+// Add import at the top (I'll add it here directly or rely on VSCode auto-import if I was in IDE, but here I must be explicit)
+                    // Wait, I can't add import at top easily with just range replacing lines 160-170.
+                    // I will split this into two edits: one for import, one for route.
+
+                    // EDIT 1: Route
+                    <Route path="/matches/create-v2" element={
+                      <RoleGuard allowedForDT allowedForCoach>
+                        <MatchWizardV2 />
+                      </RoleGuard>
+                    } />
+                    <Route path="/matches/v2/:matchId/convocation" element={
+                      <RoleGuard allowedForDT allowedForCoach>
+                        <MatchConvocationV2 />
+                      </RoleGuard>
+                    } />
+                    <Route path="/live-match-v2/:matchId" element={
+                      <RoleGuard allowedForDT allowedForCoach>
+                        <LiveMatchScoutingV2 />
                       </RoleGuard>
                     } />
 
