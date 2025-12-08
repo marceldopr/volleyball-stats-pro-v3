@@ -38,6 +38,7 @@ export function LiveMatchScoutingV2() {
     const [showStartersModal, setShowStartersModal] = useState(false)
     const [initialServerChoice, setInitialServerChoice] = useState<'our' | 'opponent' | null>(null)
     const [selectedStarters, setSelectedStarters] = useState<{ [pos: number]: string }>({})
+    const [selectedLiberoId, setSelectedLiberoId] = useState<string | null>(null)
     const lastSetRef = useRef<number | null>(null)
 
     // Load Match & Convocations only once
@@ -247,13 +248,18 @@ export function LiveMatchScoutingV2() {
             })
         }
 
-        addEvent('SET_LINEUP', { setNumber: derivedState.currentSet, lineup: lineup as any })
+        addEvent('SET_LINEUP', {
+            setNumber: derivedState.currentSet,
+            lineup: lineup as any,
+            liberoId: selectedLiberoId
+        })
 
 
         // Close modal strictly
         setShowStartersModal(false)
         setActivePosition(null)
         setSelectedStarters({})
+        setSelectedLiberoId(null)
         setInitialServerChoice(null)
     }
 
@@ -408,12 +414,18 @@ export function LiveMatchScoutingV2() {
                                 const p = getPlayerAt(pos)
                                 const display = getPlayerDisplay(p?.id)
                                 return (
-                                    <div key={pos} className="flex-1 h-10 bg-zinc-800/80 rounded border border-zinc-700/50 flex flex-col items-center justify-center shadow-sm relative overflow-hidden">
-                                        <span className="text-xs font-bold text-zinc-200 z-10">{display.number}</span>
-                                        <span className="text-[7px] text-zinc-400 uppercase z-10 leading-none truncate w-full text-center px-0.5">{display.name}</span>
-                                        <div className="absolute top-0 right-0 p-0.5 opacity-50">
-                                            <span className="text-[6px] text-zinc-600">P{pos}</span>
+                                    <div key={pos} className="flex-1 h-14 bg-zinc-800/80 rounded border border-zinc-700/50 flex flex-col items-center justify-center shadow-sm relative overflow-visible">
+                                        <div className="absolute top-0.5 left-1 opacity-80">
+                                            <span className="text-[9px] font-bold text-white">P{pos}</span>
                                         </div>
+                                        {display.role && display.role.toLowerCase() !== 'starter' && (
+                                            <div className="absolute top-0.5 right-1">
+                                                <span className="text-[8px] font-bold text-zinc-400 bg-zinc-900/50 px-1 rounded leading-none">{display.role}</span>
+                                            </div>
+                                        )}
+
+                                        <span className="text-xl font-bold text-zinc-200 z-10 leading-none mb-0.5 mt-2">{display.number}</span>
+                                        <span className="text-[10px] text-zinc-400 uppercase z-10 leading-none truncate w-full text-center px-0.5">{display.name}</span>
                                     </div>
                                 )
                             })}
@@ -423,12 +435,18 @@ export function LiveMatchScoutingV2() {
                                 const p = getPlayerAt(pos)
                                 const display = getPlayerDisplay(p?.id)
                                 return (
-                                    <div key={pos} className="flex-1 h-10 bg-zinc-800/50 rounded border border-zinc-700/30 flex flex-col items-center justify-center shadow-sm relative overflow-hidden">
-                                        <span className="text-xs font-bold text-zinc-300 z-10">{display.number}</span>
-                                        <span className="text-[7px] text-zinc-500 uppercase z-10 leading-none truncate w-full text-center px-0.5">{display.name}</span>
-                                        <div className="absolute bottom-0 right-0 p-0.5 opacity-50">
-                                            <span className="text-[6px] text-zinc-700">P{pos}</span>
+                                    <div key={pos} className="flex-1 h-14 bg-zinc-800/50 rounded border border-zinc-700/30 flex flex-col items-center justify-center shadow-sm relative overflow-visible">
+                                        <div className="absolute top-0.5 left-1 opacity-80">
+                                            <span className="text-[9px] font-bold text-white">P{pos}</span>
                                         </div>
+                                        {display.role && display.role.toLowerCase() !== 'starter' && (
+                                            <div className="absolute top-0.5 right-1">
+                                                <span className="text-[8px] font-bold text-zinc-500 bg-zinc-900/50 px-1 rounded leading-none">{display.role}</span>
+                                            </div>
+                                        )}
+
+                                        <span className="text-xl font-bold text-zinc-300 z-10 leading-none mb-0.5 mt-1.5">{display.number}</span>
+                                        <span className="text-[10px] text-zinc-500 uppercase z-10 leading-none truncate w-full text-center px-0.5">{display.name}</span>
                                     </div>
                                 )
                             })}
@@ -516,11 +534,15 @@ export function LiveMatchScoutingV2() {
                                             const isActive = activePosition === pos
 
                                             // Filter logic: Only show players NOT selected elsewhere (or the one currently selected in this pos)
+                                            // AND EXCLUDE LIBEROS
                                             const availableForPos = availablePlayers.filter(p => {
                                                 const usedInOtherPos = Object.entries(selectedStarters).some(([otherPos, otherId]) => {
                                                     return parseInt(otherPos) !== pos && otherId === p.id;
                                                 });
-                                                return !usedInOtherPos;
+                                                const isLibero = p.role === 'L';
+                                                const isSelectedLibero = p.id === selectedLiberoId;
+
+                                                return !usedInOtherPos && !isLibero && !isSelectedLibero;
                                             });
 
                                             return (
@@ -602,12 +624,16 @@ export function LiveMatchScoutingV2() {
                                             const display = getPlayerDisplay(selectedId);
                                             const isActive = activePosition === pos;
 
-                                            // Same filter logic
+                                            // Filter logic: Only show players NOT selected elsewhere (or the one currently selected in this pos)
+                                            // AND EXCLUDE LIBEROS
                                             const availableForPos = availablePlayers.filter(p => {
                                                 const usedInOtherPos = Object.entries(selectedStarters).some(([otherPos, otherId]) => {
                                                     return parseInt(otherPos) !== pos && otherId === p.id;
                                                 });
-                                                return !usedInOtherPos;
+                                                const isLibero = p.role === 'L';
+                                                const isSelectedLibero = p.id === selectedLiberoId;
+
+                                                return !usedInOtherPos && !isLibero && !isSelectedLibero;
                                             });
 
                                             return (
@@ -681,24 +707,95 @@ export function LiveMatchScoutingV2() {
                                             )
                                         })}
                                     </div>
+
+                                    {/* LIBERO SLOT */}
+                                    <div className="mt-4 flex flex-col items-center justify-center">
+                                        <div className="text-[10px] uppercase font-bold text-zinc-500 mb-2 tracking-widest">LÍBERO</div>
+                                        <div className="relative group">
+                                            <div
+                                                onClick={() => setActivePosition(activePosition === 999 ? null : 999)}
+                                                className={`cursor-pointer w-16 h-16 rounded-full border-2 border-dashed flex flex-col items-center justify-center transition-all ${activePosition === 999
+                                                    ? 'bg-amber-900/40 border-amber-500/50 ring-2 ring-amber-500/30 text-amber-100 scale-105'
+                                                    : selectedLiberoId
+                                                        ? 'bg-amber-900/20 border-amber-500/50 text-amber-100 border-solid'
+                                                        : 'bg-zinc-800 border-zinc-600 text-zinc-500 hover:border-zinc-500 hover:bg-zinc-800/80'
+                                                    }`}
+                                            >
+                                                {selectedLiberoId ? (() => {
+                                                    const disp = getPlayerDisplay(selectedLiberoId);
+                                                    return (
+                                                        <>
+                                                            <span className="text-xl font-bold">{disp.number}</span>
+                                                            <span className="text-[9px] truncate max-w-[90%] px-1 opacity-90 leading-tight text-center">{disp.name}</span>
+                                                            <span className="absolute -bottom-1 right-0 rounded-full bg-zinc-900 px-1.5 py-[1px] text-[8px] font-bold text-amber-500 border border-zinc-700 shadow-sm z-10">L</span>
+                                                        </>
+                                                    );
+                                                })() : (
+                                                    <span className="text-xl font-bold text-zinc-600">+</span>
+                                                )}
+                                            </div>
+
+                                            {/* LIBERO SELECTOR POPOVER */}
+                                            {activePosition === 999 && (
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl z-50 flex flex-col animate-in slide-in-from-bottom-2 duration-200">
+                                                    <div className="sticky top-0 bg-zinc-900/95 backdrop-blur border-b border-zinc-800 p-2 text-xs font-bold text-amber-500 uppercase tracking-wider text-center z-10">
+                                                        Seleccionar Líbero
+                                                    </div>
+                                                    {(() => {
+                                                        const availableForLibero = availablePlayers.filter(p => {
+                                                            const isLibero = p.role === 'L';
+                                                            const isUsedInField = Object.values(selectedStarters).includes(p.id);
+                                                            return isLibero && !isUsedInField;
+                                                        });
+
+                                                        if (availableForLibero.length === 0) {
+                                                            return <div className="p-3 text-center text-xs text-zinc-500 italic">Sin líberos disponibles</div>
+                                                        }
+
+                                                        return availableForLibero.map(p => (
+                                                            <button
+                                                                key={p.id}
+                                                                onClick={() => {
+                                                                    setSelectedLiberoId(p.id === selectedLiberoId ? null : p.id);
+                                                                    setActivePosition(null);
+                                                                }}
+                                                                className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-800 flex items-center gap-2 border-b border-zinc-800/50 last:border-0 ${selectedLiberoId === p.id ? 'bg-amber-900/20 text-amber-100' : 'text-zinc-300'}`}
+                                                            >
+                                                                <span className={`font-bold w-5 text-center ${selectedLiberoId === p.id ? 'text-amber-500' : 'text-zinc-500'}`}>{p.number}</span>
+                                                                <div className="flex items-center gap-2 leading-none">
+                                                                    <span>{p.name}</span>
+                                                                    <span className="text-[10px] text-zinc-500 uppercase font-bold">L</span>
+                                                                </div>
+                                                            </button>
+                                                        ));
+                                                    })()}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <button
                                     onClick={handleConfirmStarters}
                                     disabled={
                                         Object.keys(selectedStarters).length !== 6 ||
-                                        ((derivedState.currentSet === 1 || derivedState.currentSet === 5) && !initialServerChoice)
+                                        ((derivedState.currentSet === 1 || derivedState.currentSet === 5) && !initialServerChoice) ||
+                                        (availablePlayers.some(p => p.role === 'L') && !selectedLiberoId)
                                     }
-                                    className={`w-full h-14 font-bold rounded-xl shadow-lg border-t border-white/10 uppercase tracking-widest text-sm transition-all ${Object.keys(selectedStarters).length === 6 && ((derivedState.currentSet !== 1 && derivedState.currentSet !== 5) || initialServerChoice)
+                                    className={`w-full h-14 font-bold rounded-xl shadow-lg border-t border-white/10 uppercase tracking-widest text-sm transition-all ${Object.keys(selectedStarters).length === 6 &&
+                                        ((derivedState.currentSet !== 1 && derivedState.currentSet !== 5) || initialServerChoice) &&
+                                        (!availablePlayers.some(p => p.role === 'L') || selectedLiberoId)
                                         ? 'bg-emerald-600 text-white active:bg-emerald-700'
                                         : 'bg-zinc-800 text-zinc-500 cursor-not-allowed border-transparent'
                                         }`}
                                 >
                                     {Object.keys(selectedStarters).length !== 6
                                         ? 'FALTAN JUGADORAS'
-                                        : ((derivedState.currentSet === 1 || derivedState.currentSet === 5) && !initialServerChoice)
-                                            ? 'ELIGE SAQUE'
-                                            : 'CONFIRMAR TITULARES'}
+                                        : (availablePlayers.some(p => p.role === 'L') && !selectedLiberoId)
+                                            ? 'FALTA LÍBERO'
+                                            : ((derivedState.currentSet === 1 || derivedState.currentSet === 5) && !initialServerChoice)
+                                                ? 'ELIGE SAQUE'
+                                                : 'CONFIRMAR TITULARES'}
                                 </button>
                             </div>
                         </div>
@@ -721,7 +818,7 @@ export function LiveMatchScoutingV2() {
                                         const p = getPlayerAt(pos)
                                         const display = getPlayerDisplay(p?.id)
                                         return (
-                                            <div key={pos} className="aspect-square bg-zinc-800 rounded-lg border border-zinc-700 flex flex-col items-center justify-center shadow-lg relative overflow-visible">
+                                            <div key={pos} className="aspect-square bg-zinc-800 rounded-full border border-zinc-700 flex flex-col items-center justify-center shadow-lg relative overflow-visible">
                                                 <span className="text-2xl font-bold text-white z-10">{display.number}</span>
                                                 <span className="text-[10px] text-zinc-500 uppercase z-10 truncate w-full text-center px-1">{display.name}</span>
 
@@ -734,7 +831,7 @@ export function LiveMatchScoutingV2() {
                                                     </div>
                                                 )}
 
-                                                <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/10 to-transparent rounded-lg" />
+                                                <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/10 to-transparent rounded-full" />
                                             </div>
                                         )
                                     })}
@@ -743,7 +840,7 @@ export function LiveMatchScoutingV2() {
                                         const p = getPlayerAt(pos)
                                         const display = getPlayerDisplay(p?.id)
                                         return (
-                                            <div key={pos} className="aspect-square bg-zinc-800/50 rounded-lg border border-zinc-700/50 flex flex-col items-center justify-center shadow-sm relative overflow-visible">
+                                            <div key={pos} className="aspect-square bg-zinc-800/50 rounded-full border border-zinc-700/50 flex flex-col items-center justify-center shadow-sm relative overflow-visible">
                                                 <span className="text-2xl font-bold text-zinc-400 z-10">{display.number}</span>
                                                 <span className="text-[9px] text-zinc-600 uppercase z-10 truncate w-full text-center px-1">{display.name}</span>
 
