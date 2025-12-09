@@ -8,6 +8,8 @@ import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
 import { toast } from 'sonner'
 import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
 import { MatchFinishedModal } from '@/components/matches/MatchFinishedModal'
+import { SetSummaryModalV2 } from '@/components/matches/SetSummaryModalV2'
+import { SetSummary } from '@/stores/matchStoreV2'
 
 export function LiveMatchScoutingV2() {
     const { matchId } = useParams<{ matchId: string }>()
@@ -22,7 +24,8 @@ export function LiveMatchScoutingV2() {
         addEvent,
         setInitialOnCourtPlayers,
         undoEvent,
-        redoEvent
+        redoEvent,
+        closeSetSummaryModal
     } = useMatchStoreV2()
 
     // Local State
@@ -49,7 +52,7 @@ export function LiveMatchScoutingV2() {
     const hasShownFinishModal = useRef(false)
 
     useEffect(() => {
-        if (derivedState.isMatchFinished && !hasShownFinishModal.current) {
+        if (derivedState.isMatchFinished && !hasShownFinishModal.current && !derivedState.setSummaryModalOpen) {
             setIsMatchFinishedModalOpen(true)
             hasShownFinishModal.current = true
         } else if (!derivedState.isMatchFinished) {
@@ -57,7 +60,7 @@ export function LiveMatchScoutingV2() {
             hasShownFinishModal.current = false
             setIsMatchFinishedModalOpen(false)
         }
-    }, [derivedState.isMatchFinished])
+    }, [derivedState.isMatchFinished, derivedState.setSummaryModalOpen])
 
     const handleConfirmFinish = async () => {
         if (!matchId || !derivedState.isMatchFinished) return
@@ -275,6 +278,37 @@ export function LiveMatchScoutingV2() {
     const handlePointUs = (reason: string) => {
         handleAction(() => addEvent('POINT_US', { reason }))
     }
+
+    // Set Summary Handlers
+    const handleCloseSetSummary = () => {
+        closeSetSummaryModal()
+    }
+
+    const handleConfirmSetSummary = () => {
+        // Confirm just means closing the modal and effectively "accepting" the set end state
+        closeSetSummaryModal()
+    }
+
+    const handleUndoSetSummary = () => {
+        closeSetSummaryModal()
+        // Smart undo: Remove SET_START (if exists), SET_END, and the Point that caused it.
+        // We use getState to access fresh state during execution
+        const { events, undoEvent } = useMatchStoreV2.getState()
+
+        const lastEvt = events[events.length - 1]
+        if (lastEvt?.type === 'SET_START') {
+            undoEvent() // Undo SET_START
+            undoEvent() // Undo SET_END
+            undoEvent() // Undo Point
+        } else if (lastEvt?.type === 'SET_END') {
+            undoEvent() // Undo SET_END
+            undoEvent() // Undo Point
+        } else {
+            // Should not happen if modal is open, but fallback
+            undoEvent()
+        }
+    }
+
 
     // Confirm Starters Handler
     const handleConfirmStarters = () => {
@@ -813,18 +847,17 @@ export function LiveMatchScoutingV2() {
                                         })}
                                     </div>
 
-                                    {/* LIBERO SLOT */}
                                     <div className="mt-4 flex flex-col items-center justify-center">
                                         <div className="text-[10px] uppercase font-bold text-zinc-500 mb-2 tracking-widest">LÍBERO</div>
                                         <div className="relative group">
                                             <div
                                                 onClick={() => setActivePosition(activePosition === 999 ? null : 999)}
-                                                className={`cursor-pointer w-16 h-16 rounded-full border-2 border-dashed flex flex-col items-center justify-center transition-all ${activePosition === 999
+                                                className={`cursor - pointer w - 16 h - 16 rounded - full border - 2 border - dashed flex flex - col items - center justify - center transition - all ${activePosition === 999
                                                     ? 'bg-amber-900/40 border-amber-500/50 ring-2 ring-amber-500/30 text-amber-100 scale-105'
                                                     : selectedLiberoId
                                                         ? 'bg-amber-900/20 border-amber-500/50 text-amber-100 border-solid'
                                                         : 'bg-zinc-800 border-zinc-600 text-zinc-500 hover:border-zinc-500 hover:bg-zinc-800/80'
-                                                    }`}
+                                                    } `}
                                             >
                                                 {selectedLiberoId ? (() => {
                                                     const disp = getPlayerDisplay(selectedLiberoId);
@@ -903,7 +936,7 @@ export function LiveMatchScoutingV2() {
                                                 : 'CONFIRMAR TITULARES'}
                                 </button>
                             </div>
-                        </div>
+                        </div >
                     )
                 }
 
@@ -927,8 +960,6 @@ export function LiveMatchScoutingV2() {
                                                 <span className="text-2xl font-bold text-white z-10">{display.number}</span>
                                                 <span className="text-[10px] text-zinc-500 uppercase z-10 truncate w-full text-center px-1">{display.name}</span>
 
-
-
                                                 {/* Role Badge */}
                                                 {display.role && display.role.toLowerCase() !== 'starter' && (
                                                     <div className="absolute -bottom-1.5 right-1 rounded-full bg-zinc-900 px-1.5 py-[1px] border border-zinc-700">
@@ -948,8 +979,6 @@ export function LiveMatchScoutingV2() {
                                             <div key={pos} className="aspect-square bg-zinc-800/50 rounded-full border border-zinc-700/50 flex flex-col items-center justify-center shadow-sm relative overflow-visible">
                                                 <span className="text-2xl font-bold text-zinc-400 z-10">{display.number}</span>
                                                 <span className="text-[9px] text-zinc-600 uppercase z-10 truncate w-full text-center px-1">{display.name}</span>
-
-
 
                                                 {/* Role Badge */}
                                                 {display.role && display.role.toLowerCase() !== 'starter' && (
@@ -1008,22 +1037,29 @@ export function LiveMatchScoutingV2() {
                     )
                 }
 
+                <SetSummaryModalV2
+                    isOpen={derivedState.setSummaryModalOpen}
+                    summary={derivedState.lastFinishedSetSummary}
+                    homeTeamName={derivedState.homeTeamName || 'Local'}
+                    awayTeamName={derivedState.awayTeamName || 'Visitante'}
+                    onClose={handleCloseSetSummary}
+                    onConfirm={handleConfirmSetSummary}
+                    onUndo={handleUndoSetSummary}
+                />
+
+                <MatchFinishedModal
+                    isOpen={isMatchFinishedModalOpen}
+                    onConfirm={handleConfirmFinish}
+                    onUndo={handleUndoFinish}
+                    onViewReadOnly={handleViewReadOnly}
+                    homeTeamName={derivedState.homeTeamName || 'Local'}
+                    awayTeamName={derivedState.awayTeamName || 'Visitante'}
+                    setsWonHome={derivedState.setsWonHome}
+                    setsWonAway={derivedState.setsWonAway}
+                    finalSetScore={derivedState.setsScores[derivedState.setsScores.length - 1] || { home: 0, away: 0 }}
+                />
+
             </div>
-
-            {/* Match Finished Modal */}
-            < MatchFinishedModal
-                isOpen={isMatchFinishedModalOpen}
-                onConfirm={handleConfirmFinish}
-                onUndo={handleUndoFinish}
-                onViewReadOnly={handleViewReadOnly}
-                homeTeamName={derivedState.homeTeamName || 'Local'}
-                awayTeamName={derivedState.awayTeamName || 'Visitante'}
-                setsWonHome={derivedState.setsWonHome}
-                setsWonAway={derivedState.setsWonAway}
-                finalSetScore={derivedState.setsScores[derivedState.setsScores.length - 1] || { home: 0, away: 0 }}
-            />
-
-            {/* Close outer wrapper div */}
-        </div >
+        </div>
     )
 }
