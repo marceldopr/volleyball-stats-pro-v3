@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Undo2, RotateCw, Users } from 'lucide-react'
+import { ArrowLeft, Undo2, Users } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { useMatchStoreV2 } from '@/stores/matchStoreV2'
+import { useMatchStoreV2, validateFIVBSubstitution } from '@/stores/matchStoreV2'
 import { matchServiceV2 } from '@/services/matchServiceV2'
 import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
 import { toast } from 'sonner'
@@ -10,6 +10,7 @@ import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
 import { MatchFinishedModal } from '@/components/matches/MatchFinishedModal'
 import { SetSummaryModalV2 } from '@/components/matches/SetSummaryModalV2'
 import { SubstitutionModalV2 } from '@/components/matches/SubstitutionModalV2'
+import { isLibero, isValidSubstitution } from '@/lib/volleyball/substitutionHelpers'
 
 export function LiveMatchScoutingV2() {
     const { matchId } = useParams<{ matchId: string }>()
@@ -389,11 +390,37 @@ export function LiveMatchScoutingV2() {
         playerInId: string
         position: 1 | 2 | 3 | 4 | 5 | 6
     }) => {
-        // Find full player object for playerIn
+        // Find full player objects
+        const playerOut = availablePlayers.find(p => p.id === playerOutId)
         const playerIn = availablePlayers.find(p => p.id === playerInId)
-        if (!playerIn) {
+
+        if (!playerIn || !playerOut) {
             toast.error('Jugadora no encontrada')
             return
+        }
+
+        // VALIDACIÓN DE ROLES
+        if (!isValidSubstitution(playerOut, playerIn)) {
+            toast.error('Sustitución no válida: los cambios deben ser campo por campo o líbero por líbero')
+            return
+        }
+
+        // Determinar si es cambio líbero↔líbero
+        const isLiberoSwap = isLibero(playerOut) && isLibero(playerIn)
+
+        // NUEVA VALIDACIÓN FIVB: Si es cambio de campo, verificar reglas FIVB
+        if (!isLiberoSwap) {
+            const validation = validateFIVBSubstitution(
+                derivedState.currentSetSubstitutions,
+                playerOutId,
+                playerInId,
+                derivedState.onCourtPlayers
+            )
+
+            if (!validation.valid) {
+                toast.error(validation.reason || 'Sustitución no válida según reglas FIVB')
+                return
+            }
         }
 
         // Dispatch substitution event
@@ -403,7 +430,8 @@ export function LiveMatchScoutingV2() {
                 playerInId,
                 position,
                 setNumber: derivedState.currentSet,
-                playerIn: playerIn  // Include snapshot
+                playerIn: playerIn,
+                isLiberoSwap: isLiberoSwap
             }
         })
 
@@ -412,14 +440,62 @@ export function LiveMatchScoutingV2() {
         toast.success(`Cambio: ${playerIn.name} entra`)
     }
 
+    // Instant Libero Swap Handler
+    const handleInstantLiberoSwap = () => {
+        // Verificar que hay lineup y el set no ha terminado
+        if (!derivedState.hasLineupForCurrentSet || derivedState.isSetFinished || derivedState.isMatchFinished) {
+            toast.error('No se puede cambiar el líbero en este momento')
+            return
+        }
+
+        const currentLiberoId = derivedState.currentLiberoId
+
+        // Encontrar todos los líberos del equipo
+        const allLiberos = availablePlayers.filter(p => {
+            const role = p.role?.toUpperCase()
+            return role === 'L' || role === 'LIBERO' || role === 'LÍBERO'
+        })
+
+        // Filtrar líberos disponibles (no el actual)
+        const availableLiberos = allLiberos.filter(p => p.id !== currentLiberoId)
+
+        if (availableLiberos.length === 0) {
+            toast.info('Solo hay un líbero disponible')
+            return
+        }
+
+        // Seleccionar el siguiente líbero (el primero disponible)
+        const nextLibero = availableLiberos[0]
+        const currentLibero = allLiberos.find(p => p.id === currentLiberoId)
+
+        if (!currentLibero || !nextLibero) {
+            toast.error('Error al cambiar líbero')
+            return
+        }
+
+        // Lanzar evento de sustitución líbero↔líbero
+        addEvent('SUBSTITUTION', {
+            substitution: {
+                playerOutId: currentLiberoId,
+                playerInId: nextLibero.id,
+                position: 0 as any, // Posición especial para líbero
+                setNumber: derivedState.currentSet,
+                playerIn: nextLibero,
+                isLiberoSwap: true
+            }
+        })
+
+        toast.success(`Líbero: ${nextLibero.name} entra`)
+    }
+
     // derived booleans
     const isServing = derivedState.servingSide === 'our'
 
     // Compute bench players for substitution modal
     const benchPlayers = availablePlayers.filter(p => {
         const isOnCourt = derivedState.onCourtPlayers.some(entry => entry.player.id === p.id)
-        const isLibero = p.id === derivedState.currentLiberoId
-        return !isOnCourt && !isLibero
+        // Incluir todos los jugadores que no están en pista (incluye líberos para permitir cambio líbero↔líbero)
+        return !isOnCourt
     })
 
     if (loading) return <div className="h-screen bg-zinc-950 flex items-center justify-center text-zinc-500">Cargando...</div>
@@ -665,9 +741,13 @@ export function LiveMatchScoutingV2() {
                             <Users size={20} />
                             <span className="text-[9px] font-bold">CAMBIO</span>
                         </button>
-                        <button onClick={() => setShowRotationModal(true)} className="flex flex-col items-center gap-1 text-zinc-400 active:text-white">
-                            <RotateCw size={18} />
-                            <span className="text-[9px] font-bold">ROTACIÓN</span>
+                        <button
+                            onClick={handleInstantLiberoSwap}
+                            disabled={!derivedState.hasLineupForCurrentSet || derivedState.isSetFinished || derivedState.isMatchFinished}
+                            className="flex flex-col items-center gap-1 text-purple-400 active:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                            <Users size={18} className="fill-current" />
+                            <span className="text-[9px] font-bold">LÍBERO</span>
                         </button>
                     </div>
                 </div>
@@ -1120,6 +1200,8 @@ export function LiveMatchScoutingV2() {
                     onCourtPlayers={derivedState.onCourtPlayers}
                     benchPlayers={benchPlayers}
                     currentSetNumber={derivedState.currentSet}
+                    allPlayers={availablePlayers}
+                    currentSetSubstitutions={derivedState.currentSetSubstitutions}
                 />
 
             </div>

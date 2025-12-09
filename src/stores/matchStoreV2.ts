@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { rotateLineup } from '../lib/volleyball/rotationLogic'
 import { matchServiceV2 } from '@/services/matchServiceV2'
+import { isLibero, isValidSubstitution } from '../lib/volleyball/substitutionHelpers'
 
 // --- Types ---
 
@@ -50,6 +51,7 @@ export interface MatchEvent {
             position: 1 | 2 | 3 | 4 | 5 | 6
             setNumber: number
             playerIn: PlayerV2 // Snapshot of player entering
+            isLiberoSwap: boolean // Nuevo: indica si es cambio líbero↔líbero
         }
     }
 }
@@ -78,6 +80,19 @@ export interface SetSummary {
     maxRunAway: number
 }
 
+// FIVB Substitution Tracking Types
+interface SubstitutionPair {
+    starterId: string       // Jugadora inicial/titular
+    substituteId: string    // Suplente que entró
+    usesCount: number       // 1 o 2 (máx 2 usos por pareja)
+}
+
+interface SetSubstitutionState {
+    setNumber: number
+    totalSubstitutions: number  // De 0 a 6 por set
+    pairs: SubstitutionPair[]   // Parejas activas en este set
+}
+
 export interface DerivedMatchState {
     homeScore: number
     awayScore: number
@@ -104,6 +119,10 @@ export interface DerivedMatchState {
     // Set Summary
     lastFinishedSetSummary?: SetSummary
     setSummaryModalOpen: boolean
+
+    // FIVB Substitution Tracking
+    substitutionsBySet: Record<number, SetSubstitutionState>
+    currentSetSubstitutions: SetSubstitutionState
 }
 
 export interface MatchV2State {
@@ -149,9 +168,127 @@ const INITIAL_DERIVED_STATE: DerivedMatchState = {
     isSetFinished: false,
     isMatchFinished: false,
 
-    setSummaryModalOpen: false
+    setSummaryModalOpen: false,
+
+    // FIVB Substitution Tracking - Set 1 inicial
+    substitutionsBySet: {
+        1: {
+            setNumber: 1,
+            totalSubstitutions: 0,
+            pairs: []
+        }
+    },
+    currentSetSubstitutions: {
+        setNumber: 1,
+        totalSubstitutions: 0,
+        pairs: []
+    }
 }
 
+
+/**
+ * Valida si una sustitución de campo cumple las reglas FIVB
+ * @param currentSetState Estado actual de sustituciones del set
+ * @param playerOutId ID de la jugadora que sale
+ * @param playerInId ID de la jugadora que entra
+ * @param onCourtPlayers Jugadoras actualmente en pista
+ * @returns { valid: boolean, reason?: string }
+ */
+export function validateFIVBSubstitution(
+    currentSetState: SetSubstitutionState,
+    playerOutId: string,
+    playerInId: string,
+    onCourtPlayers: { player: PlayerV2 }[]
+): { valid: boolean; reason?: string } {
+
+    // 1. Verificar límite de 6 sustituciones por set
+    if (currentSetState.totalSubstitutions >= 6) {
+        return {
+            valid: false,
+            reason: 'Límite de 6 sustituciones por set alcanzado'
+        }
+    }
+
+    // 2. Verificar que playerOut está en pista
+    const isPlayerOutOnCourt = onCourtPlayers.some(p => p.player.id === playerOutId)
+    if (!isPlayerOutOnCourt) {
+        return {
+            valid: false,
+            reason: 'La jugadora que sale no está en pista'
+        }
+    }
+
+    // 3. Buscar parejas existentes que involucren a estas jugadoras
+    const pairWithOut = currentSetState.pairs.find(
+        p => p.starterId === playerOutId || p.substituteId === playerOutId
+    )
+
+    const pairWithIn = currentSetState.pairs.find(
+        p => p.starterId === playerInId || p.substituteId === playerInId
+    )
+
+    // 4. Caso 1: Ninguna jugadora tiene pareja aún (primera sustitución de ambas)
+    if (!pairWithOut && !pairWithIn) {
+        // Nueva pareja A↔B, siempre válida si no superamos 6
+        return { valid: true }
+    }
+
+    // 5. Caso 2: Ambas jugadoras ya tienen pareja
+    if (pairWithOut && pairWithIn) {
+        // Solo válido si son la misma pareja (están emparejadas entre sí)
+        const isSamePair =
+            pairWithOut.starterId === pairWithIn.starterId &&
+            pairWithOut.substituteId === pairWithIn.substituteId
+
+        if (!isSamePair) {
+            return {
+                valid: false,
+                reason: 'Estas jugadoras ya están emparejadas con otras'
+            }
+        }
+
+        const pair = pairWithOut
+
+        // Verificar que no se ha agotado la pareja (max 2 usos)
+        if (pair.usesCount >= 2) {
+            return {
+                valid: false,
+                reason: 'Esta pareja ya ha agotado sus cambios (máx 2 por set)'
+            }
+        }
+
+        // Verificar dirección correcta del cambio
+        // Si titular está saliendo, suplente debe entrar (reentrada de titular)
+        // Si suplente está saliendo, titular debe entrar (primera entrada de titular)
+        const validDirection = (
+            (pair.substituteId === playerOutId && pair.starterId === playerInId) || // Suplente sale, titular entra
+            (pair.starterId === playerOutId && pair.substituteId === playerInId)    // Titular sale (no debería pasar en uso 2)
+        )
+
+        if (!validDirection) {
+            return {
+                valid: false,
+                reason: 'Dirección de cambio incorrecta para esta pareja'
+            }
+        }
+
+        return { valid: true }
+    }
+
+    // 6. Caso 3: Solo una de las jugadoras tiene pareja
+    if (pairWithOut || pairWithIn) {
+        // Una jugadora ya emparejada no puede cambiar con otra jugadora
+        return {
+            valid: false,
+            reason: 'Una de las jugadoras ya tiene pareja asignada'
+        }
+    }
+
+    // Por defecto, permitir
+    return { valid: true }
+}
+
+// --- Main Reducer ---
 
 function calculateDerivedState(
 
@@ -266,6 +403,16 @@ function calculateDerivedState(
                 state.onCourtPlayers = []
                 state.currentLiberoId = null
                 state.isSetFinished = false
+
+                // NUEVO: Inicializar estado de sustituciones para este set
+                if (!state.substitutionsBySet[state.currentSet]) {
+                    state.substitutionsBySet[state.currentSet] = {
+                        setNumber: state.currentSet,
+                        totalSubstitutions: 0,
+                        pairs: []
+                    }
+                }
+                state.currentSetSubstitutions = state.substitutionsBySet[state.currentSet]
 
                 if (state.currentSet === 5) {
                     if (initialServeBySet[5]) {
@@ -423,18 +570,86 @@ function calculateDerivedState(
 
             case 'SUBSTITUTION':
                 if (event.payload?.substitution?.setNumber === state.currentSet) {
-                    const { playerOutId, position, playerIn } = event.payload.substitution
+                    const { playerOutId, position, playerIn, isLiberoSwap } = event.payload.substitution
 
-                    // Replace the player at the specified position
-                    state.onCourtPlayers = state.onCourtPlayers.map(entry => {
-                        if (entry.player.id === playerOutId && entry.position === position) {
-                            return {
-                                position: entry.position,
-                                player: playerIn  // Use snapshot from event
+                    if (isLiberoSwap) {
+                        // CASO LÍBERO↔LÍBERO: Solo actualizar currentLiberoId
+                        // No modificar onCourtPlayers (las 6 de campo siguen igual)
+                        // NO afecta sustituciones de campo FIVB
+                        state.currentLiberoId = playerIn.id
+                    } else {
+                        // CASO CAMPO↔CAMPO: Actualizar jugadora + tracking FIVB
+
+                        // 1. Actualizar jugadora en pista
+                        state.onCourtPlayers = state.onCourtPlayers.map(entry => {
+                            if (entry.player.id === playerOutId && entry.position === position) {
+                                return {
+                                    position: entry.position,
+                                    player: playerIn
+                                }
+                            }
+                            return entry
+                        })
+
+                        // 2. Tracking FIVB: Actualizar estado de sustituciones
+                        // IMPORTANTE: No mutar directamente el estado, reconstruir desde eventos
+                        const setNum = event.payload.substitution.setNumber
+
+                        // Obtener estado actual del set (o crear uno nuevo)
+                        let currentSetState = state.substitutionsBySet[setNum]
+                        if (!currentSetState) {
+                            currentSetState = {
+                                setNumber: setNum,
+                                totalSubstitutions: 0,
+                                pairs: []
                             }
                         }
-                        return entry
-                    })
+
+                        // Normalizar IDs para identificar pareja
+                        const id1 = playerOutId
+                        const id2 = playerIn.id
+                        const normalizedStarterId = id1 < id2 ? id1 : id2
+                        const normalizedSubstituteId = id1 < id2 ? id2 : id1
+
+                        // Buscar pareja existente
+                        const existingPairIndex = currentSetState.pairs.findIndex(
+                            p => p.starterId === normalizedStarterId && p.substituteId === normalizedSubstituteId
+                        )
+
+                        // Crear nuevo array de parejas (inmutable)
+                        let newPairs = [...currentSetState.pairs]
+
+                        if (existingPairIndex >= 0) {
+                            // Pareja existe: incrementar usesCount (crear nuevo objeto)
+                            newPairs[existingPairIndex] = {
+                                ...newPairs[existingPairIndex],
+                                usesCount: newPairs[existingPairIndex].usesCount + 1
+                            }
+                        } else {
+                            // Pareja nueva: añadir
+                            newPairs.push({
+                                starterId: normalizedStarterId,
+                                substituteId: normalizedSubstituteId,
+                                usesCount: 1
+                            })
+                        }
+
+                        // Crear nuevo objeto de estado (inmutable)
+                        const newSetState = {
+                            setNumber: setNum,
+                            totalSubstitutions: currentSetState.totalSubstitutions + 1,
+                            pairs: newPairs
+                        }
+
+                        // Actualizar en el mapa (reemplazar, no mutar)
+                        state.substitutionsBySet = {
+                            ...state.substitutionsBySet,
+                            [setNum]: newSetState
+                        }
+
+                        // Actualizar referencia rápida
+                        state.currentSetSubstitutions = newSetState
+                    }
                 }
                 break
         }
