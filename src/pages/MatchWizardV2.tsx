@@ -110,7 +110,7 @@ export function MatchWizardV2() {
         try {
             setSaving(true)
 
-            const matchId = await matchServiceV2.createMatchV2({
+            await matchServiceV2.createMatchV2({
                 club_id: profile.club_id,
                 season_id: currentSeason.id,
                 team_id: formData.teamId,
