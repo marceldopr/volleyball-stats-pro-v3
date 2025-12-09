@@ -28,6 +28,8 @@ export interface MatchV2DB {
     updated_at: string
     teams?: {
         custom_name: string
+        category_stage?: string
+        gender?: string
     }
 }
 
@@ -88,7 +90,7 @@ export const matchServiceV2 = {
         try {
             const { data, error } = await supabase
                 .from('matches')
-                .select('*, teams(custom_name)')
+                .select('*, teams(custom_name, category_stage, gender)')
                 .eq('id', id)
                 .eq('engine', 'v2')  // NOMÉS V2
                 .single()

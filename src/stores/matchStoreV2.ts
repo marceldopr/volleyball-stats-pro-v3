@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { rotateLineup } from '../lib/volleyball/rotationLogic'
 import { matchServiceV2 } from '@/services/matchServiceV2'
-import { isLibero, isValidSubstitution } from '../lib/volleyball/substitutionHelpers'
 
 // --- Types ---
 
@@ -111,8 +110,6 @@ export interface DerivedMatchState {
     currentLiberoId: string | null
     // New: Scores history by set
     setsScores: { setNumber: number; home: number; away: number }[]
-    homeTeamName?: string
-    awayTeamName?: string
     isSetFinished: boolean
     isMatchFinished: boolean
 
@@ -131,6 +128,10 @@ export interface MatchV2State {
     ourSide: 'home' | 'away'
     initialOnCourtPlayers: PlayerV2[]
     dismissedSetSummaries: number[] // Track closed summaries
+
+    // Team Names (STABLE - do NOT recalculate)
+    homeTeamName: string | null
+    awayTeamName: string | null
 
     // Event Sourcing
     events: MatchEvent[]
@@ -163,8 +164,6 @@ const INITIAL_DERIVED_STATE: DerivedMatchState = {
     currentLiberoId: null,
 
     setsScores: [],
-    homeTeamName: 'Local',
-    awayTeamName: 'Visitante',
     isSetFinished: false,
     isMatchFinished: false,
 
@@ -712,6 +711,8 @@ export const useMatchStoreV2 = create<MatchV2State>()(
             ourSide: 'home',
             initialOnCourtPlayers: [],
             dismissedSetSummaries: [],
+            homeTeamName: null,
+            awayTeamName: null,
             events: [],
             derivedState: INITIAL_DERIVED_STATE,
 
@@ -728,16 +729,13 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                     // This prevents persisted dismissed summaries from blocking new set modals
                     const derived = calculateDerivedState(mappedEvents, ourSide, state.initialOnCourtPlayers, [])
 
-                    if (teamNames) {
-                        derived.homeTeamName = teamNames.home
-                        derived.awayTeamName = teamNames.away
-                    }
-
                     return {
                         dbMatchId,
                         ourSide,
                         events: mappedEvents,
                         derivedState: derived,
+                        homeTeamName: teamNames?.home ?? null,
+                        awayTeamName: teamNames?.away ?? null,
                         dismissedSetSummaries: []
                     }
                 })
@@ -848,6 +846,8 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                 dbMatchId: null,
                 initialOnCourtPlayers: [],
                 dismissedSetSummaries: [],
+                homeTeamName: null, // Moved from derivedState
+                awayTeamName: null, // Moved from derivedState
                 events: [],
                 derivedState: INITIAL_DERIVED_STATE
             }),
@@ -879,9 +879,12 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                 dbMatchId: state.dbMatchId,
                 ourSide: state.ourSide,
                 initialOnCourtPlayers: state.initialOnCourtPlayers,
+                homeTeamName: state.homeTeamName, // Now persisted at root level
+                awayTeamName: state.awayTeamName, // Now persisted at root level
                 // CRITICAL: Do NOT persist dismissedSetSummaries
                 // Persisting it causes modals to not appear on page reload
                 events: state.events,
+                // derivedState no longer needs special handling for team names
                 derivedState: state.derivedState
             })
         }

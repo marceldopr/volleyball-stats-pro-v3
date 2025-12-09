@@ -5,12 +5,14 @@ import { Button } from '@/components/ui/Button'
 import { useMatchStoreV2, validateFIVBSubstitution } from '@/stores/matchStoreV2'
 import { matchServiceV2 } from '@/services/matchServiceV2'
 import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
+import { teamService } from '@/services/teamService'
 import { toast } from 'sonner'
 import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
 import { MatchFinishedModal } from '@/components/matches/MatchFinishedModal'
 import { SetSummaryModalV2 } from '@/components/matches/SetSummaryModalV2'
 import { SubstitutionModalV2 } from '@/components/matches/SubstitutionModalV2'
 import { isLibero, isValidSubstitution } from '@/lib/volleyball/substitutionHelpers'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 
 export function LiveMatchScoutingV2() {
     const { matchId } = useParams<{ matchId: string }>()
@@ -26,6 +28,10 @@ export function LiveMatchScoutingV2() {
         undoEvent,
         closeSetSummaryModal
     } = useMatchStoreV2()
+
+    // Team names from root state (NOT derived state - these are stable)
+    const homeTeamName = useMatchStoreV2(state => state.homeTeamName)
+    const awayTeamName = useMatchStoreV2(state => state.awayTeamName)
 
     // Local State
     const [loading, setLoading] = useState(true)
@@ -99,6 +105,23 @@ export function LiveMatchScoutingV2() {
         const init = async () => {
             try {
                 setLoading(true)
+
+                // CRITICAL FIX: Clear cached team names from localStorage
+                // This prevents old "Local"/"Visitante" from being restored
+                const stored = localStorage.getItem('match-store-v2')
+                if (stored) {
+                    try {
+                        const parsed = JSON.parse(stored)
+                        if (parsed.state?.derivedState) {
+                            delete parsed.state.derivedState.homeTeamName
+                            delete parsed.state.derivedState.awayTeamName
+                            localStorage.setItem('match-store-v2', JSON.stringify(parsed))
+                        }
+                    } catch (e) {
+                        console.error('Error cleaning localStorage:', e)
+                    }
+                }
+
                 const match = await matchServiceV2.getMatchV2(matchId)
                 if (!match) throw new Error('Match not found')
 
@@ -107,8 +130,9 @@ export function LiveMatchScoutingV2() {
                 // 1. Determine Our Side
                 const ourSide = match.home_away === 'home' ? 'home' : 'away'
 
-                // 2. Determine Names
-                const teamName = match.teams?.custom_name || 'Nuestro Equipo'
+                // 2. Load full team data to get complete name (like Matches.tsx does)
+                const team = await teamService.getTeamById(match.team_id)
+                const teamName = team ? getTeamDisplayName(team) : 'Nuestro Equipo'
                 const opponentName = match.opponent_name || 'Rival'
 
                 const homeTeamName = ourSide === 'home' ? teamName : opponentName
@@ -546,8 +570,8 @@ export function LiveMatchScoutingV2() {
                     <div className="flex items-center justify-between gap-4 px-2">
                         {/* HOME SIDE (Fixed Left) */}
                         <div className="flex flex-col items-center flex-1">
-                            <span className="text-[10px] uppercase font-bold text-zinc-400 truncate w-full text-center mb-1">
-                                {derivedState.homeTeamName || 'Local'}
+                            <span className="text-xs uppercase font-bold text-zinc-400 truncate w-full text-center mb-1">
+                                {homeTeamName || 'Local'}
                             </span>
                             <div className={`flex flex-col items-center px-4 py-2 rounded-lg transition-all duration-300 w-full relative overflow-hidden ${derivedState.servingSide === (derivedState.ourSide === 'home' ? 'our' : 'opponent')
                                 ? "bg-zinc-800 border border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
@@ -570,8 +594,8 @@ export function LiveMatchScoutingV2() {
 
                         {/* AWAY SIDE (Fixed Right) */}
                         <div className="flex flex-col items-center flex-1">
-                            <span className="text-[10px] uppercase font-bold text-zinc-400 truncate w-full text-center mb-1">
-                                {derivedState.awayTeamName || 'Visitante'}
+                            <span className="text-xs uppercase font-bold text-zinc-400 truncate w-full text-center mb-1">
+                                {awayTeamName || 'Visitante'}
                             </span>
                             <div className={`flex flex-col items-center px-4 py-2 rounded-lg transition-all duration-300 w-full relative overflow-hidden ${derivedState.servingSide === (derivedState.ourSide === 'away' ? 'our' : 'opponent')
                                 ? "bg-zinc-800 border border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.1)]"
@@ -1173,8 +1197,8 @@ export function LiveMatchScoutingV2() {
                 <SetSummaryModalV2
                     isOpen={derivedState.setSummaryModalOpen}
                     summary={derivedState.lastFinishedSetSummary}
-                    homeTeamName={derivedState.homeTeamName || 'Local'}
-                    awayTeamName={derivedState.awayTeamName || 'Visitante'}
+                    homeTeamName={homeTeamName || 'Local'}
+                    awayTeamName={awayTeamName || 'Visitante'}
                     onClose={handleCloseSetSummary}
                     onConfirm={handleConfirmSetSummary}
                     onUndo={handleUndoSetSummary}
@@ -1185,8 +1209,8 @@ export function LiveMatchScoutingV2() {
                     onConfirm={handleConfirmFinish}
                     onUndo={handleUndoFinish}
                     onViewReadOnly={handleViewReadOnly}
-                    homeTeamName={derivedState.homeTeamName || 'Local'}
-                    awayTeamName={derivedState.awayTeamName || 'Visitante'}
+                    homeTeamName={homeTeamName || 'Local'}
+                    awayTeamName={awayTeamName || 'Visitante'}
                     setsWonHome={derivedState.setsWonHome}
                     setsWonAway={derivedState.setsWonAway}
                     finalSetScore={derivedState.setsScores[derivedState.setsScores.length - 1] || { home: 0, away: 0 }}
