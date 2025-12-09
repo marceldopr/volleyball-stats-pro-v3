@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
 import { MatchFinishedModal } from '@/components/matches/MatchFinishedModal'
 import { SetSummaryModalV2 } from '@/components/matches/SetSummaryModalV2'
+import { SubstitutionModalV2 } from '@/components/matches/SubstitutionModalV2'
 
 export function LiveMatchScoutingV2() {
     const { matchId } = useParams<{ matchId: string }>()
@@ -41,6 +42,9 @@ export function LiveMatchScoutingV2() {
     const [initialServerChoice, setInitialServerChoice] = useState<'our' | 'opponent' | null>(null)
     const [selectedStarters, setSelectedStarters] = useState<{ [pos: number]: string }>({})
     const [selectedLiberoId, setSelectedLiberoId] = useState<string | null>(null)
+
+    // Substitution Logic
+    const [showSubstitutionModal, setShowSubstitutionModal] = useState(false)
 
     const lastSetRef = useRef<number | null>(null)
 
@@ -379,8 +383,44 @@ export function LiveMatchScoutingV2() {
         setInitialServerChoice(null)
     }
 
+    // Substitution Handler
+    const handleConfirmSubstitution = ({ playerOutId, playerInId, position }: {
+        playerOutId: string
+        playerInId: string
+        position: 1 | 2 | 3 | 4 | 5 | 6
+    }) => {
+        // Find full player object for playerIn
+        const playerIn = availablePlayers.find(p => p.id === playerInId)
+        if (!playerIn) {
+            toast.error('Jugadora no encontrada')
+            return
+        }
+
+        // Dispatch substitution event
+        addEvent('SUBSTITUTION', {
+            substitution: {
+                playerOutId,
+                playerInId,
+                position,
+                setNumber: derivedState.currentSet,
+                playerIn: playerIn  // Include snapshot
+            }
+        })
+
+        // Close modal
+        setShowSubstitutionModal(false)
+        toast.success(`Cambio: ${playerIn.name} entra`)
+    }
+
     // derived booleans
     const isServing = derivedState.servingSide === 'our'
+
+    // Compute bench players for substitution modal
+    const benchPlayers = availablePlayers.filter(p => {
+        const isOnCourt = derivedState.onCourtPlayers.some(entry => entry.player.id === p.id)
+        const isLibero = p.id === derivedState.currentLiberoId
+        return !isOnCourt && !isLibero
+    })
 
     if (loading) return <div className="h-screen bg-zinc-950 flex items-center justify-center text-zinc-500">Cargando...</div>
     if (!matchData) return null
@@ -617,7 +657,11 @@ export function LiveMatchScoutingV2() {
                     </div>
 
                     <div className="flex gap-4">
-                        <button className="flex flex-col items-center gap-1 text-zinc-600 active:text-zinc-400">
+                        <button
+                            onClick={() => setShowSubstitutionModal(true)}
+                            disabled={!derivedState.hasLineupForCurrentSet || derivedState.isSetFinished || derivedState.isMatchFinished}
+                            className="flex flex-col items-center gap-1 text-zinc-400 active:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
                             <Users size={20} />
                             <span className="text-[9px] font-bold">CAMBIO</span>
                         </button>
@@ -1066,6 +1110,16 @@ export function LiveMatchScoutingV2() {
                     setsWonHome={derivedState.setsWonHome}
                     setsWonAway={derivedState.setsWonAway}
                     finalSetScore={derivedState.setsScores[derivedState.setsScores.length - 1] || { home: 0, away: 0 }}
+                />
+
+                {/* MODAL SUBSTITUTION */}
+                <SubstitutionModalV2
+                    isOpen={showSubstitutionModal}
+                    onClose={() => setShowSubstitutionModal(false)}
+                    onConfirm={handleConfirmSubstitution}
+                    onCourtPlayers={derivedState.onCourtPlayers}
+                    benchPlayers={benchPlayers}
+                    currentSetNumber={derivedState.currentSet}
                 />
 
             </div>

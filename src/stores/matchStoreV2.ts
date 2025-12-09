@@ -14,6 +14,7 @@ export type MatchEventType =
     | 'SET_END'
     | 'SET_LINEUP'
     | 'SET_SERVICE_CHOICE'
+    | 'SUBSTITUTION'
 
 export interface PlayerV2 {
     id: string
@@ -42,6 +43,13 @@ export interface MatchEvent {
         reception?: {
             playerId: string
             value: 0 | 1 | 2 | 3 | 4
+        }
+        substitution?: {
+            playerOutId: string
+            playerInId: string
+            position: 1 | 2 | 3 | 4 | 5 | 6
+            setNumber: number
+            playerIn: PlayerV2 // Snapshot of player entering
         }
     }
 }
@@ -410,6 +418,23 @@ function calculateDerivedState(
                         player: item.player
                     }))
                     state.currentLiberoId = event.payload.liberoId || null
+                }
+                break
+
+            case 'SUBSTITUTION':
+                if (event.payload?.substitution?.setNumber === state.currentSet) {
+                    const { playerOutId, position, playerIn } = event.payload.substitution
+
+                    // Replace the player at the specified position
+                    state.onCourtPlayers = state.onCourtPlayers.map(entry => {
+                        if (entry.player.id === playerOutId && entry.position === position) {
+                            return {
+                                position: entry.position,
+                                player: playerIn  // Use snapshot from event
+                            }
+                        }
+                        return entry
+                    })
                 }
                 break
         }
