@@ -390,9 +390,23 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
 
               {/* Block 2: Date/Time */}
               <div className="text-xs text-gray-400 md:text-sm flex-shrink-0">
-                {new Date(match.match_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
-                {' · '}
-                {new Date(match.match_date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                {(() => {
+                  // match_date in Supabase already contains full datetime timestamp
+                  const matchDateTime = new Date(match.match_date)
+
+                  // Fallback if date is invalid
+                  if (isNaN(matchDateTime.getTime())) {
+                    return 'Fecha no disponible'
+                  }
+
+                  return (
+                    <>
+                      {matchDateTime.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
+                      {' · '}
+                      {matchDateTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                    </>
+                  )
+                })()}
               </div>
 
               {/* Block 3: Actions + Delete */}
