@@ -133,6 +133,10 @@ export interface MatchV2State {
     homeTeamName: string | null
     awayTeamName: string | null
 
+    // Auto-save tracking
+    lastAutoSaveAt: number | null
+    pendingAutoSave: boolean
+
     // Event Sourcing
     events: MatchEvent[]
 
@@ -144,6 +148,7 @@ export interface MatchV2State {
     setInitialOnCourtPlayers: (players: PlayerV2[]) => void
     addEvent: (type: MatchEventType, payload?: any) => void
     undoEvent: () => void
+    autoSaveEvents: () => Promise<void>
     // redoEvent removed - Redo functionality not used in product scope
     reset: () => void
     closeSetSummaryModal: () => void
@@ -289,7 +294,7 @@ export function validateFIVBSubstitution(
 
 // --- Main Reducer ---
 
-function calculateDerivedState(
+export function calculateDerivedState(
 
     events: MatchEvent[],
     ourSide: 'home' | 'away',
@@ -713,6 +718,8 @@ export const useMatchStoreV2 = create<MatchV2State>()(
             dismissedSetSummaries: [],
             homeTeamName: null,
             awayTeamName: null,
+            lastAutoSaveAt: null,
+            pendingAutoSave: false,
             events: [],
             derivedState: INITIAL_DERIVED_STATE,
 
@@ -816,13 +823,21 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                     derivedState: finalDerived
                 })
 
-                matchServiceV2.updateMatchV2(dbMatchId, { actions: tempEvents }).catch(err => {
-                    console.error('Failed to persist events (addEvent):', err)
-                })
+                // Auto-save logic: save every 5 events, every 15s, or on critical events
+                const state = get()
+                const timeSinceLastSave = Date.now() - (state.lastAutoSaveAt ?? 0)
+                const shouldSaveByCount = tempEvents.length % 5 === 0
+                const shouldSaveByTime = timeSinceLastSave > 15000 // 15 seconds
+                const isCriticalEvent = type === 'SET_END'
+
+                if (shouldSaveByCount || shouldSaveByTime || isCriticalEvent) {
+                    // Auto-save asynchronously
+                    state.autoSaveEvents()
+                }
             },
 
             undoEvent: () => {
-                const { dbMatchId, events, ourSide, initialOnCourtPlayers, dismissedSetSummaries } = get()
+                const { events, ourSide, initialOnCourtPlayers, dismissedSetSummaries } = get()
                 if (events.length === 0) return
 
                 const newEvents = events.slice(0, -1)
@@ -833,11 +848,8 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                     derivedState: newDerived
                 })
 
-                if (dbMatchId) {
-                    matchServiceV2.updateMatchV2(dbMatchId, { actions: newEvents }).catch(err => {
-                        console.error('Failed to persist events (undoEvent):', err)
-                    })
-                }
+                // Auto-save after undo
+                get().autoSaveEvents()
             },
 
             // redoEvent removed - Redo functionality not used in product scope
@@ -846,8 +858,10 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                 dbMatchId: null,
                 initialOnCourtPlayers: [],
                 dismissedSetSummaries: [],
-                homeTeamName: null, // Moved from derivedState
-                awayTeamName: null, // Moved from derivedState
+                homeTeamName: null,
+                awayTeamName: null,
+                lastAutoSaveAt: null,
+                pendingAutoSave: false,
                 events: [],
                 derivedState: INITIAL_DERIVED_STATE
             }),
@@ -871,7 +885,31 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                         }
                     }))
                 }
-            }
+            },
+
+            // Auto-save events to Supabase
+            autoSaveEvents: async () => {
+                const { dbMatchId, events, pendingAutoSave } = get()
+
+                // Don't save if already saving or no match loaded
+                if (!dbMatchId || pendingAutoSave || events.length === 0) return
+
+                set({ pendingAutoSave: true })
+
+                try {
+                    await matchServiceV2.updateMatchV2(dbMatchId, {
+                        actions: events
+                    })
+                    set({
+                        lastAutoSaveAt: Date.now(),
+                        pendingAutoSave: false
+                    })
+                } catch (err) {
+                    console.error('[Auto-Save] Failed to save events:', err)
+                    set({ pendingAutoSave: false })
+                    // Fail silently - don't show toast, will retry on next trigger
+                }
+            },
         }),
         {
             name: 'match-store-v2',

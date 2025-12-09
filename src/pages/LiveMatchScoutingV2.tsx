@@ -8,6 +8,8 @@ import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
 import { teamService } from '@/services/teamService'
 import { toast } from 'sonner'
 import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
+import { MatchTimelineV2 } from '@/components/MatchTimelineV2'
+import { formatTimeline } from '@/utils/timelineFormatter'
 import { MatchFinishedModal } from '@/components/matches/MatchFinishedModal'
 import { SetSummaryModalV2 } from '@/components/matches/SetSummaryModalV2'
 import { SubstitutionModalV2 } from '@/components/matches/SubstitutionModalV2'
@@ -52,6 +54,9 @@ export function LiveMatchScoutingV2() {
 
     // Substitution Logic
     const [showSubstitutionModal, setShowSubstitutionModal] = useState(false)
+
+    // Timeline Logic
+    const [showTimeline, setShowTimeline] = useState(false)
 
     const lastSetRef = useRef<number | null>(null)
 
@@ -215,6 +220,21 @@ export function LiveMatchScoutingV2() {
 
         init()
     }, [matchId, navigate, loadMatch, setInitialOnCourtPlayers])
+
+    // Auto-save backup timer (safety net)
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const state = useMatchStoreV2.getState()
+            const timeSinceLastSave = Date.now() - (state.lastAutoSaveAt ?? 0)
+
+            // Only save if more than 15s and there are events
+            if (timeSinceLastSave > 15000 && state.events.length > 0 && !state.pendingAutoSave) {
+                state.autoSaveEvents()
+            }
+        }, 15000) // Check every 15 seconds
+
+        return () => clearInterval(interval)
+    }, [])
 
     // --- Strict Effect: Only Open Modal on Set Change if No Lineup ---
     useEffect(() => {
@@ -462,6 +482,29 @@ export function LiveMatchScoutingV2() {
         // Close modal
         setShowSubstitutionModal(false)
         toast.success(`Cambio: ${playerIn.name} entra`)
+    }
+
+    // Handle Back from Starters Modal
+    const handleBackFromStarters = () => {
+        const currentSet = derivedState.currentSet
+
+        // Clear any partial selections
+        setSelectedStarters({})
+        setSelectedLiberoId(null)
+        setInitialServerChoice(null)
+
+        if (currentSet === 1) {
+            // Set 1: Just close the modal, return to previous screen
+            setShowStartersModal(false)
+        } else {
+            // Sets 2-5: Close starters modal and reopen set summary
+            setShowStartersModal(false)
+
+            // Reopen the set summary modal via store's closeSetSummaryModal mechanism
+            // Since we want to OPEN it, we need to set the flag directly
+            const store = useMatchStoreV2.getState()
+            store.derivedState.setSummaryModalOpen = true
+        }
     }
 
     // Instant Libero Swap Handler
@@ -747,33 +790,61 @@ export function LiveMatchScoutingV2() {
 
                 </div>
 
-                {/* FOOTER */}
-                <div className="mt-auto pt-4 bg-zinc-950 border-t border-zinc-900 h-16 px-4 flex items-center justify-between">
-                    <div className="flex gap-4">
-                        <button onClick={() => undoEvent()} disabled={events.length === 0} className="flex flex-col items-center gap-1 text-zinc-500 active:text-white disabled:opacity-30">
+                {/* BOTTOM SECTION: Single Row with Timeline Toggle */}
+                <div className="mt-auto bg-zinc-950 border-t border-zinc-900">
+                    {/* Single Row: Actions + Timeline Toggle */}
+                    <div className="px-4 py-3 flex items-center justify-between gap-2">
+                        {/* Left: Undo */}
+                        <button
+                            onClick={() => undoEvent()}
+                            disabled={events.length === 0}
+                            className="flex flex-col items-center gap-1 text-zinc-500 active:text-white disabled:opacity-30"
+                        >
                             <Undo2 size={20} />
                             <span className="text-[9px] font-bold">DESHACER</span>
                         </button>
+
+                        {/* Center: Timeline Toggle */}
+                        <button
+                            onClick={() => setShowTimeline(!showTimeline)}
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-lg hover:bg-zinc-800/50 transition-colors"
+                        >
+                            <span className="text-sm">📋</span>
+                            <span className="text-xs font-semibold text-zinc-300">Historial</span>
+                            <span className="text-[10px] text-zinc-500">({events.length})</span>
+                            <span className="text-xs text-zinc-500">{showTimeline ? '▼' : '▶'}</span>
+                        </button>
+
+                        {/* Right: Cambio + Líbero */}
+                        <div className="flex gap-4">
+                            <button
+                                onClick={() => setShowSubstitutionModal(true)}
+                                disabled={!derivedState.hasLineupForCurrentSet || derivedState.isSetFinished || derivedState.isMatchFinished}
+                                className="flex flex-col items-center gap-1 text-zinc-400 active:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                <Users size={20} />
+                                <span className="text-[9px] font-bold">CAMBIO</span>
+                            </button>
+                            <button
+                                onClick={handleInstantLiberoSwap}
+                                disabled={!derivedState.hasLineupForCurrentSet || derivedState.isSetFinished || derivedState.isMatchFinished}
+                                className="flex flex-col items-center gap-1 text-purple-400 active:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                <Users size={18} className="fill-current" />
+                                <span className="text-[9px] font-bold">LÍBERO</span>
+                            </button>
+                        </div>
                     </div>
 
-                    <div className="flex gap-4">
-                        <button
-                            onClick={() => setShowSubstitutionModal(true)}
-                            disabled={!derivedState.hasLineupForCurrentSet || derivedState.isSetFinished || derivedState.isMatchFinished}
-                            className="flex flex-col items-center gap-1 text-zinc-400 active:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                            <Users size={20} />
-                            <span className="text-[9px] font-bold">CAMBIO</span>
-                        </button>
-                        <button
-                            onClick={handleInstantLiberoSwap}
-                            disabled={!derivedState.hasLineupForCurrentSet || derivedState.isSetFinished || derivedState.isMatchFinished}
-                            className="flex flex-col items-center gap-1 text-purple-400 active:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                            <Users size={18} className="fill-current" />
-                            <span className="text-[9px] font-bold">LÍBERO</span>
-                        </button>
-                    </div>
+                    {/* Timeline Content (Expands Below) */}
+                    {showTimeline && (
+                        <div className="border-t border-zinc-800">
+                            <MatchTimelineV2
+                                events={formatTimeline(events, derivedState.ourSide, homeTeamName, awayTeamName)}
+                                className=""
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {/* MODAL STARTERS (Selección de Titulares - Visual) */}
@@ -782,9 +853,21 @@ export function LiveMatchScoutingV2() {
                         <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4">
                             <div className="w-full max-w-sm bg-zinc-900 rounded-xl border border-zinc-800 p-6 shadow-2xl relative">
 
-                                <div className="text-center mb-6">
-                                    <h3 className="text-xl font-bold text-white uppercase tracking-widest">Titulares Set {derivedState.currentSet}</h3>
-                                    <p className="text-zinc-400 text-xs">Selecciona 6 jugadoras iniciales</p>
+                                {/* Header with Back Button */}
+                                <div className="relative mb-4">
+                                    {/* Back Button */}
+                                    <button
+                                        onClick={handleBackFromStarters}
+                                        className="absolute left-0 top-0 flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors"
+                                    >
+                                        <ArrowLeft size={18} />
+                                        <span className="text-xs font-semibold uppercase">Volver</span>
+                                    </button>
+
+                                    {/* Title (centered) */}
+                                    <div className="text-center pt-5">
+                                        <h3 className="text-xl font-bold text-white uppercase tracking-widest">Titulares Set {derivedState.currentSet}</h3>
+                                    </div>
                                 </div>
 
                                 {(derivedState.currentSet === 1 || derivedState.currentSet === 5) && (
@@ -811,9 +894,12 @@ export function LiveMatchScoutingV2() {
                                                     }`}
                                                 onClick={() => setInitialServerChoice('opponent')}
                                             >
-                                                Rival
+                                                {derivedState.ourSide === 'home' ? (awayTeamName || 'Rival') : (homeTeamName || 'Rival')}
                                             </button>
                                         </div>
+
+                                        {/* Instruction text moved here */}
+                                        <p className="text-zinc-500 text-xs text-center mt-3">Selecciona 6 jugadoras iniciales</p>
                                     </div>
                                 )}
 
@@ -862,9 +948,14 @@ export function LiveMatchScoutingV2() {
                                                                 <span className="text-2xl font-bold">{display.number}</span>
                                                                 <span className="text-xs truncate max-w-[95%] px-1 opacity-90 leading-tight text-center">{display.name}</span>
 
-                                                                {/* Role Badge */}
+                                                                {/* Role Badge with color by position */}
                                                                 {display.role && display.role.toLowerCase() !== 'starter' && (
-                                                                    <span className="absolute -bottom-1 right-1 rounded-full bg-zinc-800 px-1.5 py-[1px] text-[10px] font-bold text-zinc-300 border border-zinc-600 shadow-sm z-10">
+                                                                    <span className={`absolute -bottom-1 right-1 w-7 h-7 rounded-full border-2 flex items-center justify-center text-[9px] font-bold uppercase shadow-sm z-10 ${display.role.toUpperCase() === 'S' ? 'bg-blue-900/50 border-blue-500/70 text-blue-100' :
+                                                                        display.role.toUpperCase() === 'OPP' ? 'bg-red-900/50 border-red-500/70 text-red-100' :
+                                                                            display.role.toUpperCase() === 'MB' ? 'bg-purple-900/50 border-purple-500/70 text-purple-100' :
+                                                                                display.role.toUpperCase() === 'OH' ? 'bg-amber-900/50 border-amber-500/70 text-amber-100' :
+                                                                                    'bg-zinc-800 border-zinc-600 text-zinc-300'
+                                                                        }`}>
                                                                         {display.role}
                                                                     </span>
                                                                 )}
@@ -877,35 +968,72 @@ export function LiveMatchScoutingV2() {
                                                         )}
                                                     </div>
 
-                                                    {/* INLINE POPOVER (Positioned Below for Top Row) */}
+                                                    {/* CENTERED POPUP for Player Selection */}
                                                     {isActive && (
-                                                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl z-50 flex flex-col animate-in slide-in-from-top-2 duration-200">
-                                                            <div className="sticky top-0 bg-zinc-900/95 backdrop-blur border-b border-zinc-800 p-2 text-xs font-bold text-zinc-400 uppercase tracking-wider text-center z-10">
-                                                                Seleccionar P{pos}
-                                                            </div>
-                                                            {availableForPos.length === 0 ? (
-                                                                <div className="p-3 text-center text-xs text-zinc-500 italic">Sin jugadoras disponibles</div>
-                                                            ) : (
-                                                                availableForPos.map(p => (
+                                                        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                                                            {/* Backdrop */}
+                                                            <div
+                                                                className="absolute inset-0 bg-black/60"
+                                                                onClick={() => setActivePosition(null)}
+                                                            />
+
+                                                            {/* Popup - Narrower with fully rounded corners */}
+                                                            <div className="relative w-full max-w-[280px] bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+                                                                {/* Header with close button */}
+                                                                <div className="relative bg-zinc-900/95 backdrop-blur border-b border-zinc-800 p-3 text-sm font-bold text-zinc-300 uppercase tracking-wider text-center">
+                                                                    <span>Seleccionar P{pos}</span>
                                                                     <button
-                                                                        key={p.id}
-                                                                        onClick={() => {
-                                                                            setSelectedStarters(prev => ({ ...prev, [pos]: p.id }));
-                                                                            setActivePosition(null);
-                                                                        }}
-                                                                        className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-800 flex items-center gap-2 border-b border-zinc-800/50 last:border-0 ${selectedId === p.id ? 'bg-emerald-900/20 text-emerald-100' : 'text-zinc-300'
-                                                                            }`}
+                                                                        onClick={() => setActivePosition(null)}
+                                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
                                                                     >
-                                                                        <span className={`font-bold w-5 text-center ${selectedId === p.id ? 'text-emerald-400' : 'text-zinc-500'}`}>{p.number}</span>
-                                                                        <div className="flex items-center gap-2 leading-none">
-                                                                            <span>{p.name}</span>
-                                                                            {p.role && p.role.toLowerCase() !== 'starter' && (
-                                                                                <span className="text-[10px] text-zinc-500 uppercase font-bold">{p.role}</span>
-                                                                            )}
-                                                                        </div>
+                                                                        <span className="text-lg font-bold">×</span>
                                                                     </button>
-                                                                ))
-                                                            )}
+                                                                </div>
+                                                                <div className="max-h-80 overflow-y-auto scrollbar-hide">
+                                                                    {availableForPos.length === 0 ? (
+                                                                        <div className="p-4 text-center text-xs text-zinc-500 italic">Sin jugadoras disponibles</div>
+                                                                    ) : (
+                                                                        (() => {
+                                                                            // Sort players by role: S, OPP, OH, MB
+                                                                            const roleOrder: Record<string, number> = { 'S': 1, 'OPP': 2, 'OH': 3, 'MB': 4 };
+                                                                            const sortedPlayers = [...availableForPos].sort((a, b) => {
+                                                                                const roleA = (a.role || '').toUpperCase();
+                                                                                const roleB = (b.role || '').toUpperCase();
+                                                                                const orderA = roleOrder[roleA] || 999;
+                                                                                const orderB = roleOrder[roleB] || 999;
+                                                                                return orderA - orderB;
+                                                                            });
+
+                                                                            return sortedPlayers.map(p => (
+                                                                                <button
+                                                                                    key={p.id}
+                                                                                    onClick={() => {
+                                                                                        setSelectedStarters(prev => ({ ...prev, [pos]: p.id }));
+                                                                                        setActivePosition(null);
+                                                                                    }}
+                                                                                    className={`w-full px-4 py-3 hover:bg-zinc-800 flex items-center justify-center gap-3 border-b border-zinc-800/50 last:border-0 transition-colors ${selectedId === p.id ? 'bg-emerald-900/20 text-emerald-100' : 'text-zinc-300'
+                                                                                        }`}
+                                                                                >
+                                                                                    <span className={`font-bold text-xl ${selectedId === p.id ? 'text-emerald-400' : 'text-zinc-300'}`}>
+                                                                                        {p.number}
+                                                                                    </span>
+                                                                                    <span className="font-medium text-sm flex-1 text-center">{p.name}</span>
+                                                                                    {p.role && p.role.toLowerCase() !== 'starter' && (
+                                                                                        <span className={`flex-shrink-0 w-9 h-9 rounded-full border-2 flex items-center justify-center text-[9px] font-bold uppercase ${p.role.toUpperCase() === 'S' ? 'bg-blue-900/40 border-blue-500/60 text-blue-200' :
+                                                                                            p.role.toUpperCase() === 'OPP' ? 'bg-red-900/40 border-red-500/60 text-red-200' :
+                                                                                                p.role.toUpperCase() === 'MB' ? 'bg-purple-900/40 border-purple-500/60 text-purple-200' :
+                                                                                                    p.role.toUpperCase() === 'OH' ? 'bg-amber-900/40 border-amber-500/60 text-amber-200' :
+                                                                                                        'bg-zinc-800 border-zinc-600 text-zinc-300'
+                                                                                            }`}>
+                                                                                            {p.role}
+                                                                                        </span>
+                                                                                    )}
+                                                                                </button>
+                                                                            ));
+                                                                        })()
+                                                                    )}
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
@@ -953,9 +1081,14 @@ export function LiveMatchScoutingV2() {
                                                                 <span className="text-2xl font-bold">{display.number}</span>
                                                                 <span className="text-xs truncate max-w-[95%] px-1 opacity-90 leading-tight text-center">{display.name}</span>
 
-                                                                {/* Role Badge */}
+                                                                {/* Role Badge with color by position */}
                                                                 {display.role && display.role.toLowerCase() !== 'starter' && (
-                                                                    <span className="absolute -bottom-1 right-1 rounded-full bg-zinc-800 px-1.5 py-[1px] text-[10px] font-bold text-zinc-300 border border-zinc-600 shadow-sm z-10">
+                                                                    <span className={`absolute -bottom-1 right-1 w-7 h-7 rounded-full border-2 flex items-center justify-center text-[9px] font-bold uppercase shadow-sm z-10 ${display.role.toUpperCase() === 'S' ? 'bg-blue-900/50 border-blue-500/70 text-blue-100' :
+                                                                        display.role.toUpperCase() === 'OPP' ? 'bg-red-900/50 border-red-500/70 text-red-100' :
+                                                                            display.role.toUpperCase() === 'MB' ? 'bg-purple-900/50 border-purple-500/70 text-purple-100' :
+                                                                                display.role.toUpperCase() === 'OH' ? 'bg-amber-900/50 border-amber-500/70 text-amber-100' :
+                                                                                    'bg-zinc-800 border-zinc-600 text-zinc-300'
+                                                                        }`}>
                                                                         {display.role}
                                                                     </span>
                                                                 )}
@@ -968,35 +1101,72 @@ export function LiveMatchScoutingV2() {
                                                         )}
                                                     </div>
 
-                                                    {/* INLINE POPOVER (Positioned ABOVE for Bottom Row to stay on screen) */}
+                                                    {/* CENTERED POPUP for Player Selection */}
                                                     {isActive && (
-                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl z-50 flex flex-col animate-in slide-in-from-bottom-2 duration-200">
-                                                            <div className="sticky top-0 bg-zinc-900/95 backdrop-blur border-b border-zinc-800 p-2 text-xs font-bold text-zinc-400 uppercase tracking-wider text-center z-10">
-                                                                Seleccionar P{pos}
-                                                            </div>
-                                                            {availableForPos.length === 0 ? (
-                                                                <div className="p-3 text-center text-xs text-zinc-500 italic">Sin jugadoras disponibles</div>
-                                                            ) : (
-                                                                availableForPos.map(p => (
+                                                        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                                                            {/* Backdrop */}
+                                                            <div
+                                                                className="absolute inset-0 bg-black/60"
+                                                                onClick={() => setActivePosition(null)}
+                                                            />
+
+                                                            {/* Popup - Narrower with fully rounded corners */}
+                                                            <div className="relative w-full max-w-[280px] bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+                                                                {/* Header with close button */}
+                                                                <div className="relative bg-zinc-900/95 backdrop-blur border-b border-zinc-800 p-3 text-sm font-bold text-zinc-300 uppercase tracking-wider text-center">
+                                                                    <span>Seleccionar P{pos}</span>
                                                                     <button
-                                                                        key={p.id}
-                                                                        onClick={() => {
-                                                                            setSelectedStarters(prev => ({ ...prev, [pos]: p.id }));
-                                                                            setActivePosition(null);
-                                                                        }}
-                                                                        className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-800 flex items-center gap-2 border-b border-zinc-800/50 last:border-0 ${selectedId === p.id ? 'bg-emerald-900/20 text-emerald-100' : 'text-zinc-300'
-                                                                            }`}
+                                                                        onClick={() => setActivePosition(null)}
+                                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
                                                                     >
-                                                                        <span className={`font-bold w-5 text-center ${selectedId === p.id ? 'text-emerald-400' : 'text-zinc-500'}`}>{p.number}</span>
-                                                                        <div className="flex flex-col leading-none">
-                                                                            <span>{p.name}</span>
-                                                                            {p.role && p.role.toLowerCase() !== 'starter' && (
-                                                                                <span className="text-[9px] text-zinc-500 uppercase">{p.role}</span>
-                                                                            )}
-                                                                        </div>
+                                                                        <span className="text-lg font-bold">×</span>
                                                                     </button>
-                                                                ))
-                                                            )}
+                                                                </div>
+                                                                <div className="max-h-80 overflow-y-auto scrollbar-hide">
+                                                                    {availableForPos.length === 0 ? (
+                                                                        <div className="p-4 text-center text-xs text-zinc-500 italic">Sin jugadoras disponibles</div>
+                                                                    ) : (
+                                                                        (() => {
+                                                                            // Sort players by role: S, OPP, MB, OH
+                                                                            const roleOrder: Record<string, number> = { 'S': 1, 'OPP': 2, 'MB': 3, 'OH': 4 };
+                                                                            const sortedPlayers = [...availableForPos].sort((a, b) => {
+                                                                                const roleA = (a.role || '').toUpperCase();
+                                                                                const roleB = (b.role || '').toUpperCase();
+                                                                                const orderA = roleOrder[roleA] || 999;
+                                                                                const orderB = roleOrder[roleB] || 999;
+                                                                                return orderA - orderB;
+                                                                            });
+
+                                                                            return sortedPlayers.map(p => (
+                                                                                <button
+                                                                                    key={p.id}
+                                                                                    onClick={() => {
+                                                                                        setSelectedStarters(prev => ({ ...prev, [pos]: p.id }));
+                                                                                        setActivePosition(null);
+                                                                                    }}
+                                                                                    className={`w-full px-4 py-3 hover:bg-zinc-800 flex items-center justify-center gap-3 border-b border-zinc-800/50 last:border-0 transition-colors ${selectedId === p.id ? 'bg-emerald-900/20 text-emerald-100' : 'text-zinc-300'
+                                                                                        }`}
+                                                                                >
+                                                                                    <span className={`font-bold text-xl ${selectedId === p.id ? 'text-emerald-400' : 'text-zinc-300'}`}>
+                                                                                        {p.number}
+                                                                                    </span>
+                                                                                    <span className="font-medium text-sm flex-1 text-center">{p.name}</span>
+                                                                                    {p.role && p.role.toLowerCase() !== 'starter' && (
+                                                                                        <span className={`flex-shrink-0 w-9 h-9 rounded-full border-2 flex items-center justify-center text-[9px] font-bold uppercase ${p.role.toUpperCase() === 'S' ? 'bg-blue-900/40 border-blue-500/60 text-blue-200' :
+                                                                                            p.role.toUpperCase() === 'OPP' ? 'bg-red-900/40 border-red-500/60 text-red-200' :
+                                                                                                p.role.toUpperCase() === 'MB' ? 'bg-purple-900/40 border-purple-500/60 text-purple-200' :
+                                                                                                    p.role.toUpperCase() === 'OH' ? 'bg-amber-900/40 border-amber-500/60 text-amber-200' :
+                                                                                                        'bg-zinc-800 border-zinc-600 text-zinc-300'
+                                                                                            }`}>
+                                                                                            {p.role}
+                                                                                        </span>
+                                                                                    )}
+                                                                                </button>
+                                                                            ));
+                                                                        })()
+                                                                    )}
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1030,40 +1200,56 @@ export function LiveMatchScoutingV2() {
                                                 )}
                                             </div>
 
-                                            {/* LIBERO SELECTOR POPOVER */}
+                                            {/* LIBERO SELECTOR POPUP - Centered with consistent design */}
                                             {activePosition === 999 && (
-                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl z-50 flex flex-col animate-in slide-in-from-bottom-2 duration-200">
-                                                    <div className="sticky top-0 bg-zinc-900/95 backdrop-blur border-b border-zinc-800 p-2 text-xs font-bold text-amber-500 uppercase tracking-wider text-center z-10">
-                                                        Seleccionar Líbero
-                                                    </div>
-                                                    {(() => {
-                                                        const availableForLibero = availablePlayers.filter(p => {
-                                                            const isLibero = p.role === 'L';
-                                                            const isUsedInField = Object.values(selectedStarters).includes(p.id);
-                                                            return isLibero && !isUsedInField;
-                                                        });
+                                                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                                                    {/* Backdrop */}
+                                                    <div
+                                                        className="absolute inset-0 bg-black/60"
+                                                        onClick={() => setActivePosition(null)}
+                                                    />
 
-                                                        if (availableForLibero.length === 0) {
-                                                            return <div className="p-3 text-center text-xs text-zinc-500 italic">Sin líberos disponibles</div>
-                                                        }
-
-                                                        return availableForLibero.map(p => (
+                                                    {/* Popup */}
+                                                    <div className="relative w-full max-w-[280px] bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+                                                        {/* Header with close button */}
+                                                        <div className="relative bg-zinc-900/95 backdrop-blur border-b border-zinc-800 p-3 text-sm font-bold text-amber-400 uppercase tracking-wider text-center">
+                                                            <span>Seleccionar Líbero</span>
                                                             <button
-                                                                key={p.id}
-                                                                onClick={() => {
-                                                                    setSelectedLiberoId(p.id === selectedLiberoId ? null : p.id);
-                                                                    setActivePosition(null);
-                                                                }}
-                                                                className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-800 flex items-center gap-2 border-b border-zinc-800/50 last:border-0 ${selectedLiberoId === p.id ? 'bg-amber-900/20 text-amber-100' : 'text-zinc-300'}`}
+                                                                onClick={() => setActivePosition(null)}
+                                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
                                                             >
-                                                                <span className={`font-bold w-5 text-center ${selectedLiberoId === p.id ? 'text-amber-500' : 'text-zinc-500'}`}>{p.number}</span>
-                                                                <div className="flex items-center gap-2 leading-none">
-                                                                    <span>{p.name}</span>
-                                                                    <span className="text-[10px] text-zinc-500 uppercase font-bold">L</span>
-                                                                </div>
+                                                                <span className="text-lg font-bold">×</span>
                                                             </button>
-                                                        ));
-                                                    })()}
+                                                        </div>
+                                                        <div className="max-h-80 overflow-y-auto scrollbar-hide">
+                                                            {(() => {
+                                                                const availableForLibero = availablePlayers.filter(p => {
+                                                                    const isLibero = p.role === 'L';
+                                                                    const isUsedInField = Object.values(selectedStarters).includes(p.id);
+                                                                    return isLibero && !isUsedInField;
+                                                                });
+
+                                                                if (availableForLibero.length === 0) {
+                                                                    return <div className="p-4 text-center text-xs text-zinc-500 italic">Sin líberos disponibles</div>
+                                                                }
+
+                                                                return availableForLibero.map(p => (
+                                                                    <button
+                                                                        key={p.id}
+                                                                        onClick={() => {
+                                                                            setSelectedLiberoId(p.id === selectedLiberoId ? null : p.id);
+                                                                            setActivePosition(null);
+                                                                        }}
+                                                                        className={`w-full px-4 py-3 hover:bg-zinc-800 flex items-center justify-center gap-3 border-b border-zinc-800/50 last:border-0 transition-colors ${selectedLiberoId === p.id ? 'bg-amber-900/20 text-amber-100' : 'text-zinc-300'}`}
+                                                                    >
+                                                                        <span className={`font-bold text-xl ${selectedLiberoId === p.id ? 'text-amber-400' : 'text-zinc-300'}`}>{p.number}</span>
+                                                                        <span className="font-medium text-sm flex-1 text-center">{p.name}</span>
+                                                                        <span className="flex-shrink-0 w-9 h-9 rounded-full border-2 bg-amber-900/40 border-amber-500/60 text-amber-200 flex items-center justify-center text-[9px] font-bold uppercase">L</span>
+                                                                    </button>
+                                                                ));
+                                                            })()}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
