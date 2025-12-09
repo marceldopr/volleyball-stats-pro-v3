@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Undo2, Redo2, RotateCw, Users } from 'lucide-react'
+import { ArrowLeft, Undo2, RotateCw, Users } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useMatchStoreV2 } from '@/stores/matchStoreV2'
 import { matchServiceV2 } from '@/services/matchServiceV2'
@@ -18,12 +18,10 @@ export function LiveMatchScoutingV2() {
     const {
         derivedState,
         events,
-        futureEvents,
         loadMatch,
         addEvent,
         setInitialOnCourtPlayers,
         undoEvent,
-        redoEvent,
         closeSetSummaryModal
     } = useMatchStoreV2()
 
@@ -615,10 +613,6 @@ export function LiveMatchScoutingV2() {
                         <button onClick={() => undoEvent()} disabled={events.length === 0} className="flex flex-col items-center gap-1 text-zinc-500 active:text-white disabled:opacity-30">
                             <Undo2 size={20} />
                             <span className="text-[9px] font-bold">DESHACER</span>
-                        </button>
-                        <button onClick={() => redoEvent()} disabled={futureEvents.length === 0} className="flex flex-col items-center gap-1 text-zinc-500 active:text-white disabled:opacity-30">
-                            <Redo2 size={20} />
-                            <span className="text-[9px] font-bold">REHACER</span>
                         </button>
                     </div>
 

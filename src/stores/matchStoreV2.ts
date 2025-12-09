@@ -107,7 +107,6 @@ export interface MatchV2State {
 
     // Event Sourcing
     events: MatchEvent[]
-    futureEvents: MatchEvent[]
 
     // Derived State
     derivedState: DerivedMatchState
@@ -117,7 +116,7 @@ export interface MatchV2State {
     setInitialOnCourtPlayers: (players: PlayerV2[]) => void
     addEvent: (type: MatchEventType, payload?: any) => void
     undoEvent: () => void
-    redoEvent: () => void
+    // redoEvent removed - Redo functionality not used in product scope
     reset: () => void
     closeSetSummaryModal: () => void
 }
@@ -221,14 +220,6 @@ function calculateDerivedState(
         // Ensure we have a score object for the current set logic
         // IMPORTANT: state.currentSet changes on SET_START
         // Check event type first to handle set progression
-
-        let eventSet = state.currentSet
-        if (event.type === 'SET_START' && event.payload?.setNumber) {
-            // The SET_START moves us to next set. 
-            // Previous set is finished. Stats for PREVIOUS set are done effectively (except if undo).
-            // But we track stats based on `state.currentSet` at time of event? 
-            // Actually `state.currentSet` updates INSIDE the loop. 
-        }
 
         if (!setScoresMap[state.currentSet]) {
             setScoresMap[state.currentSet] = { home: 0, away: 0 }
@@ -407,9 +398,6 @@ function calculateDerivedState(
                     if (!dismissedSetSummaries.includes(finishedSet)) {
                         state.lastFinishedSetSummary = setStats[finishedSet]
                         state.setSummaryModalOpen = true
-                    } else {
-                        // Even if dismissed, we might update lastFinishedSetSummary for reference?
-                        // No, if dismissed, modal shouldn't open.
                     }
                 }
                 break
@@ -485,7 +473,6 @@ export const useMatchStoreV2 = create<MatchV2State>()(
             initialOnCourtPlayers: [],
             dismissedSetSummaries: [],
             events: [],
-            futureEvents: [],
             derivedState: INITIAL_DERIVED_STATE,
 
             loadMatch: (dbMatchId, events, ourSide, teamNames) => {
@@ -496,7 +483,7 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                     }))
 
                     console.log('[DEBUG loadMatch] Before reset', { dismissedSetSummaries: state.dismissedSetSummaries })
-                    
+
                     // CRITICAL FIX: Always use empty array for dismissedSetSummaries on load
                     // This prevents persisted dismissed summaries from blocking new set modals
                     const derived = calculateDerivedState(mappedEvents, ourSide, state.initialOnCourtPlayers, [])
@@ -510,9 +497,8 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                         dbMatchId,
                         ourSide,
                         events: mappedEvents,
-                        futureEvents: [],
                         derivedState: derived,
-                        dismissedSetSummaries: [] // RESET on match load
+                        dismissedSetSummaries: []
                     }
                 })
             },
@@ -589,7 +575,6 @@ export const useMatchStoreV2 = create<MatchV2State>()(
 
                 set({
                     events: tempEvents,
-                    futureEvents: [],
                     derivedState: finalDerived
                 })
 
@@ -599,17 +584,14 @@ export const useMatchStoreV2 = create<MatchV2State>()(
             },
 
             undoEvent: () => {
-                const { dbMatchId, events, futureEvents, ourSide, initialOnCourtPlayers, dismissedSetSummaries } = get()
+                const { dbMatchId, events, ourSide, initialOnCourtPlayers, dismissedSetSummaries } = get()
                 if (events.length === 0) return
 
-                const lastEvent = events[events.length - 1]
                 const newEvents = events.slice(0, -1)
-                const newFuture = [lastEvent, ...futureEvents]
                 const newDerived = calculateDerivedState(newEvents, ourSide, initialOnCourtPlayers, dismissedSetSummaries)
 
                 set({
                     events: newEvents,
-                    futureEvents: newFuture,
                     derivedState: newDerived
                 })
 
@@ -620,34 +602,13 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                 }
             },
 
-            redoEvent: () => {
-                const { dbMatchId, events, futureEvents, ourSide, initialOnCourtPlayers, dismissedSetSummaries } = get()
-                if (futureEvents.length === 0) return
-
-                const nextEvent = futureEvents[0]
-                const newFuture = futureEvents.slice(1)
-                const newEvents = [...events, nextEvent]
-                const newDerived = calculateDerivedState(newEvents, ourSide, initialOnCourtPlayers, dismissedSetSummaries)
-
-                set({
-                    events: newEvents,
-                    futureEvents: newFuture,
-                    derivedState: newDerived
-                })
-
-                if (dbMatchId) {
-                    matchServiceV2.updateMatchV2(dbMatchId, { actions: newEvents }).catch(err => {
-                        console.error('Failed to persist events (redoEvent):', err)
-                    })
-                }
-            },
+            // redoEvent removed - Redo functionality not used in product scope
 
             reset: () => set({
                 dbMatchId: null,
                 initialOnCourtPlayers: [],
                 dismissedSetSummaries: [],
                 events: [],
-                futureEvents: [],
                 derivedState: INITIAL_DERIVED_STATE
             }),
 
@@ -680,9 +641,7 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                 initialOnCourtPlayers: state.initialOnCourtPlayers,
                 // CRITICAL: Do NOT persist dismissedSetSummaries
                 // Persisting it causes modals to not appear on page reload
-                // dismissedSetSummaries: state.dismissedSetSummaries, // REMOVED
                 events: state.events,
-                futureEvents: state.futureEvents,
                 derivedState: state.derivedState
             })
         }
