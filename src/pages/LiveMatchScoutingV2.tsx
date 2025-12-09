@@ -9,7 +9,6 @@ import { toast } from 'sonner'
 import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
 import { MatchFinishedModal } from '@/components/matches/MatchFinishedModal'
 import { SetSummaryModalV2 } from '@/components/matches/SetSummaryModalV2'
-import { SetSummary } from '@/stores/matchStoreV2'
 
 export function LiveMatchScoutingV2() {
     const { matchId } = useParams<{ matchId: string }>()
@@ -198,8 +197,23 @@ export function LiveMatchScoutingV2() {
         if (lastSetRef.current !== derivedState.currentSet) {
             lastSetRef.current = derivedState.currentSet
 
+            console.log('[DEBUG useEffect] Set changed', {
+                newSet: derivedState.currentSet,
+                setSummaryModalOpen: derivedState.setSummaryModalOpen,
+                hasLineupForCurrentSet: derivedState.hasLineupForCurrentSet
+            })
+
+            // CRITICAL: Do NOT open starters modal if set summary modal is currently open
+            // This prevents skipping the set summary when transitioning between sets
+            if (derivedState.setSummaryModalOpen) {
+                // Set summary takes priority - starters modal will open after user closes it
+                console.log('[DEBUG useEffect] Skipping StartersModal - SetSummaryModal is open')
+                return
+            }
+
             // Only open if NO lineup exists for this new set
             if (!derivedState.hasLineupForCurrentSet) {
+                console.log('[DEBUG useEffect] Opening StartersModal')
                 setShowStartersModal(true)
             } else {
                 setShowStartersModal(false)
@@ -211,8 +225,13 @@ export function LiveMatchScoutingV2() {
             // This might be redundant if the initial load handled it, but safety for "mid-set" with no lineup.
             // Actually user asked for specific logic: "Al empezar el set 1: Si no hay lineup → se muestra el modal".
             // "Cuando se cierra el set 1 y se genera SET_START del set 2: ... modal".
+
+            // CRITICAL: Also check for set summary modal here
+            if (!derivedState.setSummaryModalOpen) {
+                // Can open starters modal safely
+            }
         }
-    }, [derivedState.currentSet, derivedState.hasLineupForCurrentSet])
+    }, [derivedState.currentSet, derivedState.hasLineupForCurrentSet, derivedState.setSummaryModalOpen])
 
     // Initial mount check for reload scenarios
     useEffect(() => {
@@ -282,11 +301,25 @@ export function LiveMatchScoutingV2() {
     // Set Summary Handlers
     const handleCloseSetSummary = () => {
         closeSetSummaryModal()
+
+        // After closing set summary, check if we need to open starters modal
+        setTimeout(() => {
+            if (!derivedState.hasLineupForCurrentSet) {
+                setShowStartersModal(true)
+            }
+        }, 100)
     }
 
     const handleConfirmSetSummary = () => {
         // Confirm just means closing the modal and effectively "accepting" the set end state
         closeSetSummaryModal()
+
+        // After confirming set summary, check if we need to open starters modal
+        setTimeout(() => {
+            if (!derivedState.hasLineupForCurrentSet) {
+                setShowStartersModal(true)
+            }
+        }, 100)
     }
 
     const handleUndoSetSummary = () => {
@@ -299,16 +332,15 @@ export function LiveMatchScoutingV2() {
         if (lastEvt?.type === 'SET_START') {
             undoEvent() // Undo SET_START
             undoEvent() // Undo SET_END
-            undoEvent() // Undo Point
+            undoEvent() // Undo the Point that caused end
         } else if (lastEvt?.type === 'SET_END') {
             undoEvent() // Undo SET_END
-            undoEvent() // Undo Point
+            undoEvent() // Undo the Point
         } else {
             // Should not happen if modal is open, but fallback
             undoEvent()
         }
     }
-
 
     // Confirm Starters Handler
     const handleConfirmStarters = () => {
@@ -350,24 +382,7 @@ export function LiveMatchScoutingV2() {
     }
 
     // derived booleans
-    // derived booleans - continued below
-    // const isHome = derivedState.ourSide === 'home' // Removed duplicate
-
-    // A simplified 'isServing' check based on rotation or score state?
-    // Actually we need to know who is serving.
-    // In matchStoreV2, we might not have explicitly 'servingSide' in derivedState if not defined.
-    // Let's check derivedState type in matchStoreV2.ts.
-    // It has: homeScore, awayScore, setsWonHome, setsWonAway, currentSet, ourSide.
-    // It MISSES 'servingSide'. We need to calculate it or add it to store.
-    // FOR NOW, to fix the error, we will derive it or default it.
-
-    // NOTE: Real implementation needs 'servingSide' from store.
-    // Assuming for now matchData might have it or we calculate from events.
-    // BUT checking the JSX, it uses `isServing` (boolean).
-
-    // derived booleans
     const isServing = derivedState.servingSide === 'our'
-
 
     if (loading) return <div className="h-screen bg-zinc-950 flex items-center justify-center text-zinc-500">Cargando...</div>
     if (!matchData) return null
@@ -852,12 +867,12 @@ export function LiveMatchScoutingV2() {
                                         <div className="relative group">
                                             <div
                                                 onClick={() => setActivePosition(activePosition === 999 ? null : 999)}
-                                                className={`cursor - pointer w - 16 h - 16 rounded - full border - 2 border - dashed flex flex - col items - center justify - center transition - all ${activePosition === 999
+                                                className={`cursor-pointer w-16 h-16 rounded-full border-2 border-dashed flex flex-col items-center justify-center transition-all ${activePosition === 999
                                                     ? 'bg-amber-900/40 border-amber-500/50 ring-2 ring-amber-500/30 text-amber-100 scale-105'
                                                     : selectedLiberoId
                                                         ? 'bg-amber-900/20 border-amber-500/50 text-amber-100 border-solid'
                                                         : 'bg-zinc-800 border-zinc-600 text-zinc-500 hover:border-zinc-500 hover:bg-zinc-800/80'
-                                                    } `}
+                                                    }`}
                                             >
                                                 {selectedLiberoId ? (() => {
                                                     const disp = getPlayerDisplay(selectedLiberoId);

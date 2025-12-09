@@ -495,7 +495,11 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                         timestamp: e.timestamp || new Date().toISOString()
                     }))
 
-                    const derived = calculateDerivedState(mappedEvents, ourSide, state.initialOnCourtPlayers, state.dismissedSetSummaries)
+                    console.log('[DEBUG loadMatch] Before reset', { dismissedSetSummaries: state.dismissedSetSummaries })
+                    
+                    // CRITICAL FIX: Always use empty array for dismissedSetSummaries on load
+                    // This prevents persisted dismissed summaries from blocking new set modals
+                    const derived = calculateDerivedState(mappedEvents, ourSide, state.initialOnCourtPlayers, [])
 
                     if (teamNames) {
                         derived.homeTeamName = teamNames.home
@@ -507,7 +511,8 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                         ourSide,
                         events: mappedEvents,
                         futureEvents: [],
-                        derivedState: derived
+                        derivedState: derived,
+                        dismissedSetSummaries: [] // RESET on match load
                     }
                 })
             },
@@ -673,7 +678,9 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                 dbMatchId: state.dbMatchId,
                 ourSide: state.ourSide,
                 initialOnCourtPlayers: state.initialOnCourtPlayers,
-                dismissedSetSummaries: state.dismissedSetSummaries,
+                // CRITICAL: Do NOT persist dismissedSetSummaries
+                // Persisting it causes modals to not appear on page reload
+                // dismissedSetSummaries: state.dismissedSetSummaries, // REMOVED
                 events: state.events,
                 futureEvents: state.futureEvents,
                 derivedState: state.derivedState
