@@ -287,19 +287,21 @@ export function LiveMatchScoutingV2() {
     // Show reception modal immediately when we start receiving
     useEffect(() => {
         // Only show if we're receiving, set is not finished, have lineup, and haven't evaluated this rally yet
+        // CRITICAL: Don't show if starters modal is open (priority)
         if (derivedState.servingSide === 'opponent' &&
             !derivedState.isSetFinished &&
             derivedState.hasLineupForCurrentSet &&
             !hasReceptionThisRally &&
             !derivedState.setSummaryModalOpen &&
-            !showSubstitutionModal) {
+            !showSubstitutionModal &&
+            !showStartersModal) {
             const timer = setTimeout(() => {
                 setShowReceptionModal(true)
             }, 200)
 
             return () => clearTimeout(timer)
         }
-    }, [derivedState.servingSide, derivedState.isSetFinished, derivedState.hasLineupForCurrentSet, hasReceptionThisRally, derivedState.setSummaryModalOpen, showSubstitutionModal])
+    }, [derivedState.servingSide, derivedState.isSetFinished, derivedState.hasLineupForCurrentSet, hasReceptionThisRally, derivedState.setSummaryModalOpen, showSubstitutionModal, showStartersModal])
 
     // Helper functions
     const getPlayerAt = (position: number) => {
