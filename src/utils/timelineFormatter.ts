@@ -174,14 +174,22 @@ export function formatTimelineEntry(
 
         case 'RECEPTION_EVAL': {
             const reception = event.payload?.reception
+            const rating = reception?.value || 0
+            const ratingLabels: Record<number, string> = {
+                4: '⭐ Perfecta',
+                3: '✅ Positiva',
+                2: '⚠️ Neutra',
+                1: '❌ Negativa',
+                0: '🔴 Error'
+            }
             return {
                 id: event.id,
                 setNumber,
                 team: 'us',
                 type: 'reception',
-                icon: '📊',
+                icon: '📥',
                 teamLabel: '',
-                description: `Recepción: ${reception?.value || 0}`,
+                description: `Recepción: ${ratingLabels[rating] || rating}`,
                 timestamp: event.timestamp
             }
         }

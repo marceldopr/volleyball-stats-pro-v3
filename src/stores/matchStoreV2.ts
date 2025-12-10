@@ -147,6 +147,7 @@ export interface MatchV2State {
     loadMatch: (dbMatchId: string, events: any[], ourSide: 'home' | 'away', teamNames?: { home: string; away: string }) => void
     setInitialOnCourtPlayers: (players: PlayerV2[]) => void
     addEvent: (type: MatchEventType, payload?: any) => void
+    addReceptionEval: (playerId: string, rating: 0 | 1 | 2 | 3 | 4) => void
     undoEvent: () => void
     autoSaveEvents: () => Promise<void>
     // redoEvent removed - Redo functionality not used in product scope
@@ -850,6 +851,18 @@ export const useMatchStoreV2 = create<MatchV2State>()(
 
                 // Auto-save after undo
                 get().autoSaveEvents()
+            },
+
+            // Add reception evaluation event
+            addReceptionEval: (playerId: string, rating: 0 | 1 | 2 | 3 | 4) => {
+                const state = get()
+                get().addEvent('RECEPTION_EVAL', {
+                    reception: {
+                        playerId,
+                        value: rating
+                    },
+                    setNumber: state.derivedState.currentSet
+                })
             },
 
             // redoEvent removed - Redo functionality not used in product scope

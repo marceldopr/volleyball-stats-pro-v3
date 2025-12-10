@@ -11,6 +11,7 @@ import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
 import { MatchTimelineV2 } from '@/components/MatchTimelineV2'
 import { formatTimeline } from '@/utils/timelineFormatter'
 import { MatchFinishedModalV2 } from '@/components/matches/MatchFinishedModalV2'
+import { ReceptionModalV2 } from '@/components/matches/ReceptionModalV2'
 import { SetSummaryModalV2 } from '@/components/matches/SetSummaryModalV2'
 import { SubstitutionModalV2 } from '@/components/matches/SubstitutionModalV2'
 import { isLibero, isValidSubstitution } from '@/lib/volleyball/substitutionHelpers'
@@ -26,6 +27,7 @@ export function LiveMatchScoutingV2() {
         events,
         loadMatch,
         addEvent,
+        addReceptionEval,
         setInitialOnCourtPlayers,
         undoEvent,
         closeSetSummaryModal
@@ -38,6 +40,7 @@ export function LiveMatchScoutingV2() {
     // Local State
     const [loading, setLoading] = useState(true)
     const [showReceptionModal, setShowReceptionModal] = useState(false)
+    const [hasReceptionThisRally, setHasReceptionThisRally] = useState(false)
     const [matchData, setMatchData] = useState<any>(null)
     const [availablePlayers, setAvailablePlayers] = useState<any[]>([])
 
@@ -273,56 +276,70 @@ export function LiveMatchScoutingV2() {
         }
     }, [loading, derivedState.currentSet, derivedState.hasLineupForCurrentSet])
 
-    // Helper to get player display info
-    const getPlayerDisplay = (playerId: string | undefined | null) => {
-        if (!playerId) return { number: '?', name: '-' }
-        const p = availablePlayers.find(ap => ap.id === playerId)
-        if (!p) return { number: '?', name: 'Unknown' }
-        return {
-            number: p.number,
-            name: p.name,
-            role: p.role
+    // Reset hasReceptionThisRally when score changes (new rally) or when we switch to receiving
+    useEffect(() => {
+        // Reset flag on new rally (score change) while we're receiving
+        if (derivedState.servingSide === 'opponent') {
+            setHasReceptionThisRally(false)
         }
+    }, [derivedState.servingSide, derivedState.homeScore, derivedState.awayScore])
+
+    // Show reception modal immediately when we start receiving
+    useEffect(() => {
+        // Only show if we're receiving, set is not finished, have lineup, and haven't evaluated this rally yet
+        if (derivedState.servingSide === 'opponent' &&
+            !derivedState.isSetFinished &&
+            derivedState.hasLineupForCurrentSet &&
+            !hasReceptionThisRally &&
+            !derivedState.setSummaryModalOpen &&
+            !showSubstitutionModal) {
+            const timer = setTimeout(() => {
+                setShowReceptionModal(true)
+            }, 200)
+
+            return () => clearTimeout(timer)
+        }
+    }, [derivedState.servingSide, derivedState.isSetFinished, derivedState.hasLineupForCurrentSet, hasReceptionThisRally, derivedState.setSummaryModalOpen, showSubstitutionModal])
+
+    // Helper functions
+    const getPlayerAt = (position: number) => {
+        return derivedState.onCourtPlayers.find(entry => entry.position === position)?.player
     }
 
-    // Helper for safe actions (Anti-Double-Tap)
-    const handleAction = (fn: () => void) => {
+    const handleAction = (action: () => void) => {
         if (buttonsDisabled) return
         setButtonsDisabled(true)
-        fn()
+        try {
+            action()
+        } catch (error) {
+            console.error('Error executing action:', error)
+            toast.error('Error al ejecutar la acción')
+        }
         setTimeout(() => {
             setButtonsDisabled(false)
         }, 350)
     }
 
-    // Get Player at Position Helper
-    const getPlayerAt = (pos: number) => {
-        const { onCourtPlayers } = derivedState
-        const entry = (onCourtPlayers as any[]).find(p => p.position === pos)
-        return entry?.player
+    // Reception handler with player selection
+    const handleReceptionEval = (playerId: string, rating: 0 | 1 | 2 | 3 | 4) => {
+        addReceptionEval(playerId, rating)
+        setShowReceptionModal(false)
+        setHasReceptionThisRally(true)
+
+        // If rating is 0 (error directo), award point to opponent
+        if (rating === 0) {
+            setTimeout(() => {
+                handleAction(() => addEvent('POINT_OPPONENT', { reason: 'reception_error' }))
+            }, 100)
+        }
     }
 
-    const handleReception = (value: 0 | 1 | 2 | 3 | 4) => {
-        // Assume P6 receiving for now if logic not specified
-        const p6 = getPlayerAt(6)
-        const playerId = p6?.id || 'unknown'
-
-        handleAction(() => {
-            addEvent('RECEPTION_EVAL', { reception: { playerId, value } })
-            setShowReceptionModal(false)
-
-            if (value === 0) {
-                setTimeout(() => {
-                    addEvent('POINT_OPPONENT', { reason: 'reception_error' })
-                }, 100)
-            }
-        })
-    }
 
     // Handlers
     const handlePointOpponent = (reason: string) => {
         handleAction(() => addEvent('POINT_OPPONENT', { reason }))
     }
+
     const handlePointUs = (reason: string) => {
         handleAction(() => addEvent('POINT_US', { reason }))
     }
@@ -537,6 +554,22 @@ export function LiveMatchScoutingV2() {
         toast.success(`Líbero: ${nextLibero.name} entra`)
     }
 
+    // Helper to get player display info (used by modals and rotation views)
+    const getPlayerDisplay = (playerId: string | null | undefined): { number: string; name: string; role: string } => {
+        if (!playerId) {
+            return { number: '?', name: '-', role: '' }
+        }
+        const player = availablePlayers.find(p => p.id === playerId)
+        if (!player) {
+            return { number: '?', name: '-', role: '' }
+        }
+        return {
+            number: String(player.number),
+            name: player.name,
+            role: player.role || ''
+        }
+    }
+
     // derived booleans
     const isServing = derivedState.servingSide === 'our'
 
@@ -647,11 +680,6 @@ export function LiveMatchScoutingV2() {
                 {/* MAIN GRID */}
                 <div className="flex-1 px-3 pt-3 flex flex-col">
 
-                    <div className="flex justify-between px-1 mb-2 text-[10px] uppercase font-bold tracking-wider opacity-80">
-                        <span className="text-emerald-500">Nosotros</span>
-                        <span className="text-red-500">Rival</span>
-                    </div>
-
                     <div className="grid grid-cols-2 gap-2">
 
                         {/* ROW 1 */}
@@ -666,12 +694,7 @@ export function LiveMatchScoutingV2() {
                             </>
                         ) : (
                             <>
-                                <button onClick={() => setShowReceptionModal(true)} disabled={buttonsDisabled} className="h-14 bg-blue-600 active:bg-blue-500 text-white rounded-lg font-bold text-sm shadow-sm border border-blue-400/30 transition-all hover:brightness-110">
-                                    Recepción
-                                </button>
-                                <div className="h-14 bg-zinc-900/50 rounded-lg border border-zinc-800/50 flex items-center justify-center">
-                                    <span className="text-zinc-700 text-[10px] uppercase font-bold tracking-wider">Esperando...</span>
-                                </div>
+                                {/* Empty slots when receiving - modal will open automatically */}
                             </>
                         )}
 
@@ -1325,42 +1348,50 @@ export function LiveMatchScoutingV2() {
                 }
 
                 {/* MODAL RECEPTION */}
-                {
-                    showReceptionModal && (
-                        <div className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center animate-in fade-in duration-200">
-                            <div className="w-full max-w-md bg-zinc-900 border-t border-zinc-800 p-4 pb-8 animate-in slide-in-from-bottom duration-300 rounded-t-2xl shadow-2xl">
-                                <div className="flex justify-between items-center mb-4 px-2">
-                                    <span className="font-bold text-white uppercase tracking-wider text-sm">Evaluar Recepción</span>
-                                    <button onClick={() => setShowReceptionModal(false)} className="text-xs text-zinc-500 font-bold p-2">CANCELAR</button>
-                                </div>
-
-                                <div className="flex gap-2 h-24">
-                                    <button onClick={() => handleReception(0)} className="flex-1 bg-red-900/80 active:bg-red-800 rounded-xl flex flex-col items-center justify-center border border-red-900/50">
-                                        <span className="text-3xl font-black text-red-100 mb-1">===</span>
-                                        <span className="text-[10px] text-red-200 font-bold uppercase">ERROR</span>
-                                    </button>
-
-                                    <div className="flex-[2] grid grid-cols-3 gap-2">
-                                        <button onClick={() => handleReception(1)} className="bg-zinc-800 active:bg-zinc-700 rounded-xl flex items-center justify-center border border-zinc-700">
-                                            <span className="text-2xl font-bold text-zinc-400">1</span>
-                                        </button>
-                                        <button onClick={() => handleReception(2)} className="bg-zinc-800 active:bg-zinc-700 rounded-xl flex items-center justify-center border border-zinc-700">
-                                            <span className="text-2xl font-bold text-zinc-400">2</span>
-                                        </button>
-                                        <button onClick={() => handleReception(3)} className="bg-zinc-800 active:bg-zinc-700 rounded-xl flex items-center justify-center border border-zinc-700">
-                                            <span className="text-2xl font-bold text-zinc-400">3</span>
-                                        </button>
-                                    </div>
-
-                                    <button onClick={() => handleReception(4)} className="flex-1 bg-emerald-900/80 active:bg-emerald-800 rounded-xl flex flex-col items-center justify-center border border-emerald-900/50">
-                                        <span className="text-3xl font-black text-emerald-100 mb-1">#</span>
-                                        <span className="text-[10px] text-emerald-200 font-bold uppercase">PERF</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                {/* Reception Modal V2 */}
+                {(() => {
+                    // Calculate rotation with libero swap (same logic as main rotation display)
+                    const baseRotationIds = [1, 2, 3, 4, 5, 6].map(pos => getPlayerAt(pos)?.id || null)
+                    const isServing = derivedState.servingSide === 'our'
+                    const displayRotationIds = calculateLiberoRotation(
+                        baseRotationIds,
+                        derivedState.currentLiberoId,
+                        isServing,
+                        (id) => availablePlayers.find(p => p.id === id)?.role
                     )
-                }
+
+                    // Convert IDs array into rotation format with player objects
+                    const rotationWithLibero = [1, 2, 3, 4, 5, 6].map((pos, idx) => {
+                        const playerId = displayRotationIds[idx]
+                        const player = availablePlayers.find(p => p.id === playerId)
+                        return player ? {
+                            position: pos,
+                            player: {
+                                id: player.id,
+                                name: player.name,
+                                number: player.number,
+                                role: player.role || ''
+                            }
+                        } : null
+                    }).filter(Boolean) as Array<{ position: number; player: { id: string; name: string; number: number; role: string } }>
+
+                    return (
+                        <ReceptionModalV2
+                            isOpen={showReceptionModal}
+                            onClose={() => setShowReceptionModal(false)}
+                            onConfirm={handleReceptionEval}
+                            players={rotationWithLibero.map(p => ({
+                                id: p.player.id,
+                                name: p.player.name,
+                                number: p.player.number,
+                                role: p.player.role
+                            }))}
+                            currentSet={derivedState.currentSet}
+                            rotation={rotationWithLibero}
+                            getPlayerDisplay={getPlayerDisplay}
+                        />
+                    )
+                })()}
 
                 <SetSummaryModalV2
                     isOpen={derivedState.setSummaryModalOpen}
