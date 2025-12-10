@@ -10,7 +10,7 @@ import { toast } from 'sonner'
 import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
 import { MatchTimelineV2 } from '@/components/MatchTimelineV2'
 import { formatTimeline } from '@/utils/timelineFormatter'
-import { MatchFinishedModal } from '@/components/matches/MatchFinishedModal'
+import { MatchFinishedModalV2 } from '@/components/matches/MatchFinishedModalV2'
 import { SetSummaryModalV2 } from '@/components/matches/SetSummaryModalV2'
 import { SubstitutionModalV2 } from '@/components/matches/SubstitutionModalV2'
 import { isLibero, isValidSubstitution } from '@/lib/volleyball/substitutionHelpers'
@@ -75,32 +75,14 @@ export function LiveMatchScoutingV2() {
         }
     }, [derivedState.isMatchFinished, derivedState.setSummaryModalOpen])
 
-    const handleConfirmFinish = async () => {
-        if (!matchId || !derivedState.isMatchFinished) return
+    const handleGoToMatches = () => {
+        navigate('/matches')
+    }
 
-        try {
-            const resultString = `${derivedState.setsWonHome}-${derivedState.setsWonAway}`
-
-            await matchServiceV2.updateMatchV2(matchId, {
-                status: 'finished',
-                result: resultString
-            })
-
-            toast.success("Partido finalizado correctamente")
-            navigate('/matches')
-        } catch (error) {
-            console.error('Error finalizando partico:', error)
-            toast.error("Error al finalizar el partido")
+    const handleGoToAnalysis = () => {
+        if (matchId) {
+            navigate(`/match-analysis-v2/${matchId}`)
         }
-    }
-
-    const handleUndoFinish = () => {
-        setIsMatchFinishedModalOpen(false)
-        undoEvent()
-    }
-
-    const handleViewReadOnly = () => {
-        setIsMatchFinishedModalOpen(false)
     }
 
     // Load Match & Convocations only once
@@ -1390,16 +1372,25 @@ export function LiveMatchScoutingV2() {
                     onUndo={handleUndoSetSummary}
                 />
 
-                <MatchFinishedModal
+                <MatchFinishedModalV2
                     isOpen={isMatchFinishedModalOpen}
-                    onConfirm={handleConfirmFinish}
-                    onUndo={handleUndoFinish}
-                    onViewReadOnly={handleViewReadOnly}
-                    homeTeamName={homeTeamName || 'Local'}
-                    awayTeamName={awayTeamName || 'Visitante'}
-                    setsWonHome={derivedState.setsWonHome}
-                    setsWonAway={derivedState.setsWonAway}
-                    finalSetScore={derivedState.setsScores[derivedState.setsScores.length - 1] || { home: 0, away: 0 }}
+                    matchId={matchId}
+                    matchInfo={{
+                        homeTeamName: homeTeamName || 'Local',
+                        awayTeamName: awayTeamName || 'Visitante',
+                        sets: derivedState.setsScores || [],
+                        homeSetsWon: derivedState.setsWonHome,
+                        awaySetsWon: derivedState.setsWonAway,
+                        date: matchData?.match_date ? new Date(matchData.match_date).toLocaleDateString('es-ES', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric'
+                        }) : undefined,
+                        time: matchData?.match_time || undefined,
+                        competition: matchData?.competition_name || matchData?.teams?.category_stage || undefined
+                    }}
+                    onGoToMatches={handleGoToMatches}
+                    onGoToAnalysis={handleGoToAnalysis}
                 />
 
                 {/* MODAL SUBSTITUTION */}

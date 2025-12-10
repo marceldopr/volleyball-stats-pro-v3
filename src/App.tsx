@@ -8,6 +8,7 @@ import { MatchWizardV2 } from '@/pages/MatchWizardV2'
 import { MatchConvocationV2 } from '@/components/matches/MatchConvocationV2'
 import { LiveMatchScoutingV2 } from '@/pages/LiveMatchScoutingV2'
 import { MatchAnalysis } from '@/pages/MatchAnalysis'
+import { MatchAnalysisV2 } from '@/pages/MatchAnalysisV2'
 import { Analytics } from '@/pages/Analytics'
 import { SettingsPage } from '@/pages/Settings'
 import { NewMatch } from '@/pages/NewMatch'
@@ -177,6 +178,11 @@ function App() {
                     <Route path="/live-match-v2/:matchId" element={
                       <RoleGuard allowedForDT allowedForCoach>
                         <LiveMatchScoutingV2 />
+                      </RoleGuard>
+                    } />
+                    <Route path="/match-analysis-v2/:matchId" element={
+                      <RoleGuard allowedForDT allowedForCoach>
+                        <MatchAnalysisV2 />
                       </RoleGuard>
                     } />
 
