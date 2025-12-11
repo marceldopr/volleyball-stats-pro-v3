@@ -1,11 +1,8 @@
-import { useEffect, useState, useRef } from 'react'
+﻿import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Undo2, Users } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useMatchStoreV2, validateFIVBSubstitution } from '@/stores/matchStoreV2'
-import { matchServiceV2 } from '@/services/matchServiceV2'
-import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
-import { teamService } from '@/services/teamService'
 import { toast } from 'sonner'
 import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
 import { MatchTimelineV2 } from '@/components/MatchTimelineV2'
@@ -15,7 +12,13 @@ import { ReceptionModalV2 } from '@/components/matches/ReceptionModalV2'
 import { SetSummaryModalV2 } from '@/components/matches/SetSummaryModalV2'
 import { SubstitutionModalV2 } from '@/components/matches/SubstitutionModalV2'
 import { isLibero, isValidSubstitution } from '@/lib/volleyball/substitutionHelpers'
-import { getTeamDisplayName } from '@/utils/teamDisplay'
+import { matchServiceV2 } from '@/services/matchServiceV2'
+
+// Custom Hooks
+import { useMatchData } from '@/hooks/match/useMatchData'
+import { useStartersModal } from '@/hooks/match/useStartersModal'
+import { useReceptionModal } from '@/hooks/match/useReceptionModal'
+import { useSubstitutionModal } from '@/hooks/match/useSubstitutionModal'
 
 export function LiveMatchScoutingV2() {
     const { matchId } = useParams<{ matchId: string }>()
@@ -37,31 +40,29 @@ export function LiveMatchScoutingV2() {
     const homeTeamName = useMatchStoreV2(state => state.homeTeamName)
     const awayTeamName = useMatchStoreV2(state => state.awayTeamName)
 
-    // Local State
-    const [loading, setLoading] = useState(true)
-    const [showReceptionModal, setShowReceptionModal] = useState(false)
-    const [hasReceptionThisRally, setHasReceptionThisRally] = useState(false)
-    const [matchData, setMatchData] = useState<any>(null)
-    const [availablePlayers, setAvailablePlayers] = useState<any[]>([])
+    // Custom Hooks - Data Loading
+    const { loading, matchData, availablePlayers } = useMatchData({
+        matchId,
+        loadMatch,
+        setInitialOnCourtPlayers
+    })
+
+    // Custom Hooks - Modal Management
+    const startersModal = useStartersModal({ derivedState, loading })
+    const substitutionModal = useSubstitutionModal()
+    const receptionModal = useReceptionModal({
+        derivedState,
+        showSubstitutionModal: substitutionModal.showSubstitutionModal,
+        showStartersModal: startersModal.showStartersModal
+    })
 
     // State for UX
     const [buttonsDisabled, setButtonsDisabled] = useState(false)
     const [showRotationModal, setShowRotationModal] = useState(false)
     const [activePosition, setActivePosition] = useState<number | null>(null)
 
-    // Starters Logic
-    const [showStartersModal, setShowStartersModal] = useState(false)
-    const [initialServerChoice, setInitialServerChoice] = useState<'our' | 'opponent' | null>(null)
-    const [selectedStarters, setSelectedStarters] = useState<{ [pos: number]: string }>({})
-    const [selectedLiberoId, setSelectedLiberoId] = useState<string | null>(null)
-
-    // Substitution Logic
-    const [showSubstitutionModal, setShowSubstitutionModal] = useState(false)
-
     // Timeline Logic
     const [showTimeline, setShowTimeline] = useState(false)
-
-    const lastSetRef = useRef<number | null>(null)
 
     // Match Finished Logic
     const [isMatchFinishedModalOpen, setIsMatchFinishedModalOpen] = useState(false)
@@ -83,225 +84,42 @@ export function LiveMatchScoutingV2() {
     }
 
     const handleGoToAnalysis = () => {
-        if (matchId) {
-            navigate(`/match-analysis-v2/${matchId}`)
-        }
+        if (!matchData) return
+        navigate(`/matches/${matchData.id}/analysis`)
     }
 
-    // Load Match & Convocations only once
+    // Auto-save match when finished
     useEffect(() => {
-        if (!matchId) return
+        if (!derivedState.isMatchFinished || !matchId) return
 
-        const init = async () => {
+        const saveMatchToSupabase = async () => {
             try {
-                setLoading(true)
+                // Prepare match result string
+                const setsWon = `${derivedState.setsWonHome}-${derivedState.setsWonAway}`
 
-                // CRITICAL FIX: Clear cached team names from localStorage
-                // This prevents old "Local"/"Visitante" from being restored
-                const stored = localStorage.getItem('match-store-v2')
-                if (stored) {
-                    try {
-                        const parsed = JSON.parse(stored)
-                        if (parsed.state?.derivedState) {
-                            delete parsed.state.derivedState.homeTeamName
-                            delete parsed.state.derivedState.awayTeamName
-                            localStorage.setItem('match-store-v2', JSON.stringify(parsed))
-                        }
-                    } catch (e) {
-                        console.error('Error cleaning localStorage:', e)
-                    }
-                }
+                // Calculate individual set scores for detailed result
+                const setScores = derivedState.setsScores
+                    .map(s => `${s.home}-${s.away}`)
+                    .join(', ')
+                const detailedResult = `Sets: ${setsWon} (${setScores})`
 
-                const match = await matchServiceV2.getMatchV2(matchId)
-                if (!match) throw new Error('Match not found')
+                // Save to Supabase
+                await matchServiceV2.updateMatchV2(matchId, {
+                    actions: events,  // Save all events
+                    status: 'finished',
+                    result: detailedResult
+                })
 
-                setMatchData(match)
-
-                // 1. Determine Our Side
-                const ourSide = match.home_away === 'home' ? 'home' : 'away'
-
-                // 2. Load full team data to get complete name (like Matches.tsx does)
-                const team = await teamService.getTeamById(match.team_id)
-                const teamName = team ? getTeamDisplayName(team) : 'Nuestro Equipo'
-                const opponentName = match.opponent_name || 'Rival'
-
-                const homeTeamName = ourSide === 'home' ? teamName : opponentName
-                const awayTeamName = ourSide === 'away' ? teamName : opponentName
-
-                // 3. Load Match into Store
-                loadMatch(match.id, match.actions || [], ourSide, { home: homeTeamName, away: awayTeamName })
-
-                // 3. Load Roster (Context for numbers/roles)
-                const roster = await playerTeamSeasonService.getRosterByTeamAndSeason(match.team_id, match.season_id)
-
-                // 4. Load Convocations
-                const convos = await matchServiceV2.getConvocationsV2(matchId)
-
-                // Map all available players merging Roster info
-                const players = convos
-                    .filter(c => c.status === 'convocado' || c.status === undefined)
-                    .map(c => {
-                        // Find roster entry for this player to get the correct season number/role
-                        const rosterItem = roster.find(r => r.player_id === c.player_id)
-                        const pData = c.club_players || {}
-
-                        // Priority: Roster Number > Player Profile Number > '?'
-                        const number = rosterItem?.jersey_number || pData.jersey_number || '?'
-
-                        // Priority: Custom Match Role > Roster Role > Player Profile Position > '?'
-                        // Priority: Custom Match Role (if not generic) > Roster Role > Player Profile Position > '?'
-                        let effectiveRole = c.role_in_match
-                        if (effectiveRole && (effectiveRole.toLowerCase() === 'starter' || effectiveRole.toLowerCase() === 'convocado')) {
-                            effectiveRole = null
-                        }
-
-                        let rosterRole = rosterItem?.role
-                        if (rosterRole && (rosterRole.toLowerCase() === 'starter' || rosterRole.toLowerCase() === 'convocado')) {
-                            rosterRole = null
-                        }
-
-                        const rawRole = effectiveRole || rosterRole || pData.main_position || '?'
-
-                        // Map Spanish/Full names to Codes
-                        const roleMap: Record<string, string> = {
-                            'Central': 'MB',
-                            'Receptora': 'OH',
-                            'Receptor': 'OH',
-                            'Punta': 'OH',
-                            'Opuesta': 'OPP',
-                            'Opuesto': 'OPP',
-                            'Colocadora': 'S',
-                            'Colocador': 'S',
-                            'Armadora': 'S',
-                            'Líbero': 'L',
-                            'Libero': 'L'
-                        }
-
-                        const role = roleMap[rawRole] || rawRole && roleMap[Object.keys(roleMap).find(k => rawRole.includes(k)) || ''] || rawRole
-
-                        const name = pData.nickname || pData.first_name || `J${number}`
-
-                        return {
-                            id: c.player_id,
-                            name,
-                            number,
-                            role
-                        }
-                    })
-
-                setAvailablePlayers(players)
-
-                // Initialize store with players for fallback
-                setInitialOnCourtPlayers(players.slice(0, 6).map(p => ({ ...p, role: p.role || '?' })))
-
+                console.log('✅ Match saved to Supabase successfully')
             } catch (error) {
-                console.error('Error loading match V2:', error)
-                toast.error('Error al cargar partido')
-                navigate('/matches')
-            } finally {
-                setLoading(false)
+                console.error('❌ Error saving match:', error)
             }
         }
 
-        init()
-    }, [matchId, navigate, loadMatch, setInitialOnCourtPlayers])
+        saveMatchToSupabase()
+    }, [derivedState.isMatchFinished, matchId, events, derivedState.setsWonHome, derivedState.setsWonAway, derivedState.setsScores])
 
-    // Auto-save backup timer (safety net)
-    useEffect(() => {
-        const interval = setInterval(() => {
-            const state = useMatchStoreV2.getState()
-            const timeSinceLastSave = Date.now() - (state.lastAutoSaveAt ?? 0)
 
-            // Only save if more than 15s and there are events
-            if (timeSinceLastSave > 15000 && state.events.length > 0 && !state.pendingAutoSave) {
-                state.autoSaveEvents()
-            }
-        }, 15000) // Check every 15 seconds
-
-        return () => clearInterval(interval)
-    }, [])
-
-    // --- Strict Effect: Only Open Modal on Set Change if No Lineup ---
-    useEffect(() => {
-        if (!derivedState.currentSet) return
-
-        // Check if set has changed
-        if (lastSetRef.current !== derivedState.currentSet) {
-            lastSetRef.current = derivedState.currentSet
-
-            console.log('[DEBUG useEffect] Set changed', {
-                newSet: derivedState.currentSet,
-                setSummaryModalOpen: derivedState.setSummaryModalOpen,
-                hasLineupForCurrentSet: derivedState.hasLineupForCurrentSet
-            })
-
-            // CRITICAL: Do NOT open starters modal if set summary modal is currently open
-            // This prevents skipping the set summary when transitioning between sets
-            if (derivedState.setSummaryModalOpen) {
-                // Set summary takes priority - starters modal will open after user closes it
-                console.log('[DEBUG useEffect] Skipping StartersModal - SetSummaryModal is open')
-                return
-            }
-
-            // Only open if NO lineup exists for this new set
-            if (!derivedState.hasLineupForCurrentSet) {
-                console.log('[DEBUG useEffect] Opening StartersModal')
-                setShowStartersModal(true)
-            } else {
-                setShowStartersModal(false)
-            }
-        }
-        // Initial load check
-        else if (lastSetRef.current === derivedState.currentSet && !derivedState.hasLineupForCurrentSet && !showStartersModal) {
-            // If we are on the current set, have no lineup, and modal is closed... 
-            // This might be redundant if the initial load handled it, but safety for "mid-set" with no lineup.
-            // Actually user asked for specific logic: "Al empezar el set 1: Si no hay lineup → se muestra el modal".
-            // "Cuando se cierra el set 1 y se genera SET_START del set 2: ... modal".
-
-            // CRITICAL: Also check for set summary modal here
-            if (!derivedState.setSummaryModalOpen) {
-                // Can open starters modal safely
-            }
-        }
-    }, [derivedState.currentSet, derivedState.hasLineupForCurrentSet, derivedState.setSummaryModalOpen])
-
-    // Initial mount check for reload scenarios
-    useEffect(() => {
-        if (loading) return
-        // If we load the page, have no lineup, we must ensure modal opens
-        if (derivedState.currentSet && !derivedState.hasLineupForCurrentSet) {
-            // Only if we haven't tracked this set yet or just need to force it
-            setShowStartersModal(true)
-            lastSetRef.current = derivedState.currentSet
-        }
-    }, [loading, derivedState.currentSet, derivedState.hasLineupForCurrentSet])
-
-    // Reset hasReceptionThisRally when score changes (new rally) or when we switch to receiving
-    useEffect(() => {
-        // Reset flag on new rally (score change) while we're receiving
-        if (derivedState.servingSide === 'opponent') {
-            setHasReceptionThisRally(false)
-        }
-    }, [derivedState.servingSide, derivedState.homeScore, derivedState.awayScore])
-
-    // Show reception modal immediately when we start receiving
-    useEffect(() => {
-        // Only show if we're receiving, set is not finished, have lineup, and haven't evaluated this rally yet
-        // CRITICAL: Don't show if starters modal is open (priority)
-        if (derivedState.servingSide === 'opponent' &&
-            !derivedState.isSetFinished &&
-            derivedState.hasLineupForCurrentSet &&
-            !hasReceptionThisRally &&
-            !derivedState.setSummaryModalOpen &&
-            !showSubstitutionModal &&
-            !showStartersModal) {
-            const timer = setTimeout(() => {
-                setShowReceptionModal(true)
-            }, 200)
-
-            return () => clearTimeout(timer)
-        }
-    }, [derivedState.servingSide, derivedState.isSetFinished, derivedState.hasLineupForCurrentSet, hasReceptionThisRally, derivedState.setSummaryModalOpen, showSubstitutionModal, showStartersModal])
 
     // Helper functions
     const getPlayerAt = (position: number) => {
@@ -315,7 +133,7 @@ export function LiveMatchScoutingV2() {
             action()
         } catch (error) {
             console.error('Error executing action:', error)
-            toast.error('Error al ejecutar la acción')
+            toast.error('Error al ejecutar la acciÃ³n')
         }
         setTimeout(() => {
             setButtonsDisabled(false)
@@ -325,8 +143,7 @@ export function LiveMatchScoutingV2() {
     // Reception handler with player selection
     const handleReceptionEval = (playerId: string, rating: 0 | 1 | 2 | 3 | 4) => {
         addReceptionEval(playerId, rating)
-        setShowReceptionModal(false)
-        setHasReceptionThisRally(true)
+        receptionModal.markReceptionCompleted()
 
         // If rating is 0 (error directo), award point to opponent
         if (rating === 0) {
@@ -353,7 +170,7 @@ export function LiveMatchScoutingV2() {
         // After closing set summary, check if we need to open starters modal
         setTimeout(() => {
             if (!derivedState.hasLineupForCurrentSet) {
-                setShowStartersModal(true)
+                startersModal.openModal()
             }
         }, 100)
     }
@@ -365,7 +182,7 @@ export function LiveMatchScoutingV2() {
         // After confirming set summary, check if we need to open starters modal
         setTimeout(() => {
             if (!derivedState.hasLineupForCurrentSet) {
-                setShowStartersModal(true)
+                startersModal.openModal()
             }
         }, 100)
     }
@@ -394,10 +211,10 @@ export function LiveMatchScoutingV2() {
     const handleConfirmStarters = () => {
         // Validation for Set 1 & 5
         const needsServeChoice = derivedState.currentSet === 1 || derivedState.currentSet === 5
-        if (needsServeChoice && !initialServerChoice) return // Should be blocked by button, but safety check
+        if (needsServeChoice && !startersModal.initialServerChoice) return // Should be blocked by button, but safety check
 
         const lineup = [1, 2, 3, 4, 5, 6].map(pos => {
-            const playerId = selectedStarters[pos]
+            const playerId = startersModal.selectedStarters[pos]
             const player = availablePlayers.find(p => p.id === playerId)
             return {
                 position: pos as 1 | 2 | 3 | 4 | 5 | 6,
@@ -407,26 +224,23 @@ export function LiveMatchScoutingV2() {
         })
 
         // Dispatch Service Choice if needed
-        if (needsServeChoice && initialServerChoice) {
+        if (needsServeChoice && startersModal.initialServerChoice) {
             addEvent('SET_SERVICE_CHOICE', {
                 setNumber: derivedState.currentSet,
-                initialServingSide: initialServerChoice
+                initialServingSide: startersModal.initialServerChoice
             })
         }
 
         addEvent('SET_LINEUP', {
             setNumber: derivedState.currentSet,
             lineup: lineup as any,
-            liberoId: selectedLiberoId
+            liberoId: startersModal.selectedLiberoId
         })
 
 
         // Close modal strictly
-        setShowStartersModal(false)
+        startersModal.closeModal()
         setActivePosition(null)
-        setSelectedStarters({})
-        setSelectedLiberoId(null)
-        setInitialServerChoice(null)
     }
 
     // Substitution Handler
@@ -444,16 +258,16 @@ export function LiveMatchScoutingV2() {
             return
         }
 
-        // VALIDACIÓN DE ROLES
+        // VALIDACIÃ“N DE ROLES
         if (!isValidSubstitution(playerOut, playerIn)) {
-            toast.error('Sustitución no válida: los cambios deben ser campo por campo o líbero por líbero')
+            toast.error('SustituciÃ³n no vÃ¡lida: los cambios deben ser campo por campo o lÃ­bero por lÃ­bero')
             return
         }
 
-        // Determinar si es cambio líbero↔líbero
+        // Determinar si es cambio lÃ­beroâ†”lÃ­bero
         const isLiberoSwap = isLibero(playerOut) && isLibero(playerIn)
 
-        // NUEVA VALIDACIÓN FIVB: Si es cambio de campo, verificar reglas FIVB
+        // NUEVA VALIDACIÃ“N FIVB: Si es cambio de campo, verificar reglas FIVB
         if (!isLiberoSwap) {
             const validation = validateFIVBSubstitution(
                 derivedState.currentSetSubstitutions,
@@ -463,7 +277,7 @@ export function LiveMatchScoutingV2() {
             )
 
             if (!validation.valid) {
-                toast.error(validation.reason || 'Sustitución no válida según reglas FIVB')
+                toast.error(validation.reason || 'SustituciÃ³n no vÃ¡lida segÃºn reglas FIVB')
                 return
             }
         }
@@ -481,7 +295,7 @@ export function LiveMatchScoutingV2() {
         })
 
         // Close modal
-        setShowSubstitutionModal(false)
+        substitutionModal.closeModal()
         toast.success(`Cambio: ${playerIn.name} entra`)
     }
 
@@ -490,16 +304,14 @@ export function LiveMatchScoutingV2() {
         const currentSet = derivedState.currentSet
 
         // Clear any partial selections
-        setSelectedStarters({})
-        setSelectedLiberoId(null)
-        setInitialServerChoice(null)
+        startersModal.resetModal()
 
         if (currentSet === 1) {
             // Set 1: Just close the modal, return to previous screen
-            setShowStartersModal(false)
+            startersModal.closeModal()
         } else {
             // Sets 2-5: Close starters modal and reopen set summary
-            setShowStartersModal(false)
+            startersModal.closeModal()
 
             // Reopen the set summary modal via store's closeSetSummaryModal mechanism
             // Since we want to OPEN it, we need to set the flag directly
@@ -512,48 +324,48 @@ export function LiveMatchScoutingV2() {
     const handleInstantLiberoSwap = () => {
         // Verificar que hay lineup y el set no ha terminado
         if (!derivedState.hasLineupForCurrentSet || derivedState.isSetFinished || derivedState.isMatchFinished) {
-            toast.error('No se puede cambiar el líbero en este momento')
+            toast.error('No se puede cambiar el lÃ­bero en este momento')
             return
         }
 
         const currentLiberoId = derivedState.currentLiberoId
 
-        // Encontrar todos los líberos del equipo
+        // Encontrar todos los lÃ­beros del equipo
         const allLiberos = availablePlayers.filter(p => {
             const role = p.role?.toUpperCase()
-            return role === 'L' || role === 'LIBERO' || role === 'LÍBERO'
+            return role === 'L' || role === 'LIBERO' || role === 'LÃBERO'
         })
 
-        // Filtrar líberos disponibles (no el actual)
+        // Filtrar lÃ­beros disponibles (no el actual)
         const availableLiberos = allLiberos.filter(p => p.id !== currentLiberoId)
 
         if (availableLiberos.length === 0) {
-            toast.info('Solo hay un líbero disponible')
+            toast.info('Solo hay un lÃ­bero disponible')
             return
         }
 
-        // Seleccionar el siguiente líbero (el primero disponible)
+        // Seleccionar el siguiente lÃ­bero (el primero disponible)
         const nextLibero = availableLiberos[0]
         const currentLibero = allLiberos.find(p => p.id === currentLiberoId)
 
         if (!currentLibero || !nextLibero) {
-            toast.error('Error al cambiar líbero')
+            toast.error('Error al cambiar lÃ­bero')
             return
         }
 
-        // Lanzar evento de sustitución líbero↔líbero
+        // Lanzar evento de sustituciÃ³n lÃ­beroâ†”lÃ­bero
         addEvent('SUBSTITUTION', {
             substitution: {
                 playerOutId: currentLiberoId,
                 playerInId: nextLibero.id,
-                position: 0 as any, // Posición especial para líbero
+                position: 0 as any, // PosiciÃ³n especial para lÃ­bero
                 setNumber: derivedState.currentSet,
                 playerIn: nextLibero,
                 isLiberoSwap: true
             }
         })
 
-        toast.success(`Líbero: ${nextLibero.name} entra`)
+        toast.success(`LÃ­bero: ${nextLibero.name} entra`)
     }
 
     // Helper to get player display info (used by modals and rotation views)
@@ -578,7 +390,7 @@ export function LiveMatchScoutingV2() {
     // Compute bench players for substitution modal
     const benchPlayers = availablePlayers.filter(p => {
         const isOnCourt = derivedState.onCourtPlayers.some(entry => entry.player.id === p.id)
-        // Incluir todos los jugadores que no están en pista (incluye líberos para permitir cambio líbero↔líbero)
+        // Incluir todos los jugadores que no estÃ¡n en pista (incluye lÃ­beros para permitir cambio lÃ­beroâ†”lÃ­bero)
         return !isOnCourt
     })
 
@@ -593,7 +405,7 @@ export function LiveMatchScoutingV2() {
                 {derivedState.isMatchFinished && !isMatchFinishedModalOpen && (
                     <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex items-center justify-between sticky top-0 z-30 backdrop-blur-md">
                         <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">
-                            🏁 Partido Finalizado — Solo Lectura
+                            ðŸ Partido Finalizado â€” Solo Lectura
                         </span>
                         <div className="flex gap-2">
                             <Button
@@ -816,16 +628,16 @@ export function LiveMatchScoutingV2() {
                             onClick={() => setShowTimeline(!showTimeline)}
                             className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-lg hover:bg-zinc-800/50 transition-colors"
                         >
-                            <span className="text-sm">📋</span>
+                            <span className="text-sm">ðŸ“‹</span>
                             <span className="text-xs font-semibold text-zinc-300">Historial</span>
                             <span className="text-[10px] text-zinc-500">({events.length})</span>
-                            <span className="text-xs text-zinc-500">{showTimeline ? '▼' : '▶'}</span>
+                            <span className="text-xs text-zinc-500">{showTimeline ? 'â–¼' : 'â–¶'}</span>
                         </button>
 
-                        {/* Right: Cambio + Líbero */}
+                        {/* Right: Cambio + LÃ­bero */}
                         <div className="flex gap-4">
                             <button
-                                onClick={() => setShowSubstitutionModal(true)}
+                                onClick={() => substitutionModal.openModal()}
                                 disabled={!derivedState.hasLineupForCurrentSet || derivedState.isSetFinished || derivedState.isMatchFinished}
                                 className="flex flex-col items-center gap-1 text-zinc-400 active:text-white disabled:opacity-30 disabled:cursor-not-allowed"
                             >
@@ -838,7 +650,7 @@ export function LiveMatchScoutingV2() {
                                 className="flex flex-col items-center gap-1 text-purple-400 active:text-white disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                                 <Users size={18} className="fill-current" />
-                                <span className="text-[9px] font-bold">LÍBERO</span>
+                                <span className="text-[9px] font-bold">LÃBERO</span>
                             </button>
                         </div>
                     </div>
@@ -854,9 +666,9 @@ export function LiveMatchScoutingV2() {
                     )}
                 </div>
 
-                {/* MODAL STARTERS (Selección de Titulares - Visual) */}
+                {/* MODAL STARTERS (SelecciÃ³n de Titulares - Visual) */}
                 {
-                    showStartersModal && (
+                    startersModal.showStartersModal && (
                         <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4">
                             <div className="w-full max-w-sm bg-zinc-900 rounded-xl border border-zinc-800 p-6 shadow-2xl relative">
 
@@ -880,26 +692,26 @@ export function LiveMatchScoutingV2() {
                                 {(derivedState.currentSet === 1 || derivedState.currentSet === 5) && (
                                     <div className="w-full mb-4">
                                         <div className="text-xs text-zinc-400 mb-2 text-center uppercase tracking-wider font-bold">
-                                            ¿Quién saca primero?
+                                            Â¿QuiÃ©n saca primero?
                                         </div>
                                         <div className="grid grid-cols-2 gap-2">
                                             <button
                                                 type="button"
-                                                className={`py-2 rounded-lg border text-xs font-bold uppercase transition-all ${initialServerChoice === 'our'
+                                                className={`py-2 rounded-lg border text-xs font-bold uppercase transition-all ${startersModal.initialServerChoice === 'our'
                                                     ? "bg-emerald-600 border-emerald-500 text-white shadow-lg ring-1 ring-emerald-400/50"
                                                     : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700"
                                                     }`}
-                                                onClick={() => setInitialServerChoice('our')}
+                                                onClick={() => startersModal.setInitialServerChoice('our')}
                                             >
                                                 Nosotros
                                             </button>
                                             <button
                                                 type="button"
-                                                className={`py-2 rounded-lg border text-xs font-bold uppercase transition-all ${initialServerChoice === 'opponent'
+                                                className={`py-2 rounded-lg border text-xs font-bold uppercase transition-all ${startersModal.initialServerChoice === 'opponent'
                                                     ? "bg-rose-600 border-rose-500 text-white shadow-lg ring-1 ring-rose-400/50"
                                                     : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700"
                                                     }`}
-                                                onClick={() => setInitialServerChoice('opponent')}
+                                                onClick={() => startersModal.setInitialServerChoice('opponent')}
                                             >
                                                 {derivedState.ourSide === 'home' ? (awayTeamName || 'Rival') : (homeTeamName || 'Rival')}
                                             </button>
@@ -915,21 +727,21 @@ export function LiveMatchScoutingV2() {
                                     {/* Red de Voleibol */}
                                     <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-zinc-600 to-transparent opacity-20 pointer-events-none" />
 
-                                    {/* LÍNEA DELANTERA: P4 - P3 - P2 */}
+                                    {/* LÃNEA DELANTERA: P4 - P3 - P2 */}
                                     <div className="grid grid-cols-3 gap-3 mb-4">
                                         {[4, 3, 2].map(pos => {
-                                            const selectedId = selectedStarters[pos];
+                                            const selectedId = startersModal.selectedStarters[pos];
                                             const display = getPlayerDisplay(selectedId);
                                             const isActive = activePosition === pos
 
                                             // Filter logic: Only show players NOT selected elsewhere (or the one currently selected in this pos)
                                             // AND EXCLUDE LIBEROS
                                             const availableForPos = availablePlayers.filter(p => {
-                                                const usedInOtherPos = Object.entries(selectedStarters).some(([otherPos, otherId]) => {
+                                                const usedInOtherPos = Object.entries(startersModal.selectedStarters).some(([otherPos, otherId]) => {
                                                     return parseInt(otherPos) !== pos && otherId === p.id;
                                                 });
                                                 const isLibero = p.role === 'L';
-                                                const isSelectedLibero = p.id === selectedLiberoId;
+                                                const isSelectedLibero = p.id === startersModal.selectedLiberoId;
 
                                                 return !usedInOtherPos && !isLibero && !isSelectedLibero;
                                             });
@@ -993,7 +805,7 @@ export function LiveMatchScoutingV2() {
                                                                         onClick={() => setActivePosition(null)}
                                                                         className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
                                                                     >
-                                                                        <span className="text-lg font-bold">×</span>
+                                                                        <span className="text-lg font-bold">Ã—</span>
                                                                     </button>
                                                                 </div>
                                                                 <div className="max-h-80 overflow-y-auto scrollbar-hide">
@@ -1015,7 +827,7 @@ export function LiveMatchScoutingV2() {
                                                                                 <button
                                                                                     key={p.id}
                                                                                     onClick={() => {
-                                                                                        setSelectedStarters(prev => ({ ...prev, [pos]: p.id }));
+                                                                                        startersModal.setSelectedStarters(prev => ({ ...prev, [pos]: p.id }));
                                                                                         setActivePosition(null);
                                                                                     }}
                                                                                     className={`w-full px-4 py-3 hover:bg-zinc-800 flex items-center justify-center gap-3 border-b border-zinc-800/50 last:border-0 transition-colors ${selectedId === p.id ? 'bg-emerald-900/20 text-emerald-100' : 'text-zinc-300'
@@ -1048,21 +860,21 @@ export function LiveMatchScoutingV2() {
                                         })}
                                     </div>
 
-                                    {/* LÍNEA ZAGUERA: P5 - P6 - P1 */}
+                                    {/* LÃNEA ZAGUERA: P5 - P6 - P1 */}
                                     <div className="grid grid-cols-3 gap-3">
                                         {[5, 6, 1].map(pos => {
-                                            const selectedId = selectedStarters[pos];
+                                            const selectedId = startersModal.selectedStarters[pos];
                                             const display = getPlayerDisplay(selectedId);
                                             const isActive = activePosition === pos;
 
                                             // Filter logic: Only show players NOT selected elsewhere (or the one currently selected in this pos)
                                             // AND EXCLUDE LIBEROS
                                             const availableForPos = availablePlayers.filter(p => {
-                                                const usedInOtherPos = Object.entries(selectedStarters).some(([otherPos, otherId]) => {
+                                                const usedInOtherPos = Object.entries(startersModal.selectedStarters).some(([otherPos, otherId]) => {
                                                     return parseInt(otherPos) !== pos && otherId === p.id;
                                                 });
                                                 const isLibero = p.role === 'L';
-                                                const isSelectedLibero = p.id === selectedLiberoId;
+                                                const isSelectedLibero = p.id === startersModal.selectedLiberoId;
 
                                                 return !usedInOtherPos && !isLibero && !isSelectedLibero;
                                             });
@@ -1126,7 +938,7 @@ export function LiveMatchScoutingV2() {
                                                                         onClick={() => setActivePosition(null)}
                                                                         className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
                                                                     >
-                                                                        <span className="text-lg font-bold">×</span>
+                                                                        <span className="text-lg font-bold">Ã—</span>
                                                                     </button>
                                                                 </div>
                                                                 <div className="max-h-80 overflow-y-auto scrollbar-hide">
@@ -1148,7 +960,7 @@ export function LiveMatchScoutingV2() {
                                                                                 <button
                                                                                     key={p.id}
                                                                                     onClick={() => {
-                                                                                        setSelectedStarters(prev => ({ ...prev, [pos]: p.id }));
+                                                                                        startersModal.setSelectedStarters(prev => ({ ...prev, [pos]: p.id }));
                                                                                         setActivePosition(null);
                                                                                     }}
                                                                                     className={`w-full px-4 py-3 hover:bg-zinc-800 flex items-center justify-center gap-3 border-b border-zinc-800/50 last:border-0 transition-colors ${selectedId === p.id ? 'bg-emerald-900/20 text-emerald-100' : 'text-zinc-300'
@@ -1188,13 +1000,13 @@ export function LiveMatchScoutingV2() {
                                                 onClick={() => setActivePosition(activePosition === 999 ? null : 999)}
                                                 className={`cursor-pointer w-16 h-16 rounded-full border-2 border-dashed flex flex-col items-center justify-center transition-all ${activePosition === 999
                                                     ? 'bg-amber-900/40 border-amber-500/50 ring-2 ring-amber-500/30 text-amber-100 scale-105'
-                                                    : selectedLiberoId
+                                                    : startersModal.selectedLiberoId
                                                         ? 'bg-amber-900/20 border-amber-500/50 text-amber-100 border-solid'
                                                         : 'bg-zinc-800 border-zinc-600 text-zinc-500 hover:border-zinc-500 hover:bg-zinc-800/80'
                                                     }`}
                                             >
-                                                {selectedLiberoId ? (() => {
-                                                    const disp = getPlayerDisplay(selectedLiberoId);
+                                                {startersModal.selectedLiberoId ? (() => {
+                                                    const disp = getPlayerDisplay(startersModal.selectedLiberoId);
                                                     return (
                                                         <>
                                                             <span className="text-xl font-bold">{disp.number}</span>
@@ -1220,36 +1032,36 @@ export function LiveMatchScoutingV2() {
                                                     <div className="relative w-full max-w-[280px] bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
                                                         {/* Header with close button */}
                                                         <div className="relative bg-zinc-900/95 backdrop-blur border-b border-zinc-800 p-3 text-sm font-bold text-amber-400 uppercase tracking-wider text-center">
-                                                            <span>Seleccionar Líbero</span>
+                                                            <span>Seleccionar LÃ­bero</span>
                                                             <button
                                                                 onClick={() => setActivePosition(null)}
                                                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
                                                             >
-                                                                <span className="text-lg font-bold">×</span>
+                                                                <span className="text-lg font-bold">Ã—</span>
                                                             </button>
                                                         </div>
                                                         <div className="max-h-80 overflow-y-auto scrollbar-hide">
                                                             {(() => {
                                                                 const availableForLibero = availablePlayers.filter(p => {
                                                                     const isLibero = p.role === 'L';
-                                                                    const isUsedInField = Object.values(selectedStarters).includes(p.id);
+                                                                    const isUsedInField = Object.values(startersModal.selectedStarters).includes(p.id);
                                                                     return isLibero && !isUsedInField;
                                                                 });
 
                                                                 if (availableForLibero.length === 0) {
-                                                                    return <div className="p-4 text-center text-xs text-zinc-500 italic">Sin líberos disponibles</div>
+                                                                    return <div className="p-4 text-center text-xs text-zinc-500 italic">Sin lÃ­beros disponibles</div>
                                                                 }
 
                                                                 return availableForLibero.map(p => (
                                                                     <button
                                                                         key={p.id}
                                                                         onClick={() => {
-                                                                            setSelectedLiberoId(p.id === selectedLiberoId ? null : p.id);
+                                                                            startersModal.setSelectedLiberoId(p.id === startersModal.selectedLiberoId ? null : p.id);
                                                                             setActivePosition(null);
                                                                         }}
-                                                                        className={`w-full px-4 py-3 hover:bg-zinc-800 flex items-center justify-center gap-3 border-b border-zinc-800/50 last:border-0 transition-colors ${selectedLiberoId === p.id ? 'bg-amber-900/20 text-amber-100' : 'text-zinc-300'}`}
+                                                                        className={`w-full px-4 py-3 hover:bg-zinc-800 flex items-center justify-center gap-3 border-b border-zinc-800/50 last:border-0 transition-colors ${startersModal.selectedLiberoId === p.id ? 'bg-amber-900/20 text-amber-100' : 'text-zinc-300'}`}
                                                                     >
-                                                                        <span className={`font-bold text-xl ${selectedLiberoId === p.id ? 'text-amber-400' : 'text-zinc-300'}`}>{p.number}</span>
+                                                                        <span className={`font-bold text-xl ${startersModal.selectedLiberoId === p.id ? 'text-amber-400' : 'text-zinc-300'}`}>{p.number}</span>
                                                                         <span className="font-medium text-sm flex-1 text-center">{p.name}</span>
                                                                         <span className="flex-shrink-0 w-9 h-9 rounded-full border-2 bg-amber-900/40 border-amber-500/60 text-amber-200 flex items-center justify-center text-[9px] font-bold uppercase">L</span>
                                                                     </button>
@@ -1266,22 +1078,22 @@ export function LiveMatchScoutingV2() {
                                 <button
                                     onClick={handleConfirmStarters}
                                     disabled={
-                                        Object.keys(selectedStarters).length !== 6 ||
-                                        ((derivedState.currentSet === 1 || derivedState.currentSet === 5) && !initialServerChoice) ||
-                                        (availablePlayers.some(p => p.role === 'L') && !selectedLiberoId)
+                                        Object.keys(startersModal.selectedStarters).length !== 6 ||
+                                        ((derivedState.currentSet === 1 || derivedState.currentSet === 5) && !startersModal.initialServerChoice) ||
+                                        (availablePlayers.some(p => p.role === 'L') && !startersModal.selectedLiberoId)
                                     }
-                                    className={`w-full h-14 font-bold rounded-xl shadow-lg border-t border-white/10 uppercase tracking-widest text-sm transition-all ${Object.keys(selectedStarters).length === 6 &&
-                                        ((derivedState.currentSet !== 1 && derivedState.currentSet !== 5) || initialServerChoice) &&
-                                        (!availablePlayers.some(p => p.role === 'L') || selectedLiberoId)
+                                    className={`w-full h-14 font-bold rounded-xl shadow-lg border-t border-white/10 uppercase tracking-widest text-sm transition-all ${Object.keys(startersModal.selectedStarters).length === 6 &&
+                                        ((derivedState.currentSet !== 1 && derivedState.currentSet !== 5) || startersModal.initialServerChoice) &&
+                                        (!availablePlayers.some(p => p.role === 'L') || startersModal.selectedLiberoId)
                                         ? 'bg-emerald-600 text-white active:bg-emerald-700'
                                         : 'bg-zinc-800 text-zinc-500 cursor-not-allowed border-transparent'
                                         }`}
                                 >
-                                    {Object.keys(selectedStarters).length !== 6
+                                    {Object.keys(startersModal.selectedStarters).length !== 6
                                         ? 'FALTAN JUGADORAS'
-                                        : (availablePlayers.some(p => p.role === 'L') && !selectedLiberoId)
+                                        : (availablePlayers.some(p => p.role === 'L') && !startersModal.selectedLiberoId)
                                             ? 'FALTA LÍBERO'
-                                            : ((derivedState.currentSet === 1 || derivedState.currentSet === 5) && !initialServerChoice)
+                                            : ((derivedState.currentSet === 1 || derivedState.currentSet === 5) && !startersModal.initialServerChoice)
                                                 ? 'ELIGE SAQUE'
                                                 : 'CONFIRMAR TITULARES'}
                                 </button>
@@ -1296,7 +1108,7 @@ export function LiveMatchScoutingV2() {
                         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center animate-in fade-in duration-100" onClick={() => setShowRotationModal(false)}>
                             <div className="bg-zinc-900 w-full max-w-xs rounded-xl border border-zinc-800 p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
                                 <div className="text-center mb-6">
-                                    <h3 className="text-white font-bold text-lg uppercase tracking-widest">Rotación Actual</h3>
+                                    <h3 className="text-white font-bold text-lg uppercase tracking-widest">RotaciÃ³n Actual</h3>
                                     <p className="text-zinc-500 text-xs mt-1">Saca: P1</p>
                                 </div>
 
@@ -1379,8 +1191,8 @@ export function LiveMatchScoutingV2() {
 
                     return (
                         <ReceptionModalV2
-                            isOpen={showReceptionModal}
-                            onClose={() => setShowReceptionModal(false)}
+                            isOpen={receptionModal.showReceptionModal}
+                            onClose={() => receptionModal.setShowReceptionModal(false)}
                             onConfirm={handleReceptionEval}
                             players={rotationWithLibero.map(p => ({
                                 id: p.player.id,
@@ -1424,12 +1236,12 @@ export function LiveMatchScoutingV2() {
                     }}
                     onGoToMatches={handleGoToMatches}
                     onGoToAnalysis={handleGoToAnalysis}
-                />
+                    />
 
                 {/* MODAL SUBSTITUTION */}
                 <SubstitutionModalV2
-                    isOpen={showSubstitutionModal}
-                    onClose={() => setShowSubstitutionModal(false)}
+                    isOpen={substitutionModal.showSubstitutionModal}
+                    onClose={() => substitutionModal.closeModal()}
                     onConfirm={handleConfirmSubstitution}
                     onCourtPlayers={derivedState.onCourtPlayers}
                     benchPlayers={benchPlayers}
@@ -1442,3 +1254,8 @@ export function LiveMatchScoutingV2() {
         </div>
     )
 }
+
+
+
+
+
