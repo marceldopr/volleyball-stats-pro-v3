@@ -1,7 +1,6 @@
 ﻿import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Undo2, Users } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
 import { useMatchStoreV2, validateFIVBSubstitution } from '@/stores/matchStoreV2'
 import { toast } from 'sonner'
 import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
@@ -19,6 +18,11 @@ import { useMatchData } from '@/hooks/match/useMatchData'
 import { useStartersModal } from '@/hooks/match/useStartersModal'
 import { useReceptionModal } from '@/hooks/match/useReceptionModal'
 import { useSubstitutionModal } from '@/hooks/match/useSubstitutionModal'
+
+// UI Components
+import { ReadOnlyBanner } from '@/components/match/ReadOnlyBanner'
+import { MatchHeader } from '@/components/match/MatchHeader'
+import { ActionButtons } from '@/components/match/ActionButtons'
 
 export function LiveMatchScoutingV2() {
     const { matchId } = useParams<{ matchId: string }>()
@@ -403,148 +407,33 @@ export function LiveMatchScoutingV2() {
 
                 {/* READ ONLY BANNER */}
                 {derivedState.isMatchFinished && !isMatchFinishedModalOpen && (
-                    <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex items-center justify-between sticky top-0 z-30 backdrop-blur-md">
-                        <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">
-                            ðŸ Partido Finalizado â€” Solo Lectura
-                        </span>
-                        <div className="flex gap-2">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={undoEvent}
-                                className="h-6 text-[10px] text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 px-2"
-                            >
-                                <Undo2 size={12} className="mr-1" />
-                                Deshacer
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => navigate('/matches')}
-                                className="h-6 text-[10px] text-zinc-400 hover:text-white hover:bg-zinc-800 px-2"
-                            >
-                                Salir
-                            </Button>
-                        </div>
-                    </div>
+                    <ReadOnlyBanner onUndo={undoEvent} />
                 )}
 
                 {/* HEADER */}
-                <header className="flex-none bg-zinc-900/90 border-b border-zinc-800 py-3 px-4 flex flex-col z-20 sticky top-0 backdrop-blur-md shadow-md">
-                    <div className="flex items-center justify-between mb-2">
-                        <Button variant="ghost" size="sm" onClick={() => navigate('/matches')} className="h-8 w-8 text-zinc-400 hover:text-white p-0">
-                            <ArrowLeft size={20} />
-                        </Button>
-                        <span className="text-zinc-500 font-mono text-[10px] font-bold tracking-widest uppercase">Set {derivedState.currentSet}</span>
-                        <div className="w-8" />
-                    </div>
-
-                    <div className="flex items-center justify-between gap-4 px-2">
-                        {/* HOME SIDE (Fixed Left) */}
-                        <div className="flex flex-col items-center flex-1">
-                            <span className="text-xs uppercase font-bold text-zinc-400 truncate w-full text-center mb-1">
-                                {homeTeamName || 'Local'}
-                            </span>
-                            <div className={`flex flex-col items-center px-4 py-2 rounded-lg transition-all duration-300 w-full relative overflow-hidden ${derivedState.servingSide === (derivedState.ourSide === 'home' ? 'our' : 'opponent')
-                                ? "bg-zinc-800 border border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
-                                : "bg-zinc-900/50 border border-zinc-800"
-                                }`}>
-                                <span className={`text-5xl font-black tracking-tighter leading-none ${derivedState.ourSide === 'home' ? 'text-white' : 'text-zinc-500'
-                                    }`}>
-                                    {derivedState.homeScore}
-                                </span>
-                                {derivedState.servingSide === (derivedState.ourSide === 'home' ? 'our' : 'opponent') && (
-                                    <div className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-                                )}
-                            </div>
-                        </div>
-
-                        {/* CENTER INFO */}
-                        <div className="flex flex-col items-center gap-1 opacity-50">
-                            <span className="text-xs font-bold text-zinc-600">vs</span>
-                        </div>
-
-                        {/* AWAY SIDE (Fixed Right) */}
-                        <div className="flex flex-col items-center flex-1">
-                            <span className="text-xs uppercase font-bold text-zinc-400 truncate w-full text-center mb-1">
-                                {awayTeamName || 'Visitante'}
-                            </span>
-                            <div className={`flex flex-col items-center px-4 py-2 rounded-lg transition-all duration-300 w-full relative overflow-hidden ${derivedState.servingSide === (derivedState.ourSide === 'away' ? 'our' : 'opponent')
-                                ? "bg-zinc-800 border border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.1)]"
-                                : "bg-zinc-900/50 border border-zinc-800"
-                                }`}>
-                                <span className={`text-5xl font-black tracking-tighter leading-none ${derivedState.ourSide === 'away' ? 'text-white' : 'text-zinc-500'
-                                    }`}>
-                                    {derivedState.awayScore}
-                                </span>
-                                {derivedState.servingSide === (derivedState.ourSide === 'away' ? 'our' : 'opponent') && (
-                                    <div className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-center mt-2">
-                        <span className="text-[10px] text-zinc-600 font-mono font-bold">
-                            Sets: {derivedState.setsWonHome} - {derivedState.setsWonAway}
-                        </span>
-                    </div>
-                </header>
+                <MatchHeader
+                    currentSet={derivedState.currentSet}
+                    homeTeamName={homeTeamName}
+                    awayTeamName={awayTeamName}
+                    homeScore={derivedState.homeScore}
+                    awayScore={derivedState.awayScore}
+                    setsWonHome={derivedState.setsWonHome}
+                    setsWonAway={derivedState.setsWonAway}
+                    ourSide={derivedState.ourSide}
+                    servingSide={derivedState.servingSide}
+                    onBack={() => navigate('/matches')}
+                />
 
                 {/* MAIN GRID */}
                 <div className="flex-1 px-3 pt-3 flex flex-col">
 
-                    <div className="grid grid-cols-2 gap-2">
-
-                        {/* ROW 1 */}
-                        {isServing ? (
-                            <>
-                                <button onClick={() => handlePointUs('serve_point')} disabled={buttonsDisabled} className="h-14 bg-emerald-600 active:bg-emerald-500 text-white rounded-lg font-bold text-sm shadow-sm transition-all hover:brightness-110">
-                                    Punto saque
-                                </button>
-                                <button onClick={() => handlePointOpponent('service_error')} disabled={buttonsDisabled} className="h-14 bg-red-600 active:bg-red-500 text-white rounded-lg font-bold text-sm shadow-sm transition-all hover:brightness-110">
-                                    Error saque
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                {/* Empty slots when receiving - modal will open automatically */}
-                            </>
-                        )}
-
-
-                        {/* ROW 2 */}
-                        <button onClick={() => handlePointUs('attack_point')} disabled={buttonsDisabled} className="h-14 bg-emerald-600 active:bg-emerald-500 text-white rounded-lg font-bold text-sm shadow-sm transition-all hover:brightness-110">
-                            Punto ataque
-                        </button>
-                        <button onClick={() => handlePointOpponent('attack_error')} disabled={buttonsDisabled} className="h-14 bg-red-600 active:bg-red-500 text-white rounded-lg font-bold text-sm shadow-sm transition-all hover:brightness-110">
-                            Error ataque
-                        </button>
-
-
-                        {/* ROW 3 */}
-                        <button onClick={() => handlePointUs('block_point')} disabled={buttonsDisabled} className="h-14 bg-emerald-600 active:bg-emerald-500 text-white rounded-lg font-bold text-sm shadow-sm transition-all hover:brightness-110">
-                            Punto bloqueo
-                        </button>
-                        <button onClick={() => handlePointOpponent('attack_blocked')} disabled={buttonsDisabled} className="h-14 bg-red-600 active:bg-red-500 text-white rounded-lg font-bold text-sm shadow-sm transition-all hover:brightness-110">
-                            Bloqueado
-                        </button>
-
-
-                        {/* ROW 4 */}
-                        <button onClick={() => handlePointUs('opponent_error')} disabled={buttonsDisabled} className="h-14 bg-emerald-600 active:bg-emerald-500 text-white rounded-lg font-bold text-sm shadow-sm transition-all hover:brightness-110">
-                            Error rival
-                        </button>
-                        <button onClick={() => handlePointOpponent('opponent_point')} disabled={buttonsDisabled} className="h-14 bg-red-600 active:bg-red-500 text-white rounded-lg font-bold text-sm shadow-sm transition-all hover:brightness-110">
-                            Punto rival
-                        </button>
-
-                    </div>
-
-                    {/* FREEBALL */}
-                    <button onClick={() => handleAction(() => addEvent('FREEBALL'))} disabled={buttonsDisabled} className="mt-3 w-full h-12 bg-blue-600 active:bg-blue-500 text-white border border-blue-500/50 rounded-lg flex items-center justify-center font-mono text-xs uppercase tracking-widest font-bold shadow-sm hover:brightness-110 transition-all">
-                        Freeball
-                    </button>
+                    <ActionButtons
+                        isServing={isServing}
+                        disabled={buttonsDisabled}
+                        onPointUs={handlePointUs}
+                        onPointOpponent={handlePointOpponent}
+                        onFreeball={() => handleAction(() => addEvent('FREEBALL'))}
+                    />
 
                     {/* ROTATION STRIP - Uses shared libero logic */}
                     <div className="mt-4 bg-zinc-900/50 border border-zinc-800/50 rounded-xl p-2 flex flex-col gap-1 items-center cursor-pointer hover:bg-zinc-800/50 transition-colors" onClick={() => setShowRotationModal(true)}>
@@ -1236,7 +1125,7 @@ export function LiveMatchScoutingV2() {
                     }}
                     onGoToMatches={handleGoToMatches}
                     onGoToAnalysis={handleGoToAnalysis}
-                    />
+                />
 
                 {/* MODAL SUBSTITUTION */}
                 <SubstitutionModalV2
