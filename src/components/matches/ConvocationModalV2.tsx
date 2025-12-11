@@ -1,19 +1,23 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Check, Play, Save } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { X, Check, Play, Save } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { matchServiceV2, MatchV2DB } from '@/services/matchServiceV2'
 import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
 import { toast } from 'sonner'
 
-// Compact modern design - V2.2
 function getPlayerDisplayName(player: any): string {
     if (!player) return 'Jugadora desconocida'
     return `${player.first_name} ${player.last_name}`
 }
 
-export function MatchConvocationV2() {
-    const { matchId } = useParams<{ matchId: string }>()
+interface ConvocationModalV2Props {
+    matchId: string
+    onClose: () => void
+    onSave?: () => void
+}
+
+export function ConvocationModalV2({ matchId, onClose, onSave }: ConvocationModalV2Props) {
     const navigate = useNavigate()
 
     const [loading, setLoading] = useState(true)
@@ -24,15 +28,13 @@ export function MatchConvocationV2() {
 
     useEffect(() => {
         const loadData = async () => {
-            if (!matchId) return
-
             try {
                 setLoading(true)
                 // 1. Load Match
                 const matchData = await matchServiceV2.getMatchV2(matchId)
                 if (!matchData) {
                     toast.error('Partido no encontrado')
-                    navigate('/matches')
+                    onClose()
                     return
                 }
                 setMatch(matchData)
@@ -59,7 +61,7 @@ export function MatchConvocationV2() {
         }
 
         loadData()
-    }, [matchId, navigate])
+    }, [matchId, onClose])
 
     const togglePlayer = (playerId: string) => {
         const newSelected = new Set(selectedPlayerIds)
@@ -88,7 +90,8 @@ export function MatchConvocationV2() {
                 navigate(`/live-match-v2/${match.id}`)
             } else {
                 toast.success('Convocatoria guardada')
-                navigate('/matches') // Auto-redirect to matches page
+                onSave?.() // Call callback
+                onClose() // Close modal
             }
         } catch (error) {
             console.error('Error saving convocation:', error)
@@ -98,9 +101,16 @@ export function MatchConvocationV2() {
         }
     }
 
+    // Handle backdrop click
+    const handleBackdropClick = (e: React.MouseEvent) => {
+        if (e.target === e.currentTarget) {
+            onClose()
+        }
+    }
+
     if (loading) {
         return (
-            <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+            <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center">
                 <div className="text-sm text-zinc-400">Cargando...</div>
             </div>
         )
@@ -109,22 +119,29 @@ export function MatchConvocationV2() {
     if (!match) return null
 
     return (
-        <div className="min-h-screen bg-slate-950 pb-20">
-            {/* Compact Header */}
-            <div className="bg-slate-900 border-b border-slate-800 sticky top-0 z-10">
-                <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div
+            className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+            onClick={handleBackdropClick}
+        >
+            {/* Modal Container */}
+            <div
+                className="w-full max-w-5xl max-h-[90vh] bg-slate-950 border border-slate-800 rounded-2xl flex flex-col overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* Header - Fixed */}
+                <div className="border-b border-slate-800 p-4 flex items-center justify-between flex-shrink-0">
                     <div className="flex items-center gap-3">
                         <Button
                             variant="ghost"
                             size="sm"
-                            icon={ArrowLeft}
-                            onClick={() => navigate('/matches')}
+                            icon={X}
+                            onClick={onClose}
                             className="text-zinc-400 hover:text-white"
                         >
-                            Volver
+                            Cerrar
                         </Button>
                         <div>
-                            <h1 className="text-base font-bold text-white">Convocatoria</h1>
+                            <h2 className="text-base font-bold text-white">Convocatoria</h2>
                             <p className="text-xs text-zinc-400">
                                 {match.opponent_name} · {new Date(match.match_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
                             </p>
@@ -134,71 +151,69 @@ export function MatchConvocationV2() {
                         {selectedPlayerIds.size} seleccionadas
                     </div>
                 </div>
-            </div>
 
-            {/* Compact Player Grid - 2 cols mobile / 3 cols desktop */}
-            <div className="max-w-4xl mx-auto px-4 py-4">
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-                    {availablePlayers.map((item) => {
-                        const isSelected = selectedPlayerIds.has(item.player_id)
-                        const player = item.player
-                        if (!player) return null
+                {/* Body - Scrollable */}
+                <div className="flex-1 overflow-y-auto p-4">
+                    <div className="grid grid-cols-2 gap-2">
+                        {availablePlayers.map((item) => {
+                            const isSelected = selectedPlayerIds.has(item.player_id)
+                            const player = item.player
+                            if (!player) return null
 
-                        return (
-                            <div
-                                key={item.id}
-                                onClick={() => togglePlayer(item.player_id)}
-                                className={`bg-slate-900 border rounded-lg p-3 cursor-pointer transition-all ${isSelected
-                                    ? 'border-blue-500'
-                                    : 'border-slate-800 hover:border-slate-700'
-                                    }`}
-                            >
-                                <div className="flex items-center gap-2">
-                                    {/* Square Checkbox */}
-                                    <div
-                                        className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${isSelected
-                                            ? 'bg-blue-500 border-blue-500'
-                                            : 'border-zinc-600 bg-transparent'
-                                            }`}
-                                    >
-                                        {isSelected && <Check size={10} className="text-white" />}
-                                    </div>
+                            return (
+                                <div
+                                    key={item.id}
+                                    onClick={() => togglePlayer(item.player_id)}
+                                    className={`bg-slate-900 border rounded-lg p-3 cursor-pointer transition-all ${isSelected
+                                        ? 'border-blue-500'
+                                        : 'border-slate-800 hover:border-slate-700'
+                                        }`}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        {/* Square Checkbox */}
+                                        <div
+                                            className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${isSelected
+                                                ? 'bg-blue-500 border-blue-500'
+                                                : 'border-zinc-600 bg-transparent'
+                                                }`}
+                                        >
+                                            {isSelected && <Check size={10} className="text-white" />}
+                                        </div>
 
-                                    {/* Player Info */}
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="text-sm font-semibold text-white truncate">
-                                            {getPlayerDisplayName(player)}
-                                        </h3>
-                                        <div className="flex items-center gap-1.5 text-xs text-zinc-400">
-                                            <span className="font-mono">
-                                                #{item.jersey_number || player.jersey_number || '?'}
-                                            </span>
-                                            <span>·</span>
-                                            <span className="uppercase text-[10px]">
-                                                {(() => {
-                                                    const role = item.role && !['starter', 'convocado'].includes(item.role.toLowerCase()) ? item.role : null
-                                                    const rawRole = role || player.main_position || item.expected_category || 'Sin posición'
-                                                    return rawRole
-                                                })()}
-                                            </span>
+                                        {/* Player Info */}
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="text-sm font-semibold text-white truncate">
+                                                {getPlayerDisplayName(player)}
+                                            </h3>
+                                            <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+                                                <span className="font-mono">
+                                                    #{item.jersey_number || player.jersey_number || '?'}
+                                                </span>
+                                                <span>·</span>
+                                                <span className="uppercase text-[10px]">
+                                                    {(() => {
+                                                        const role = item.role && !['starter', 'convocado'].includes(item.role.toLowerCase()) ? item.role : null
+                                                        const rawRole = role || player.main_position || item.expected_category || 'Sin posición'
+                                                        return rawRole
+                                                    })()}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+                            )
+                        })}
+
+                        {availablePlayers.length === 0 && (
+                            <div className="col-span-2 text-center py-8 text-zinc-500 text-sm">
+                                No hay jugadoras disponibles en este equipo.
                             </div>
-                        )
-                    })}
-
-                    {availablePlayers.length === 0 && (
-                        <div className="col-span-2 text-center py-8 text-zinc-500 text-sm">
-                            No hay jugadoras disponibles en este equipo.
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
-            </div>
 
-            {/* Compact Footer */}
-            <div className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 p-3">
-                <div className="max-w-4xl mx-auto flex items-center gap-2">
+                {/* Footer - Fixed */}
+                <div className="border-t border-slate-800 p-4 flex items-center gap-2 flex-shrink-0">
                     <Button
                         variant="secondary"
                         size="sm"

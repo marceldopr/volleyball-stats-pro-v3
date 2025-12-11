@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Undo2, Users } from 'lucide-react'
+import { Undo2, Users, DoorOpen } from 'lucide-react'
 import { useMatchStoreV2, validateFIVBSubstitution } from '@/stores/matchStoreV2'
 import { toast } from 'sonner'
 import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
@@ -26,6 +26,7 @@ import { ActionButtons } from '@/components/match/ActionButtons'
 import { RotationDisplay } from '@/components/match/RotationDisplay'
 import { StartersModalV2 } from '@/components/match/StartersModalV2'
 import { RotationModalV2 } from '@/components/match/RotationModalV2'
+import { ExitMatchModal } from '@/components/match/ExitMatchModal'
 
 export function LiveMatchScoutingV2() {
     const { matchId } = useParams<{ matchId: string }>()
@@ -66,6 +67,7 @@ export function LiveMatchScoutingV2() {
     // State for UX
     const [buttonsDisabled, setButtonsDisabled] = useState(false)
     const [showRotationModal, setShowRotationModal] = useState(false)
+    const [exitModalOpen, setExitModalOpen] = useState(false)
 
     // Timeline Logic
     const [showTimeline, setShowTimeline] = useState(false)
@@ -92,6 +94,36 @@ export function LiveMatchScoutingV2() {
     const handleGoToAnalysis = () => {
         if (!matchData) return
         navigate(`/matches/${matchData.id}/analysis`)
+    }
+
+    // Exit Modal Handlers
+    const handleSaveAndExit = async () => {
+        if (!matchId) return
+
+        try {
+            // Save current match state
+            const setsWon = `${derivedState.setsWonHome}-${derivedState.setsWonAway}`
+            const setScores = derivedState.setsScores
+                .map(s => `${s.home}-${s.away}`)
+                .join(', ')
+            const detailedResult = `Sets: ${setsWon} (${setScores})`
+
+            await matchServiceV2.updateMatchV2(matchId, {
+                actions: events,
+                status: derivedState.isMatchFinished ? 'finished' : 'in_progress',
+                result: detailedResult
+            })
+
+            toast.success('Partido guardado')
+            navigate('/matches')
+        } catch (error) {
+            console.error('Error saving match:', error)
+            toast.error('Error al guardar')
+        }
+    }
+
+    const handleExitWithoutSaving = () => {
+        navigate('/matches')
     }
 
     // Auto-save match when finished
@@ -422,7 +454,6 @@ export function LiveMatchScoutingV2() {
                     setsWonAway={derivedState.setsWonAway}
                     ourSide={derivedState.ourSide}
                     servingSide={derivedState.servingSide}
-                    onBack={() => navigate('/matches')}
                 />
 
                 {/* MAIN GRID */}
@@ -452,15 +483,25 @@ export function LiveMatchScoutingV2() {
                 <div className="mt-auto bg-zinc-950 border-t border-zinc-900">
                     {/* Single Row: Actions + Timeline Toggle */}
                     <div className="px-4 py-3 flex items-center justify-between gap-2">
-                        {/* Left: Undo */}
-                        <button
-                            onClick={() => undoEvent()}
-                            disabled={events.length === 0}
-                            className="flex flex-col items-center gap-1 text-zinc-500 active:text-white disabled:opacity-30"
-                        >
-                            <Undo2 size={20} />
-                            <span className="text-[9px] font-bold">DESHACER</span>
-                        </button>
+                        {/* Left: Undo + Exit */}
+                        <div className="flex gap-4">
+                            <button
+                                onClick={() => undoEvent()}
+                                disabled={events.length === 0}
+                                className="flex flex-col items-center gap-1 text-zinc-500 active:text-white disabled:opacity-30"
+                            >
+                                <Undo2 size={20} />
+                                <span className="text-[9px] font-bold">DESHACER</span>
+                            </button>
+
+                            <button
+                                onClick={() => setExitModalOpen(true)}
+                                className="flex flex-col items-center gap-1 text-red-400 active:text-white"
+                            >
+                                <DoorOpen size={20} />
+                                <span className="text-[9px] font-bold">SALIR</span>
+                            </button>
+                        </div>
 
                         {/* Center: Timeline Toggle */}
                         <button
@@ -620,6 +661,14 @@ export function LiveMatchScoutingV2() {
                     currentSetNumber={derivedState.currentSet}
                     allPlayers={availablePlayers}
                     currentSetSubstitutions={derivedState.currentSetSubstitutions}
+                />
+
+                {/* EXIT MODAL */}
+                <ExitMatchModal
+                    isOpen={exitModalOpen}
+                    onClose={() => setExitModalOpen(false)}
+                    onSaveAndExit={handleSaveAndExit}
+                    onExitWithoutSaving={handleExitWithoutSaving}
                 />
 
             </div>

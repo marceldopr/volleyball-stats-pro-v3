@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 // LEGACY_V1: import { MatchWizard } from '../components/MatchWizard'
 // MatchDetail component removed - using only MatchAnalysis now
 import { ConvocationManager } from '../components/ConvocationManager'
+import { ConvocationModalV2 } from '../components/matches/ConvocationModalV2'
 import { useMatchStore } from '../stores/matchStore'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useAuthStore } from '../stores/authStore'
@@ -32,9 +33,12 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
 
-  // Convocation Manager state
+  // Convocation Manager state (V1)
   const [convocationManagerOpen, setConvocationManagerOpen] = useState(false)
   const [selectedMatchForConvocation, setSelectedMatchForConvocation] = useState<any>(null)
+
+  // Convocation Modal state (V2)
+  const [convocationModalMatchId, setConvocationModalMatchId] = useState<string | null>(null)
 
   const navigate = useNavigate()
 
@@ -423,13 +427,13 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                             icon={Users}
                             onClick={() => {
                               if (match.engine === 'v2') {
-                                navigate(`/matches/v2/${match.id}/convocation`)
+                                setConvocationModalMatchId(match.id)
                               } else {
                                 handleOpenConvocationManager(match)
                               }
                             }}
                           >
-                            Gestionar Convocatoria
+                            Convocatoria
                           </Button>
                         )
                       }
@@ -517,8 +521,8 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
 
                 {/* ROW 2: Result + Badges */}
                 <div className="flex items-center justify-between gap-4">
-                  {/* Sets Result - Score bold, details normal */}
-                  {match.status === 'finished' ? (() => {
+                  {/* Sets Result - Score bold, details normal - Show for finished AND in_progress */}
+                  {(match.status === 'finished' || match.status === 'in_progress') ? (() => {
                     const result = getActualMatchResult(match) || match.result || '-'
                     const match_result = result.match(/^(\d+-\d+)\s*(.*)$/)
 
@@ -591,7 +595,18 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
         )
       }
 
-
+      {/* Convocation Modal V2 */}
+      {convocationModalMatchId && (
+        <ConvocationModalV2
+          matchId={convocationModalMatchId}
+          onClose={() => setConvocationModalMatchId(null)}
+          onSave={() => {
+            setConvocationModalMatchId(null)
+            // Trigger refresh
+            setRefreshKey(prev => prev + 1)
+          }}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
