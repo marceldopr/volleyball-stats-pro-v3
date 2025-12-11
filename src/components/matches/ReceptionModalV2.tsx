@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
+import { RotationGridStandard, type RotationSlotPlayer } from '../match/RotationGridStandard'
 
 interface ReceptionModalV2Props {
     isOpen: boolean
@@ -61,36 +62,20 @@ export function ReceptionModalV2({
         return rotation?.find(r => r.position === pos)?.player
     }
 
-    // Render rotation position box (copied from LiveMatchScoutingV2)
-    const renderPositionBox = (position: number) => {
-        const player = getPlayerAtPosition(position)
+    // Prepare players for RotationGridStandard
+    const gridPlayers: RotationSlotPlayer[] = [1, 2, 3, 4, 5, 6].map(pos => {
+        const player = getPlayerAtPosition(pos)
         const display = getPlayerDisplay(player?.id || null)
-        const isSelected = selectedPlayerId === player?.id
 
-        return (
-            <button
-                key={position}
-                onClick={() => player && handlePlayerClick(player.id)}
-                disabled={!player}
-                className={`flex-1 h-14 rounded border-2 flex flex-col items-center justify-center shadow-sm relative overflow-visible transition-all ${isSelected
-                    ? 'bg-emerald-600/90 border-emerald-400 scale-105'
-                    : 'bg-zinc-800/80 border-zinc-700/50 hover:border-zinc-600 hover:bg-zinc-800'
-                    }`}
-            >
-                <div className="absolute top-0.5 left-1 opacity-80">
-                    <span className="text-[9px] font-bold text-white">P{position}</span>
-                </div>
-                {display.role && display.role.toLowerCase() !== 'starter' && (
-                    <div className="absolute top-0.5 right-1">
-                        <span className="text-[8px] font-bold text-zinc-400 bg-zinc-900/50 px-1 rounded leading-none">{display.role}</span>
-                    </div>
-                )}
-
-                <span className={`text-xl font-bold z-10 leading-none mb-0.5 mt-2 ${isSelected ? 'text-white' : 'text-zinc-200'}`}>{display.number}</span>
-                <span className={`text-[10px] uppercase z-10 leading-none truncate w-full text-center px-0.5 ${isSelected ? 'text-emerald-100' : 'text-zinc-400'}`}>{display.name}</span>
-            </button>
-        )
-    }
+        return {
+            position: pos as 1 | 2 | 3 | 4 | 5 | 6,
+            playerId: player?.id || null,
+            number: display.number,
+            name: display.name,
+            role: display.role,
+            isSelected: selectedPlayerId === player?.id
+        }
+    })
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
@@ -115,20 +100,18 @@ export function ReceptionModalV2({
                         1. Selecciona la jugadora que recibió
                     </p>
 
-                    {/* Rotation Grid - exactly like in current rotation view */}
+                    {/* Rotation Grid - using RotationGridStandard */}
                     <div className="mb-4">
-                        <div className="flex justify-center gap-1 w-full border-b border-zinc-800/50 pb-1 mb-1">
-                            {/* Front Row: P4, P3, P2 */}
-                            {renderPositionBox(4)}
-                            {renderPositionBox(3)}
-                            {renderPositionBox(2)}
-                        </div>
-                        <div className="flex justify-center gap-1 w-full pt-1">
-                            {/* Back Row: P5, P6, P1 */}
-                            {renderPositionBox(5)}
-                            {renderPositionBox(6)}
-                            {renderPositionBox(1)}
-                        </div>
+                        <RotationGridStandard
+                            players={gridPlayers}
+                            selectable={true}
+                            compact={false}
+                            onSlotClick={(_position, playerId) => {
+                                if (playerId) {
+                                    handlePlayerClick(playerId)
+                                }
+                            }}
+                        />
                     </div>
 
                     {/* Selected Player Info */}

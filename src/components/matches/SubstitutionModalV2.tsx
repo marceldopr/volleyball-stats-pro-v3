@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { PlayerV2 } from '@/stores/matchStoreV2'
 import { isLibero, isValidSubstitution } from '@/lib/volleyball/substitutionHelpers'
 import { toast } from 'sonner'
+import { RotationGridStandard } from '../match/RotationGridStandard'
 
 interface SubstitutionModalV2Props {
     isOpen: boolean
@@ -306,34 +307,23 @@ export function SubstitutionModalV2({
                         <span className="w-2 h-2 bg-red-500 rounded-full"></span>
                         En Pista (Selecciona quién sale)
                     </h3>
-                    <div className="grid grid-cols-3 gap-2">
-                        {onCourtPlayers
-                            .sort((a, b) => a.position - b.position)
-                            .map(entry => {
-                                const isSelected = playerOut?.id === entry.player.id
-                                return (
-                                    <button
-                                        key={entry.player.id}
-                                        onClick={() => setPlayerOut({ id: entry.player.id, position: entry.position })}
-                                        className={`p-2 rounded-lg border-2 transition-all text-left relative ${isSelected
-                                            ? 'bg-red-500/20 border-red-500 ring-2 ring-red-500/30'
-                                            : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800'
-                                            }`}
-                                    >
-                                        {isLibero(entry.player) && (
-                                            <span className="absolute -top-1 -right-1 bg-purple-600 text-white text-[8px] px-1.5 py-0.5 rounded-full font-bold">
-                                                LÍBERO
-                                            </span>
-                                        )}
-                                        <div className="flex flex-col items-center justify-center">
-                                            <span className="text-xs font-bold text-zinc-400 mb-0.5">P{entry.position}</span>
-                                            <span className="text-4xl font-bold text-white mb-1">{entry.player.number}</span>
-                                            <div className="text-xs text-zinc-300 truncate text-center w-full">{entry.player.name}</div>
-                                        </div>
-                                    </button>
-                                )
-                            })}
-                    </div>
+                    <RotationGridStandard
+                        players={onCourtPlayers.map(entry => ({
+                            position: entry.position,
+                            playerId: entry.player.id,
+                            number: String(entry.player.number),
+                            name: entry.player.name,
+                            role: entry.player.role || '',
+                            isSelected: playerOut?.id === entry.player.id
+                        }))}
+                        selectable={true}
+                        compact={false}
+                        onSlotClick={(position, playerId) => {
+                            if (playerId) {
+                                setPlayerOut({ id: playerId, position })
+                            }
+                        }}
+                    />
                 </div>
 
                 {/* Banquillo Section */}
