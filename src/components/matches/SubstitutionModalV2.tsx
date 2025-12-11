@@ -72,16 +72,30 @@ export function SubstitutionModalV2({
 
     // Filtrar banquillo basado en rol de jugadora que sale
     const filteredBenchPlayers = useMemo(() => {
-        // Obtener IDs de jugadoras involucradas en parejas activas
-        const pairedPlayerIds = new Set<string>()
+        // Obtener IDs de jugadoras involucradas en parejas activas que AÚN pueden hacer cambios
+        const activePairedPlayerIds = new Set<string>()
+        // Obtener IDs de jugadoras que ya completaron el ciclo (2/2)
+        const exhaustedPlayerIds = new Set<string>()
+
         currentSetSubstitutions.pairs.forEach(pair => {
-            pairedPlayerIds.add(pair.starterId)
-            pairedPlayerIds.add(pair.substituteId)
+            if (pair.usesCount >= 2) {
+                // Pareja agotada: jugadoras no pueden volver a cambiar
+                exhaustedPlayerIds.add(pair.starterId)
+                exhaustedPlayerIds.add(pair.substituteId)
+            } else {
+                // Pareja activa (1/2): aún pueden hacer el cambio de vuelta
+                activePairedPlayerIds.add(pair.starterId)
+                activePairedPlayerIds.add(pair.substituteId)
+            }
         })
 
-        // Sin selección: mostrar solo jugadoras de CAMPO que NO estén en parejas activas
+        // Sin selección: mostrar jugadoras de CAMPO que NO estén en parejas activas
+        // PERO incluir las agotadas (se mostrarán deshabilitadas)
         if (!playerOutData) {
-            return benchPlayers.filter(p => !isLibero(p) && !pairedPlayerIds.has(p.id))
+            return benchPlayers.filter(p =>
+                !isLibero(p) &&
+                (!activePairedPlayerIds.has(p.id) || exhaustedPlayerIds.has(p.id))
+            )
         }
 
         // Si sale un líbero, solo mostrar líberos
@@ -92,7 +106,7 @@ export function SubstitutionModalV2({
         // Si sale jugadora de campo, solo mostrar jugadoras de campo compatibles
         // - NO líberos
         // - Si la jugadora que sale tiene pareja, solo mostrar su pareja
-        // - Si no tiene pareja, mostrar solo jugadoras sin pareja
+        // - Si no tiene pareja, mostrar solo jugadoras sin pareja activa (pero incluir agotadas)
         const playerOutPair = currentSetSubstitutions.pairs.find(
             p => p.starterId === playerOut?.id || p.substituteId === playerOut?.id
         )
@@ -104,8 +118,11 @@ export function SubstitutionModalV2({
                 : playerOutPair.starterId
             return benchPlayers.filter(p => p.id === partnerId && !isLibero(p))
         } else {
-            // No tiene pareja: mostrar jugadoras de campo sin pareja
-            return benchPlayers.filter(p => !isLibero(p) && !pairedPlayerIds.has(p.id))
+            // No tiene pareja: mostrar jugadoras de campo sin pareja activa + las agotadas
+            return benchPlayers.filter(p =>
+                !isLibero(p) &&
+                (!activePairedPlayerIds.has(p.id) || exhaustedPlayerIds.has(p.id))
+            )
         }
     }, [benchPlayers, playerOutData, playerOutIsLibero, playerOut, currentSetSubstitutions.pairs])
 
@@ -222,19 +239,6 @@ export function SubstitutionModalV2({
                         </span>
                     </div>
 
-                    {/* Barra de progreso compacta */}
-                    <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden mb-2">
-                        <div
-                            className={`h-full transition-all ${currentSetSubstitutions.totalSubstitutions >= 6
-                                ? 'bg-red-500'
-                                : 'bg-emerald-500'
-                                }`}
-                            style={{
-                                width: `${(currentSetSubstitutions.totalSubstitutions / 6) * 100}%`
-                            }}
-                        />
-                    </div>
-
                     {/* Lista de Parejas compacta */}
                     {enrichedPairs.length > 0 && (
                         <div className="space-y-1">
@@ -327,24 +331,22 @@ export function SubstitutionModalV2({
                     />
                 </div>
 
-                {/* Banquillo Section */}
+                {/* Banquillo Section - Grid 3x2 */}
                 <div className="mb-6">
                     <h3 className="text-sm font-semibold text-white mb-3 uppercase tracking-wider flex items-center gap-2">
                         <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
                         Banquillo (Selecciona quién entra)
                     </h3>
-                    {filteredBenchPlayers.length === 0 ? (
-                        <div className="p-4 text-center text-sm text-zinc-500 bg-zinc-800/30 rounded-lg border border-zinc-700/50">
-                            {playerOutData
-                                ? `No hay ${playerOutIsLibero ? 'líberos' : 'jugadoras de campo'} disponibles`
-                                : 'No hay jugadoras disponibles en el banquillo'
-                            }
-                        </div>
-                    ) : (
-                        <div className="flex flex-wrap justify-center gap-2 max-h-48 overflow-y-auto">
-                            {filteredBenchPlayers.map(player => {
-                                const isDisabled = !isPlayerAvailable(player.id)
-                                return (
+
+                    {/* Grid 3x2 igual que en pista */}
+                    <div className="flex flex-col gap-1">
+                        {/* Fila 1 - Posiciones 1, 2, 3 */}
+                        <div className="flex justify-center gap-1 w-full border-b border-zinc-800/50 pb-1">
+                            {[0, 1, 2].map(index => {
+                                const player = filteredBenchPlayers[index]
+                                const isDisabled = player ? !isPlayerAvailable(player.id) : true
+
+                                return player ? (
                                     <PlayerCard
                                         key={player.id}
                                         number={player.number}
@@ -355,8 +357,56 @@ export function SubstitutionModalV2({
                                         onClick={() => !isDisabled && setPlayerInId(player.id)}
                                         compact={false}
                                     />
+                                ) : (
+                                    <PlayerCard
+                                        key={`empty-${index}`}
+                                        number=""
+                                        name=""
+                                        compact={false}
+                                        disabled={true}
+                                        className="border-dashed opacity-40"
+                                    />
                                 )
                             })}
+                        </div>
+
+                        {/* Fila 2 - Posiciones 4, 5, 6 */}
+                        <div className="flex justify-center gap-1 w-full pt-1">
+                            {[3, 4, 5].map(index => {
+                                const player = filteredBenchPlayers[index]
+                                const isDisabled = player ? !isPlayerAvailable(player.id) : true
+
+                                return player ? (
+                                    <PlayerCard
+                                        key={player.id}
+                                        number={player.number}
+                                        name={player.name}
+                                        role={player.role}
+                                        isSelected={playerInId === player.id}
+                                        disabled={isDisabled}
+                                        onClick={() => !isDisabled && setPlayerInId(player.id)}
+                                        compact={false}
+                                    />
+                                ) : (
+                                    <PlayerCard
+                                        key={`empty-${index}`}
+                                        number=""
+                                        name=""
+                                        compact={false}
+                                        disabled={true}
+                                        className="border-dashed opacity-40"
+                                    />
+                                )
+                            })}
+                        </div>
+                    </div>
+
+                    {filteredBenchPlayers.length === 0 && (
+                        <div className="mt-4 p-4 text-center text-sm text-zinc-500 bg-zinc-800/30 rounded-lg border border-zinc-700/50">
+                            {playerOutData
+                                ? `No hay ${playerOutIsLibero ? 'líberos' : 'jugadoras de campo'} disponibles`
+                                : 'No hay jugadoras disponibles en el banquillo'
+                            }
                         </div>
                     )}
                 </div>
