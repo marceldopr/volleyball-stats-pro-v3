@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Undo2, Users, DoorOpen } from 'lucide-react'
+import { Undo2, Users, DoorOpen, ClipboardList, ChevronDown, ChevronRight } from 'lucide-react'
 import { useMatchStoreV2, validateFIVBSubstitution } from '@/stores/matchStoreV2'
 import { toast } from 'sonner'
 import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
@@ -508,10 +508,12 @@ export function LiveMatchScoutingV2() {
                             onClick={() => setShowTimeline(!showTimeline)}
                             className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-lg hover:bg-zinc-800/50 transition-colors"
                         >
-                            <span className="text-sm">ðŸ“‹</span>
+                            <ClipboardList className="w-4 h-4 text-zinc-400" />
                             <span className="text-xs font-semibold text-zinc-300">Historial</span>
                             <span className="text-[10px] text-zinc-500">({events.length})</span>
-                            <span className="text-xs text-zinc-500">{showTimeline ? 'â–¼' : 'â–¶'}</span>
+                            <span className="text-xs text-zinc-500">
+                                {showTimeline ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                            </span>
                         </button>
 
                         {/* Right: Cambio + LÃ­bero */}
@@ -530,7 +532,7 @@ export function LiveMatchScoutingV2() {
                                 className="flex flex-col items-center gap-1 text-purple-400 active:text-white disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                                 <Users size={18} className="fill-current" />
-                                <span className="text-[9px] font-bold">LÃBERO</span>
+                                <span className="text-[9px] font-bold">LÍBERO</span>
                             </button>
                         </div>
                     </div>
@@ -675,6 +677,8 @@ export function LiveMatchScoutingV2() {
         </div>
     )
 }
+
+
 
 
 
