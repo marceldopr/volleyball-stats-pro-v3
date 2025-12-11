@@ -101,6 +101,8 @@ export interface DerivedMatchState {
     ourSide: 'home' | 'away'
     opponentSide: 'home' | 'away'
     servingSide: 'our' | 'opponent'
+    servingTeam: 'home' | 'away'       // Explicit serving team (derived from servingSide + ourSide)
+    receivingTeam: 'home' | 'away'     // Explicit receiving team (derived from servingSide + opponentSide)
     onCourtPlayers: {
         position: 1 | 2 | 3 | 4 | 5 | 6
         player: PlayerV2
@@ -164,6 +166,8 @@ const INITIAL_DERIVED_STATE: DerivedMatchState = {
     ourSide: 'home', // default
     opponentSide: 'away',
     servingSide: 'our', // default
+    servingTeam: 'home',  // default (derived from servingSide='our' + ourSide='home')
+    receivingTeam: 'away', // default (derived from servingSide='our' + opponentSide='away')
     onCourtPlayers: [],
     rotation: [],
     hasLineupForCurrentSet: false,
@@ -355,6 +359,11 @@ export function calculateDerivedState(
         }
     }
 
+    // Helper to update servingTeam and receivingTeam based on servingSide
+    const updateServingTeams = () => {
+        state.servingTeam = state.servingSide === 'our' ? state.ourSide : state.opponentSide
+        state.receivingTeam = state.servingSide === 'our' ? state.opponentSide : state.ourSide
+    }
 
     // Internal tracker for initial service choice per set
     const initialServeBySet: Record<number, 'our' | 'opponent'> = {}
@@ -384,6 +393,7 @@ export function calculateDerivedState(
                     initialServeBySet[event.payload.setNumber] = event.payload.initialServingSide
                     if (event.payload.setNumber === state.currentSet) {
                         state.servingSide = event.payload.initialServingSide
+                        updateServingTeams()
                     }
                 }
                 break
@@ -431,6 +441,7 @@ export function calculateDerivedState(
                         state.servingSide = set1Choice === 'our' ? 'opponent' : 'our'
                     }
                 }
+                updateServingTeams()
                 break
 
             case 'POINT_US':
@@ -470,6 +481,7 @@ export function calculateDerivedState(
                 }
 
                 state.servingSide = 'our'
+                updateServingTeams()
                 break
 
             case 'POINT_OPPONENT':
@@ -511,6 +523,7 @@ export function calculateDerivedState(
                 else if (reasonOpp === 'reception_error') statsTargetOpp.serve++ // Ace for them
 
                 state.servingSide = 'opponent'
+                updateServingTeams()
                 break
 
             case 'RECEPTION_EVAL':
@@ -531,6 +544,7 @@ export function calculateDerivedState(
                     statsTargetRec.serve++
 
                     state.servingSide = 'opponent'
+                    updateServingTeams()
                 }
                 break
 
@@ -675,6 +689,7 @@ export function calculateDerivedState(
                 state.servingSide = set1Choice === 'our' ? 'opponent' : 'our'
             }
         }
+        updateServingTeams()
     }
 
     const currentScores = setScoresMap[state.currentSet] || { home: 0, away: 0 }
