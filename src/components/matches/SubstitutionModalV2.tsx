@@ -5,6 +5,7 @@ import { PlayerV2 } from '@/stores/matchStoreV2'
 import { isLibero, isValidSubstitution } from '@/lib/volleyball/substitutionHelpers'
 import { toast } from 'sonner'
 import { RotationGridStandard } from '../match/RotationGridStandard'
+import { PlayerCard } from '../match/PlayerCard'
 
 interface SubstitutionModalV2Props {
     isOpen: boolean
@@ -340,39 +341,20 @@ export function SubstitutionModalV2({
                             }
                         </div>
                     ) : (
-                        <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                        <div className="flex flex-wrap justify-center gap-2 max-h-48 overflow-y-auto">
                             {filteredBenchPlayers.map(player => {
                                 const isDisabled = !isPlayerAvailable(player.id)
                                 return (
-                                    <button
+                                    <PlayerCard
                                         key={player.id}
-                                        onClick={() => !isDisabled && setPlayerInId(player.id)}
+                                        number={player.number}
+                                        name={player.name}
+                                        role={player.role}
+                                        isSelected={playerInId === player.id}
                                         disabled={isDisabled}
-                                        className={`p-3 rounded-lg transition-all relative text-left ${isDisabled
-                                            ? 'opacity-40 cursor-not-allowed bg-zinc-800/50 border border-zinc-800'
-                                            : playerInId === player.id
-                                                ? 'bg-emerald-500/20 border-2 border-emerald-500 ring-2 ring-emerald-500/30'
-                                                : 'bg-zinc-800 border border-zinc-700 hover:border-zinc-600'
-                                            }`}
-                                    >
-                                        {isLibero(player) && (
-                                            <span className="absolute -top-1 -right-1 bg-purple-600 text-white text-[8px] px-1.5 py-0.5 rounded-full font-bold">
-                                                LÍBERO
-                                            </span>
-                                        )}
-                                        {isDisabled && (
-                                            <span className="absolute -top-1 -left-1 bg-zinc-700 text-white text-[8px] px-1.5 py-0.5 rounded-full font-bold">
-                                                🔒
-                                            </span>
-                                        )}
-                                        <div className="flex flex-col items-center justify-center">
-                                            <span className="text-4xl font-bold text-white mb-1">{player.number}</span>
-                                            <div className="text-xs text-zinc-300 truncate text-center w-full">{player.name}</div>
-                                            {player.role && player.role !== 'Starter' && (
-                                                <span className="text-[9px] text-zinc-500 uppercase font-bold mt-0.5">{player.role}</span>
-                                            )}
-                                        </div>
-                                    </button>
+                                        onClick={() => !isDisabled && setPlayerInId(player.id)}
+                                        compact={false}
+                                    />
                                 )
                             })}
                         </div>

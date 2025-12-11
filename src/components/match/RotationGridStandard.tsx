@@ -1,3 +1,5 @@
+import { PlayerCard } from './PlayerCard'
+
 interface RotationSlotPlayer {
     position: 1 | 2 | 3 | 4 | 5 | 6
     number: string
@@ -26,74 +28,31 @@ export function RotationGridStandard({
     const renderSlot = (position: 1 | 2 | 3 | 4 | 5 | 6) => {
         const player = players.find(p => p.position === position)
 
-        // Clases base unificadas - mismo tamaño para inline y modal
-        // Clases base unificadas - mismo tamaño para inline y modal (w-28 = 112px fixed)
-        const baseClasses = `w-28 ${compact ? 'h-12' : 'h-14'} rounded border-2 flex flex-col items-center justify-center shadow-sm relative overflow-visible`
-
         if (!player) {
-            // Empty slot
             return (
-                <div
+                <PlayerCard
                     key={position}
-                    className={`${baseClasses} bg-zinc-900/50 border-zinc-800/50`}
-                >
-                    <div className="absolute top-0.5 left-1 opacity-80">
-                        <span className="text-[9px] font-bold text-zinc-600">P{position}</span>
-                    </div>
-                    <span className="text-zinc-700">-</span>
-                </div>
+                    number=""
+                    name=""
+                    position={position}
+                    compact={compact}
+                    disabled={true}
+                />
             )
         }
 
-        const isSelected = player.isSelected || false
-        const isDisabled = player.disabled || false
-        const isClickable = selectable && !isDisabled && onSlotClick
-
-        const stateClasses = isSelected
-            ? 'bg-emerald-600/90 border-emerald-400 scale-105'
-            : isDisabled
-                ? 'bg-zinc-900/50 border-zinc-800/50 opacity-50 cursor-not-allowed'
-                : 'bg-zinc-800/80 border-zinc-700/50'
-
-        const hoverClasses = isClickable && !isSelected && !isDisabled
-            ? 'hover:border-zinc-600 hover:bg-zinc-800 cursor-pointer'
-            : ''
-
-        const Element = isClickable ? 'button' : 'div'
-
         return (
-            <Element
+            <PlayerCard
                 key={position}
-                onClick={() => isClickable && onSlotClick(position, player.playerId)}
-                disabled={isDisabled}
-                className={`${baseClasses} ${stateClasses} ${hoverClasses} transition-all`}
-            >
-                {/* Pn en esquina superior izquierda */}
-                <div className="absolute top-0.5 left-1 opacity-80">
-                    <span className="text-[9px] font-bold text-white">P{position}</span>
-                </div>
-
-                {/* Rol en esquina superior derecha */}
-                {player.role && player.role.toLowerCase() !== 'starter' && (
-                    <div className="absolute top-0.5 right-1">
-                        <span className="text-[8px] font-bold text-zinc-400 bg-zinc-900/50 px-1 rounded leading-none">
-                            {player.role}
-                        </span>
-                    </div>
-                )}
-
-                {/* Dorsal grande en centro */}
-                <span className={`text-xl font-bold z-10 leading-none mb-0.5 mt-2 ${isSelected ? 'text-white' : 'text-zinc-200'
-                    }`}>
-                    {player.number}
-                </span>
-
-                {/* Nombre pequeño debajo */}
-                <span className={`text-[10px] uppercase z-10 leading-none truncate w-full text-center px-0.5 ${isSelected ? 'text-emerald-100' : 'text-zinc-400'
-                    }`}>
-                    {player.name}
-                </span>
-            </Element>
+                number={player.number}
+                name={player.name}
+                role={player.role}
+                position={position}
+                isSelected={player.isSelected}
+                disabled={player.disabled}
+                onClick={selectable ? () => onSlotClick && onSlotClick(position, player.playerId) : undefined}
+                compact={compact}
+            />
         )
     }
 
