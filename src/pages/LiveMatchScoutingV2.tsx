@@ -91,6 +91,27 @@ export function LiveMatchScoutingV2() {
         }
     }, [derivedState.isMatchFinished, derivedState.setSummaryModalOpen])
 
+    // CRITICAL C5 VALIDATION: Prevent entering live match without convocated players
+    // This prevents crashes in starters modal and rotation display
+    useEffect(() => {
+        // Only validate after loading is complete
+        if (loading) return
+
+        // Check if we have no players AND no lineup configured
+        if (availablePlayers.length === 0 && !derivedState.hasLineupForCurrentSet) {
+            console.error('⚠️ CRITICAL C5: Cannot enter live match without convocated players')
+            console.error('  Match ID:', matchId)
+            console.error('  Available players:', availablePlayers.length)
+
+            toast.error('No hay jugadoras convocadas. Configure la convocatoria primero.', {
+                duration: 5000
+            })
+
+            // Redirect back to matches list where user can configure convocations
+            navigate('/matches')
+        }
+    }, [loading, availablePlayers.length, derivedState.hasLineupForCurrentSet, matchId, navigate])
+
     const handleGoToMatches = () => {
         navigate('/matches')
     }

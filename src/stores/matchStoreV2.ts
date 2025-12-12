@@ -785,6 +785,18 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                         timestamp: e.timestamp || new Date().toISOString()
                     }))
 
+                    // CRITICAL C1 VALIDATION: Check if SET_LINEUP exists for set 1
+                    // This prevents crashes when loading incomplete/corrupted match data
+                    const hasLineupSet1 = mappedEvents.some(e =>
+                        e.type === 'SET_LINEUP' && e.payload?.setNumber === 1
+                    )
+
+                    if (!hasLineupSet1) {
+                        console.warn('⚠️ Match loaded without SET_LINEUP for set 1. UI will trigger starter selection.')
+                        console.warn('  Match ID:', dbMatchId)
+                        console.warn('  Total events:', mappedEvents.length)
+                    }
+
                     console.log('[DEBUG loadMatch] Before reset', { dismissedSetSummaries: state.dismissedSetSummaries })
 
                     // CRITICAL FIX: Always use empty array for dismissedSetSummaries on load

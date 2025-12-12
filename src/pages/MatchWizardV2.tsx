@@ -97,10 +97,7 @@ export function MatchWizardV2() {
             toast.error('Selecciona la fecha del partido')
             return
         }
-        if (!formData.matchTime) {
-            toast.error('Introduce la hora del partido')
-            return
-        }
+
 
         if (!profile?.club_id || !currentSeason) {
             toast.error('Error: No se encontró el club o la temporada')
@@ -241,14 +238,13 @@ export function MatchWizardV2() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
                                     <Clock className="inline w-4 h-4 mr-1" />
-                                    Hora <span className="text-red-500">*</span>
+                                    Hora
                                 </label>
                                 <input
                                     type="time"
                                     value={formData.matchTime}
                                     onChange={(e) => setFormData({ ...formData, matchTime: e.target.value })}
                                     className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    required
                                 />
                             </div>
                         </div>
