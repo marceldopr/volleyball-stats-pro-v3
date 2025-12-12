@@ -766,6 +766,19 @@ export const useMatchStoreV2 = create<MatchV2State>()(
             derivedState: INITIAL_DERIVED_STATE,
 
             loadMatch: (dbMatchId, events, ourSide, teamNames) => {
+                // STEP 1: Reset state immediately with INITIAL_DERIVED_STATE
+                // CRITICAL C3 FIX: This prevents visual "flash" of previous match data
+                set({
+                    dbMatchId,
+                    ourSide,
+                    events: [],
+                    derivedState: INITIAL_DERIVED_STATE,  // ← Reset first to clean slate
+                    homeTeamName: teamNames?.home ?? null,
+                    awayTeamName: teamNames?.away ?? null,
+                    dismissedSetSummaries: []
+                })
+
+                // STEP 2: Calculate new derived state from loaded events
                 set((state) => {
                     const mappedEvents = events.map(e => ({
                         ...e,
@@ -779,13 +792,8 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                     const derived = calculateDerivedState(mappedEvents, ourSide, state.initialOnCourtPlayers, [])
 
                     return {
-                        dbMatchId,
-                        ourSide,
                         events: mappedEvents,
-                        derivedState: derived,
-                        homeTeamName: teamNames?.home ?? null,
-                        awayTeamName: teamNames?.away ?? null,
-                        dismissedSetSummaries: []
+                        derivedState: derived
                     }
                 })
             },
