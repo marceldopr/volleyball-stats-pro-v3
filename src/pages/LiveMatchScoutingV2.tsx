@@ -18,6 +18,7 @@ import { useMatchData } from '@/hooks/match/useMatchData'
 import { useStartersModal } from '@/hooks/match/useStartersModal'
 import { useReceptionModal } from '@/hooks/match/useReceptionModal'
 import { useSubstitutionModal } from '@/hooks/match/useSubstitutionModal'
+import { useActionPlayerModal, isPointUs, isPointOpponent, ActionType } from '@/hooks/match/useActionPlayerModal'
 
 // UI Components
 import { ReadOnlyBanner } from '@/components/match/ReadOnlyBanner'
@@ -27,6 +28,7 @@ import { RotationDisplay } from '@/components/match/RotationDisplay'
 import { StartersModalV2 } from '@/components/match/StartersModalV2'
 import { RotationModalV2 } from '@/components/match/RotationModalV2'
 import { ExitMatchModal } from '@/components/match/ExitMatchModal'
+import { ActionPlayerModalV2 } from '@/components/match/ActionPlayerModalV2'
 
 export function LiveMatchScoutingV2() {
     const { matchId } = useParams<{ matchId: string }>()
@@ -63,6 +65,7 @@ export function LiveMatchScoutingV2() {
         showSubstitutionModal: substitutionModal.showSubstitutionModal,
         showStartersModal: startersModal.showStartersModal
     })
+    const actionModal = useActionPlayerModal()
 
     // State for UX
     const [buttonsDisabled, setButtonsDisabled] = useState(false)
@@ -192,13 +195,42 @@ export function LiveMatchScoutingV2() {
     }
 
 
-    // Handlers
+    // Handlers - Now open player selection modal (except opponent_point)
     const handlePointOpponent = (reason: string) => {
-        handleAction(() => addEvent('POINT_OPPONENT', { reason }))
+        // "Punto rival" (opponent_point) does NOT open modal - direct event
+        if (reason === 'opponent_point') {
+            handleAction(() => addEvent('POINT_OPPONENT', { reason }))
+        } else {
+            // All other opponent-scoring actions open modal
+            actionModal.openForAction(reason as ActionType)
+        }
     }
 
     const handlePointUs = (reason: string) => {
-        handleAction(() => addEvent('POINT_US', { reason }))
+        // All our-point actions open modal for player selection
+        actionModal.openForAction(reason as ActionType)
+    }
+
+    const handleFreeball = () => {
+        // Freeball also opens modal
+        actionModal.openForAction('freeball')
+    }
+
+    // Callback when player is selected in action modal
+    const handleConfirmActionPlayer = (playerId: string) => {
+        const actionType = actionModal.actionType
+        if (!actionType) return
+
+        // Determine if this action gives us or opponent a point
+        if (isPointUs(actionType)) {
+            handleAction(() => addEvent('POINT_US', { reason: actionType, playerId }))
+        } else if (isPointOpponent(actionType)) {
+            handleAction(() => addEvent('POINT_OPPONENT', { reason: actionType, playerId }))
+        } else if (actionType === 'freeball') {
+            handleAction(() => addEvent('FREEBALL', { playerId }))
+        }
+
+        actionModal.close()
     }
 
     // Set Summary Handlers
@@ -464,7 +496,7 @@ export function LiveMatchScoutingV2() {
                         disabled={buttonsDisabled}
                         onPointUs={handlePointUs}
                         onPointOpponent={handlePointOpponent}
-                        onFreeball={() => handleAction(() => addEvent('FREEBALL'))}
+                        onFreeball={handleFreeball}
                     />
 
                     {/* ROTATION STRIP - Uses shared libero logic */}
@@ -671,6 +703,16 @@ export function LiveMatchScoutingV2() {
                     onClose={() => setExitModalOpen(false)}
                     onSaveAndExit={handleSaveAndExit}
                     onExitWithoutSaving={handleExitWithoutSaving}
+                />
+
+                {/* ACTION PLAYER MODAL - Select player for each action */}
+                <ActionPlayerModalV2
+                    isOpen={actionModal.isOpen}
+                    actionType={actionModal.actionType}
+                    currentSet={derivedState.currentSet}
+                    onCourtPlayers={derivedState.onCourtPlayers}
+                    onConfirm={handleConfirmActionPlayer}
+                    onClose={actionModal.close}
                 />
 
             </div>

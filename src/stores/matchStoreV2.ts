@@ -30,6 +30,7 @@ export interface MatchEvent {
     type: MatchEventType
     payload?: {
         reason?: string
+        playerId?: string // Player responsible for the action (attack, block, error, etc.)
         setNumber?: number
         winner?: 'home' | 'away'
         score?: { home: number; away: number }
