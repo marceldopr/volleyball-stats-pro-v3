@@ -62,15 +62,26 @@ export function ActionButtons({
                 >
                     Punto bloqueo
                 </button>
-                <button
-                    onClick={() => onPointOpponent('attack_blocked')}
-                    disabled={disabled}
-                    className="h-14 bg-red-600 active:bg-red-500 text-white rounded-lg font-bold text-sm shadow-sm transition-all hover:brightness-110"
-                >
-                    Bloqueado
-                </button>
+                {/* Bloqueado grouped with Punto rival below */}
+                <div className="flex gap-1 h-14">
+                    <button
+                        onClick={() => onPointOpponent('attack_blocked')}
+                        disabled={disabled}
+                        className="flex-1 bg-red-600 active:bg-red-500 text-white rounded-lg font-bold text-sm shadow-sm transition-all hover:brightness-110"
+                    >
+                        Bloqueado
+                    </button>
+                    <button
+                        onClick={() => onPointOpponent('opponent_point')}
+                        disabled={disabled}
+                        className="flex-1 flex flex-col items-center justify-center bg-red-600 active:bg-red-500 text-white rounded-lg font-bold text-sm shadow-sm transition-all hover:brightness-110 leading-tight"
+                    >
+                        <span>Punto</span>
+                        <span>rival</span>
+                    </button>
+                </div>
 
-                {/* ROW 4 - Opponent errors/points */}
+                {/* ROW 4 - Our errors (both give point to opponent) - COMPACT */}
                 <button
                     onClick={() => onPointUs('opponent_error')}
                     disabled={disabled}
@@ -78,28 +89,19 @@ export function ActionButtons({
                 >
                     Error rival
                 </button>
-                <button
-                    onClick={() => onPointOpponent('opponent_point')}
-                    disabled={disabled}
-                    className="h-14 bg-red-600 active:bg-red-500 text-white rounded-lg font-bold text-sm shadow-sm transition-all hover:brightness-110"
-                >
-                    Punto rival
-                </button>
-
-                {/* ROW 5 - Our errors (both give point to opponent) - COMPACT */}
-                <div className="h-14" /> {/* Empty spacer on left column */}
                 <div className="flex gap-1 h-14">
                     <button
                         onClick={() => onPointOpponent('unforced_error')}
                         disabled={disabled}
-                        className="flex-1 bg-red-600 active:bg-red-500 text-white rounded-lg font-bold text-[11px] shadow-sm transition-all hover:brightness-110"
+                        className="flex-1 flex flex-col items-center justify-center bg-red-600 active:bg-red-500 text-white rounded-lg font-bold text-sm shadow-sm transition-all hover:brightness-110 leading-tight"
                     >
-                        Error genérico
+                        <span>Error</span>
+                        <span>genérico</span>
                     </button>
                     <button
                         onClick={() => onPointOpponent('fault')}
                         disabled={disabled}
-                        className="flex-1 bg-red-600 active:bg-red-500 text-white rounded-lg font-bold text-[11px] shadow-sm transition-all hover:brightness-110"
+                        className="flex-1 bg-red-600 active:bg-red-500 text-white rounded-lg font-bold text-sm shadow-sm transition-all hover:brightness-110"
                     >
                         Falta
                     </button>

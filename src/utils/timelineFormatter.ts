@@ -4,7 +4,7 @@ export interface TimelineEntry {
     id: string
     setNumber: number
     team: 'us' | 'opponent' | 'neutral'
-    type: 'point' | 'substitution' | 'libero' | 'set-start' | 'set-end' | 'reception' | 'freeball' | 'lineup'
+    type: 'point' | 'substitution' | 'libero' | 'set-start' | 'set-end' | 'reception' | 'freeball' | 'lineup' | 'timeout'
     icon: string
     teamLabel: string
     description: string
@@ -205,6 +205,46 @@ export function formatTimelineEntry(
                 description: 'Freeball',
                 timestamp: event.timestamp
             }
+
+        case 'FREEBALL_SENT':
+            return {
+                id: event.id,
+                setNumber,
+                team: 'us',
+                type: 'freeball',
+                icon: '🎯',
+                teamLabel: usLabel,
+                description: 'Freeball enviada',
+                timestamp: event.timestamp
+            }
+
+        case 'FREEBALL_RECEIVED':
+            return {
+                id: event.id,
+                setNumber,
+                team: 'opponent',
+                type: 'freeball',
+                icon: '🎯',
+                teamLabel: opponentLabel,
+                description: 'Freeball recibida',
+                timestamp: event.timestamp
+            }
+
+        case 'TIMEOUT': {
+            const timeoutTeam = event.payload?.team
+            const isOurTimeout = (ourSide === 'home' && timeoutTeam === 'home') ||
+                (ourSide === 'away' && timeoutTeam === 'away')
+            return {
+                id: event.id,
+                setNumber,
+                team: isOurTimeout ? 'us' : 'opponent',
+                type: 'timeout',
+                icon: '⏱️',
+                teamLabel: timeoutTeam === 'home' ? homeLabel : awayLabel,
+                description: isOurTimeout ? 'Tiempo muerto (nuestro)' : 'Tiempo muerto (rival)',
+                timestamp: event.timestamp
+            }
+        }
 
         default:
             return {
