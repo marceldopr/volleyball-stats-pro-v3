@@ -502,10 +502,9 @@ export function LiveMatchScoutingV2() {
                     awayTeamName={awayTeamName}
                     homeScore={derivedState.homeScore}
                     awayScore={derivedState.awayScore}
-                    setsWonHome={derivedState.setsWonHome}
-                    setsWonAway={derivedState.setsWonAway}
                     ourSide={derivedState.ourSide}
                     servingSide={derivedState.servingSide}
+                    setsScores={derivedState.setsScores}
                     timeoutsHome={derivedState.timeoutsHome}
                     timeoutsAway={derivedState.timeoutsAway}
                     onTimeoutHome={() => addEvent('TIMEOUT', { team: 'home', setNumber: derivedState.currentSet })}

@@ -6,10 +6,9 @@ interface MatchHeaderProps {
     awayTeamName: string | null
     homeScore: number
     awayScore: number
-    setsWonHome: number
-    setsWonAway: number
     ourSide: 'home' | 'away'
     servingSide: 'our' | 'opponent'
+    setsScores: { setNumber: number; home: number; away: number }[]
     // Timeout per team
     timeoutsHome: number
     timeoutsAway: number
@@ -63,10 +62,9 @@ export function MatchHeader({
     awayTeamName,
     homeScore,
     awayScore,
-    setsWonHome,
-    setsWonAway,
     ourSide,
     servingSide,
+    setsScores,
     timeoutsHome,
     timeoutsAway,
     onTimeoutHome,
@@ -86,10 +84,10 @@ export function MatchHeader({
             </div>
 
             {/* Main scoreboard row */}
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-center gap-0">
 
                 {/* HOME: Timeout Column (LEFT) + Scoreboard */}
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-2 flex-1 justify-end">
                     {/* Timeout column on the left */}
                     <TimeoutColumn
                         used={timeoutsHome}
@@ -120,16 +118,26 @@ export function MatchHeader({
                     </div>
                 </div>
 
-                {/* CENTER: VS + Sets info */}
-                <div className="flex flex-col items-center justify-center px-2">
-                    <span className="text-xs font-bold text-zinc-600">vs</span>
-                    <span className="text-[9px] text-zinc-700 font-mono mt-0.5">
-                        {setsWonHome} - {setsWonAway}
-                    </span>
+                {/* CENTER: Set list display - centered with fixed spacing */}
+                <div className="w-auto px-8 flex flex-col items-center justify-center">
+                    {/* Completed sets list */}
+                    <div className="flex flex-col items-center space-y-0.5">
+                        {setsScores.filter(s => s.setNumber < currentSet).map(set => (
+                            <div key={set.setNumber} className="flex items-center gap-1 font-mono font-medium text-[10px]">
+                                <span className={set.home > set.away ? 'text-emerald-400' : 'text-zinc-500'}>
+                                    {set.home}
+                                </span>
+                                <span className="text-zinc-600">-</span>
+                                <span className={set.away > set.home ? 'text-emerald-400' : 'text-zinc-500'}>
+                                    {set.away}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 {/* AWAY: Scoreboard + Timeout Column (RIGHT) */}
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-2 flex-1 justify-start">
                     {/* Away scoreboard */}
                     <div className="flex flex-col items-start">
                         <span className="text-[10px] uppercase font-bold text-zinc-400 mb-1">
