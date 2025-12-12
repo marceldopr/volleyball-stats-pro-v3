@@ -161,6 +161,30 @@ export function LiveMatchScoutingV2() {
         saveMatchToSupabase()
     }, [derivedState.isMatchFinished, matchId, events, derivedState.setsWonHome, derivedState.setsWonAway, derivedState.setsScores])
 
+    // Explicit save function for intermediate states (e.g. between sets)
+    const saveMatchState = async () => {
+        if (!matchId) return
+
+        try {
+            // Prepare match result string
+            const setsWon = `${derivedState.setsWonHome}-${derivedState.setsWonAway}`
+            const setScores = derivedState.setsScores
+                .map(s => `${s.home}-${s.away}`)
+                .join(', ')
+            const detailedResult = `Sets: ${setsWon} (${setScores})`
+
+            // Save to Supabase with current status
+            await matchServiceV2.updateMatchV2(matchId, {
+                actions: events,
+                status: derivedState.isMatchFinished ? 'finished' : 'in_progress',
+                result: detailedResult
+            })
+            console.log('✅ Match state saved (intermediate)')
+        } catch (error) {
+            console.error('❌ Error saving intermediate match state:', error)
+        }
+    }
+
 
 
     // Helper functions
@@ -179,7 +203,7 @@ export function LiveMatchScoutingV2() {
         }
         setTimeout(() => {
             setButtonsDisabled(false)
-        }, 350)
+        }, 200)
     }
 
     // Reception handler with player selection
@@ -196,10 +220,10 @@ export function LiveMatchScoutingV2() {
     }
 
 
-    // Handlers - Now open player selection modal (except opponent_point)
+    // Handlers - Now open player selection modal (except opponent_point and unforced_error)
     const handlePointOpponent = (reason: string) => {
-        // "Punto rival" (opponent_point) does NOT open modal - direct event
-        if (reason === 'opponent_point') {
+        // "Punto rival" (opponent_point) AND "Error genérico" (unforced_error) do NOT open modal - direct event
+        if (reason === 'opponent_point' || reason === 'unforced_error') {
             handleAction(() => addEvent('POINT_OPPONENT', { reason }))
         } else {
             // All other opponent-scoring actions open modal
@@ -258,6 +282,9 @@ export function LiveMatchScoutingV2() {
 
     const handleConfirmSetSummary = () => {
         // Confirm just means closing the modal and effectively "accepting" the set end state
+        // Save state to Supabase
+        saveMatchState()
+
         closeSetSummaryModal()
 
         // After confirming set summary, check if we need to open starters modal
@@ -509,7 +536,7 @@ export function LiveMatchScoutingV2() {
                     timeoutsAway={derivedState.timeoutsAway}
                     onTimeoutHome={() => addEvent('TIMEOUT', { team: 'home', setNumber: derivedState.currentSet })}
                     onTimeoutAway={() => addEvent('TIMEOUT', { team: 'away', setNumber: derivedState.currentSet })}
-                    disabled={buttonsDisabled || derivedState.isMatchFinished}
+                    disabled={derivedState.isMatchFinished}
                 />
 
                 {/* MAIN GRID */}
