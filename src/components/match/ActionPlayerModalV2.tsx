@@ -55,11 +55,12 @@ export function ActionPlayerModalV2({
             case 'serve_point':
             case 'attack_point':
             case 'block_point':
-            case 'opponent_error':
                 return 'emerald' // Points for us
             case 'service_error':
             case 'attack_error':
             case 'attack_blocked':
+            case 'unforced_error':
+            case 'fault':
                 return 'red' // Points for opponent
             case 'freeball':
                 return 'blue'

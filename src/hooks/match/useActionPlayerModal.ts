@@ -4,7 +4,8 @@ export type ActionType =
     | 'serve_point' | 'service_error'
     | 'attack_point' | 'attack_error'
     | 'block_point' | 'attack_blocked'
-    | 'opponent_error' | 'freeball'
+    | 'unforced_error' | 'fault'  // New error types
+    | 'freeball'
 
 interface UseActionPlayerModalReturn {
     isOpen: boolean
@@ -50,8 +51,10 @@ export function getActionTitle(actionType: ActionType | null): string {
             return 'Punto de bloqueo'
         case 'attack_blocked':
             return 'Bloqueado'
-        case 'opponent_error':
-            return 'Error del rival'
+        case 'unforced_error':
+            return 'Error genérico'
+        case 'fault':
+            return 'Falta'
         case 'freeball':
             return 'Freeball'
         default:
@@ -64,11 +67,12 @@ export function isPointUs(actionType: ActionType | null): boolean {
     return actionType === 'serve_point'
         || actionType === 'attack_point'
         || actionType === 'block_point'
-        || actionType === 'opponent_error'
 }
 
 export function isPointOpponent(actionType: ActionType | null): boolean {
     return actionType === 'service_error'
         || actionType === 'attack_error'
         || actionType === 'attack_blocked'
+        || actionType === 'unforced_error'
+        || actionType === 'fault'
 }

@@ -9,6 +9,9 @@ export type MatchEventType =
     | 'POINT_US'
     | 'POINT_OPPONENT'
     | 'FREEBALL'
+    | 'FREEBALL_SENT'
+    | 'FREEBALL_RECEIVED'
+    | 'TIMEOUT'
     | 'RECEPTION_EVAL'
     | 'SET_START'
     | 'SET_END'
@@ -35,6 +38,7 @@ export interface MatchEvent {
         winner?: 'home' | 'away'
         score?: { home: number; away: number }
         initialServingSide?: 'our' | 'opponent'
+        team?: 'home' | 'away' // For TIMEOUT events - which team requested
         lineup?: {
             position: 1 | 2 | 3 | 4 | 5 | 6
             playerId: string
@@ -123,6 +127,10 @@ export interface DerivedMatchState {
     // FIVB Substitution Tracking
     substitutionsBySet: Record<number, SetSubstitutionState>
     currentSetSubstitutions: SetSubstitutionState
+
+    // Timeout Tracking (max 2 per team per set)
+    timeoutsHome: number  // 0, 1, or 2 for current set
+    timeoutsAway: number  // 0, 1, or 2 for current set
 }
 
 export interface MatchV2State {
@@ -192,7 +200,11 @@ const INITIAL_DERIVED_STATE: DerivedMatchState = {
         setNumber: 1,
         totalSubstitutions: 0,
         pairs: []
-    }
+    },
+
+    // Timeout Tracking - Reset each set
+    timeoutsHome: 0,
+    timeoutsAway: 0
 }
 
 
@@ -429,6 +441,10 @@ export function calculateDerivedState(
                     }
                 }
                 state.currentSetSubstitutions = state.substitutionsBySet[state.currentSet]
+
+                // Reset timeouts for new set
+                state.timeoutsHome = 0
+                state.timeoutsAway = 0
 
                 if (state.currentSet === 5) {
                     if (initialServeBySet[5]) {
@@ -670,6 +686,15 @@ export function calculateDerivedState(
                         // Actualizar referencia rápida
                         state.currentSetSubstitutions = newSetState
                     }
+                }
+                break
+
+            case 'TIMEOUT':
+                // Count timeouts per team for current set
+                if (event.payload?.team === 'home') {
+                    state.timeoutsHome = Math.min(state.timeoutsHome + 1, 2)
+                } else if (event.payload?.team === 'away') {
+                    state.timeoutsAway = Math.min(state.timeoutsAway + 1, 2)
                 }
                 break
         }

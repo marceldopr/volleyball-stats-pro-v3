@@ -217,9 +217,14 @@ export function LiveMatchScoutingV2() {
         }
     }
 
-    const handleFreeball = () => {
-        // Freeball also opens modal
-        actionModal.openForAction('freeball')
+    const handleFreeballSent = () => {
+        // Freeball sent by us - no player modal needed
+        handleAction(() => addEvent('FREEBALL_SENT'))
+    }
+
+    const handleFreeballReceived = () => {
+        // Freeball received from opponent - no player modal needed
+        handleAction(() => addEvent('FREEBALL_RECEIVED'))
     }
 
     // Callback when player is selected in action modal
@@ -501,6 +506,11 @@ export function LiveMatchScoutingV2() {
                     setsWonAway={derivedState.setsWonAway}
                     ourSide={derivedState.ourSide}
                     servingSide={derivedState.servingSide}
+                    timeoutsHome={derivedState.timeoutsHome}
+                    timeoutsAway={derivedState.timeoutsAway}
+                    onTimeoutHome={() => addEvent('TIMEOUT', { team: 'home', setNumber: derivedState.currentSet })}
+                    onTimeoutAway={() => addEvent('TIMEOUT', { team: 'away', setNumber: derivedState.currentSet })}
+                    disabled={buttonsDisabled || derivedState.isMatchFinished}
                 />
 
                 {/* MAIN GRID */}
@@ -511,7 +521,8 @@ export function LiveMatchScoutingV2() {
                         disabled={buttonsDisabled}
                         onPointUs={handlePointUs}
                         onPointOpponent={handlePointOpponent}
-                        onFreeball={handleFreeball}
+                        onFreeballSent={handleFreeballSent}
+                        onFreeballReceived={handleFreeballReceived}
                     />
 
                     {/* ROTATION STRIP - Uses shared libero logic */}
