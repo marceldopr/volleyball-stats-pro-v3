@@ -319,6 +319,18 @@ export function calculateDerivedState(
     initialPlayers: PlayerV2[],
     dismissedSetSummaries: number[] = []
 ): DerivedMatchState {
+    // CRITICAL C6 FIX: Deduplicate events by ID to prevent corruption
+    // This prevents duplicate events from being processed twice
+    const uniqueEvents = Array.from(new Map(events.map(e => [e.id, e])).values())
+
+    if (uniqueEvents.length !== events.length) {
+        const duplicateCount = events.length - uniqueEvents.length
+        console.error('⚠️ CRITICAL C6: Duplicate events detected in calculateDerivedState')
+        console.error(`  Total events: ${events.length}`)
+        console.error(`  Unique events: ${uniqueEvents.length}`)
+        console.error(`  Duplicates removed: ${duplicateCount}`)
+    }
+
     const state = { ...INITIAL_DERIVED_STATE }
     state.ourSide = ourSide
     state.opponentSide = ourSide === 'home' ? 'away' : 'home'
@@ -388,7 +400,7 @@ export function calculateDerivedState(
         player: p
     }))
 
-    for (const event of events) {
+    for (const event of uniqueEvents) {
         // Ensure we have a score object for the current set logic
         // IMPORTANT: state.currentSet changes on SET_START
         // Check event type first to handle set progression

@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useBlocker } from 'react-router-dom'
 import { Undo2, Users, DoorOpen, ClipboardList, ChevronDown, ChevronRight } from 'lucide-react'
 import { useMatchStoreV2, validateFIVBSubstitution } from '@/stores/matchStoreV2'
 import { toast } from 'sonner'
@@ -80,6 +80,27 @@ export function LiveMatchScoutingV2() {
     const [isMatchFinishedModalOpen, setIsMatchFinishedModalOpen] = useState(false)
     const hasShownFinishModal = useRef(false)
 
+    // NAVIGATION BLOCKER: Prevent accidental sidebar navigation during live match
+    // Intercepts all navigation attempts (sidebar links, browser back, etc.)
+    const blocker = useBlocker(
+        ({ currentLocation, nextLocation }) => {
+            // Only block navigation if:
+            // 1. Match is NOT finished
+            // 2. User is actually navigating away (different pathname)
+            return (
+                !derivedState.isMatchFinished &&
+                currentLocation.pathname !== nextLocation.pathname
+            )
+        }
+    )
+
+    // Show exit modal when navigation is blocked
+    useEffect(() => {
+        if (blocker.state === 'blocked') {
+            setExitModalOpen(true)
+        }
+    }, [blocker.state])
+
     useEffect(() => {
         if (derivedState.isMatchFinished && !hasShownFinishModal.current && !derivedState.setSummaryModalOpen) {
             setIsMatchFinishedModalOpen(true)
@@ -140,7 +161,13 @@ export function LiveMatchScoutingV2() {
             })
 
             toast.success('Partido guardado')
-            navigate('/matches')
+
+            // If navigation was blocked, proceed with it. Otherwise navigate manually
+            if (blocker.state === 'blocked') {
+                blocker.proceed()
+            } else {
+                navigate('/matches')
+            }
         } catch (error) {
             console.error('Error saving match:', error)
             toast.error('Error al guardar')
@@ -148,7 +175,12 @@ export function LiveMatchScoutingV2() {
     }
 
     const handleExitWithoutSaving = () => {
-        navigate('/matches')
+        // If navigation was blocked, proceed with it. Otherwise navigate manually
+        if (blocker.state === 'blocked') {
+            blocker.proceed()
+        } else {
+            navigate('/matches')
+        }
     }
 
     // Auto-save match when finished
@@ -558,6 +590,11 @@ export function LiveMatchScoutingV2() {
                     timeoutsAway={derivedState.timeoutsAway}
                     onTimeoutHome={() => addEvent('TIMEOUT', { team: 'home', setNumber: derivedState.currentSet })}
                     onTimeoutAway={() => addEvent('TIMEOUT', { team: 'away', setNumber: derivedState.currentSet })}
+                    // CRITICAL C4: Timeouts must NEVER be disabled by action debounce (buttonsDisabled)
+                    // Per FIVB rules, teams can request timeouts at almost any moment during play
+                    // If we disable timeouts during the 200ms debounce window, coaches cannot
+                    // request strategic timeouts immediately after a point
+                    // → ONLY disable when match is completely finished
                     disabled={derivedState.isMatchFinished}
                 />
 
@@ -774,7 +811,13 @@ export function LiveMatchScoutingV2() {
                 {/* EXIT MODAL */}
                 <ExitMatchModal
                     isOpen={exitModalOpen}
-                    onClose={() => setExitModalOpen(false)}
+                    onClose={() => {
+                        setExitModalOpen(false)
+                        // If navigation was blocked, reset it (user cancelled)
+                        if (blocker.state === 'blocked') {
+                            blocker.reset()
+                        }
+                    }}
                     onSaveAndExit={handleSaveAndExit}
                     onExitWithoutSaving={handleExitWithoutSaving}
                 />
