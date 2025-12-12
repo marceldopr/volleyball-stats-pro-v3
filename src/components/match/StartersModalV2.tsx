@@ -117,7 +117,7 @@ export function StartersModalV2({
                                     name={display.name}
                                     role={display.role}
                                     position={pos as 1 | 2 | 3 | 4 | 5 | 6}
-                                    compact={false}
+                                    compact={true}
                                     onClick={() => setActivePosition(pos)}
                                     className="cursor-pointer"
                                 />
@@ -138,7 +138,7 @@ export function StartersModalV2({
                                     name={display.name}
                                     role={display.role}
                                     position={pos as 1 | 2 | 3 | 4 | 5 | 6}
-                                    compact={false}
+                                    compact={true}
                                     onClick={() => setActivePosition(pos)}
                                     className="cursor-pointer"
                                 />
@@ -156,7 +156,7 @@ export function StartersModalV2({
                                     number={liberoData.number}
                                     name={liberoData.name}
                                     role="L"
-                                    compact={false}
+                                    compact={true}
                                     onClick={() => setActivePosition(999)}
                                     className="cursor-pointer"
                                 />
@@ -166,7 +166,7 @@ export function StartersModalV2({
                                 number="+"
                                 name="Seleccionar"
                                 role="L"
-                                compact={false}
+                                compact={true}
                                 onClick={() => setActivePosition(999)}
                                 className="cursor-pointer"
                             />
@@ -257,12 +257,12 @@ export function StartersModalV2({
                                                 </span>
                                                 <span className="font-medium text-sm flex-1 text-center">{p.name}</span>
                                                 {p.role && p.role.toLowerCase() !== 'starter' && (
-                                                    <span className={`flex-shrink-0 w-9 h-9 rounded-full border-2 flex items-center justify-center text-[9px] font-bold uppercase ${p.role.toUpperCase() === 'S' ? 'bg-blue-900/40 border-blue-500/60 text-blue-200' :
-                                                        p.role.toUpperCase() === 'OPP' ? 'bg-red-900/40 border-red-500/60 text-red-200' :
-                                                            p.role.toUpperCase() === 'MB' ? 'bg-purple-900/40 border-purple-500/60 text-purple-200' :
-                                                                p.role.toUpperCase() === 'OH' ? 'bg-amber-900/40 border-amber-500/60 text-amber-200' :
-                                                                    p.role.toUpperCase() === 'L' ? 'bg-amber-900/40 border-amber-500/60 text-amber-200' :
-                                                                        'bg-zinc-800 border-zinc-600 text-zinc-300'
+                                                    <span className={`flex-shrink-0 w-7 h-7 rounded-full border flex items-center justify-center text-[9px] font-bold uppercase ${p.role.toUpperCase() === 'S' ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' :
+                                                        p.role.toUpperCase() === 'OPP' ? 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/40' :
+                                                            p.role.toUpperCase() === 'OH' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' :
+                                                                p.role.toUpperCase() === 'MB' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' :
+                                                                    p.role.toUpperCase() === 'L' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' :
+                                                                        'bg-zinc-700/40 text-zinc-300 border-zinc-600/60'
                                                         }`}>
                                                         {p.role}
                                                     </span>

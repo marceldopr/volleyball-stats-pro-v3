@@ -11,6 +11,24 @@ interface PlayerCardProps {
     className?: string
 }
 
+// Helper function for role circle colors - elegant dark theme
+function getRoleCircleClasses(role: string): string {
+    switch (role.toUpperCase()) {
+        case 'S':
+            return 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
+        case 'OPP':
+            return 'bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/40'
+        case 'OH':
+            return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+        case 'MB':
+            return 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+        case 'L':
+            return 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+        default:
+            return 'bg-zinc-700/40 text-zinc-300 border border-zinc-600/60'
+    }
+}
+
 export function PlayerCard({
     number,
     name,
@@ -23,34 +41,46 @@ export function PlayerCard({
     className = ''
 }: PlayerCardProps) {
 
-    // Same base classes as RotationGridStandard (w-28 fixed width)
-    const baseClasses = `w-28 ${compact ? 'h-12' : 'h-14'} rounded border-2 flex flex-col items-center justify-center shadow-sm relative overflow-visible`
+    const isEmpty = !number && !name
+    const isClickable = !disabled && !!onClick
 
-    // Empty/Placeholder case
-    if (!number && !name) {
+    // Base dimensions - w-28 = 112px, centered content
+    const baseClasses = `w-28 ${compact ? 'h-14' : 'h-16'} rounded-lg border flex flex-col items-center justify-center px-1 py-1 relative overflow-visible transition-all`
+
+    // Empty slot styling
+    if (isEmpty) {
         return (
-            <div className={`${baseClasses} bg-zinc-900/50 border-zinc-800/50 ${className}`}>
+            <div className={`${baseClasses} bg-zinc-900/30 border-dashed border-zinc-700/50 ${className}`}>
+                {/* Position label top-left - absolute */}
                 {position && (
-                    <div className="absolute top-0.5 left-1 opacity-80">
-                        <span className="text-[9px] font-bold text-zinc-600">P{position}</span>
-                    </div>
+                    <span className="absolute top-1 left-1.5 text-[9px] font-semibold text-zinc-600">
+                        P{position}
+                    </span>
                 )}
-                <span className="text-zinc-700">-</span>
+
+                {/* Plus sign centered */}
+                <span className="text-2xl font-semibold text-zinc-600">+</span>
+
+                {/* Empty text at bottom */}
+                <span className="absolute bottom-1 text-[8px] text-zinc-600 uppercase">
+                    Vacío
+                </span>
             </div>
         )
     }
 
-    const isClickable = !disabled && !!onClick
-
+    // State-based styling
     const stateClasses = isSelected
-        ? 'bg-emerald-600/90 border-emerald-400 scale-105'
+        ? 'bg-emerald-600/90 border-emerald-400 scale-[1.02] shadow-lg shadow-emerald-500/20'
         : disabled
-            ? 'bg-zinc-900/50 border-zinc-800/50 opacity-50 cursor-not-allowed'
-            : 'bg-zinc-800/80 border-zinc-700/50'
+            ? 'bg-zinc-900/40 border-zinc-800/50 opacity-40'
+            : 'bg-zinc-900/70 border-zinc-700/60'
 
     const hoverClasses = isClickable && !isSelected && !disabled
-        ? 'hover:border-zinc-600 hover:bg-zinc-800 cursor-pointer'
-        : ''
+        ? 'hover:border-emerald-400/60 hover:bg-zinc-800/80 cursor-pointer'
+        : disabled
+            ? 'cursor-not-allowed'
+            : ''
 
     const Element = isClickable ? 'button' : 'div'
 
@@ -58,34 +88,36 @@ export function PlayerCard({
         <Element
             onClick={isClickable ? onClick : undefined}
             disabled={disabled}
-            className={`${baseClasses} ${stateClasses} ${hoverClasses} transition-all ${className}`}
+            className={`${baseClasses} ${stateClasses} ${hoverClasses} ${className}`}
         >
-            {/* Pn Badge (optional usually for rotation) */}
+            {/* Position label P1-P6 - absolute top left */}
             {position && (
-                <div className="absolute top-0.5 left-1 opacity-80">
-                    <span className="text-[9px] font-bold text-white">P{position}</span>
-                </div>
+                <span className={`absolute top-1 left-1.5 text-[9px] font-semibold ${isSelected ? 'text-emerald-100' : 'text-zinc-500'}`}>
+                    P{position}
+                </span>
             )}
 
-            {/* Role Badge (top right) */}
+            {/* Role Circle - absolute top right (lowered slightly) */}
             {role && role.toLowerCase() !== 'starter' && (
-                <div className="absolute top-0.5 right-1">
-                    <span className="text-[8px] font-bold text-zinc-400 bg-zinc-900/50 px-1 rounded leading-none">
-                        {role}
-                    </span>
-                </div>
+                <span className={`absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-bold ${getRoleCircleClasses(role)}`}>
+                    {role.length > 2 ? role.substring(0, 2) : role}
+                </span>
             )}
 
-            {/* Number (Center) */}
-            <span className={`text-xl font-bold z-10 leading-none mb-0.5 mt-2 ${isSelected ? 'text-white' : 'text-zinc-200'
-                }`}>
+            {/* Number - CENTERED and PROMINENT */}
+            <span className={`text-[26px] font-bold leading-none ${isSelected ? 'text-white' : 'text-zinc-100'}`}>
                 {number}
             </span>
 
-            {/* Name (Bottom) */}
-            <span className={`text-[10px] uppercase z-10 leading-none truncate w-full text-center px-0.5 ${isSelected ? 'text-emerald-100' : 'text-zinc-400'
-                }`}>
-                {name}
+            {/* Name - with last name initial (Maria Garcia -> Maria G.) */}
+            <span className={`absolute bottom-1 text-[9px] uppercase tracking-wide max-w-[100px] text-center leading-tight line-clamp-1 ${isSelected ? 'text-emerald-100' : 'text-zinc-400'}`}>
+                {(() => {
+                    const parts = name.trim().split(' ')
+                    if (parts.length > 1) {
+                        return `${parts[0]} ${parts[parts.length - 1][0]}.`
+                    }
+                    return name
+                })()}
             </span>
         </Element>
     )

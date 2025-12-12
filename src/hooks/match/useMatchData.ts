@@ -116,7 +116,11 @@ export function useMatchData({ matchId, loadMatch, setInitialOnCourtPlayers }: U
 
                         const role = roleMap[rawRole] || rawRole && roleMap[Object.keys(roleMap).find(k => rawRole.includes(k)) || ''] || rawRole
 
-                        const name = pData.nickname || pData.first_name || `J${number}`
+                        // Combine first_name + last_name for full name display
+                        const fullName = pData.first_name && pData.last_name
+                            ? `${pData.first_name} ${pData.last_name}`
+                            : pData.first_name || `J${number}`
+                        const name = pData.nickname || fullName
 
                         return {
                             id: c.player_id,
