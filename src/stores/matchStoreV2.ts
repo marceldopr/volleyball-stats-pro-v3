@@ -811,13 +811,32 @@ export const useMatchStoreV2 = create<MatchV2State>()(
 
                     console.log('[DEBUG loadMatch] Before reset', { dismissedSetSummaries: state.dismissedSetSummaries })
 
-                    // CRITICAL FIX: Always use empty array for dismissedSetSummaries on load
-                    // This prevents persisted dismissed summaries from blocking new set modals
-                    const derived = calculateDerivedState(mappedEvents, ourSide, state.initialOnCourtPlayers, [])
+                    // CRITICAL FIX: Auto-dismiss completed sets when loading match
+                    // Strategy: Calculate derived state first to know currentSet,
+                    // then auto-dismiss all sets before currentSet
+
+                    // Step 1: Calculate initial derived state to determine currentSet
+                    const initialDerived = calculateDerivedState(mappedEvents, ourSide, state.initialOnCourtPlayers, [])
+
+                    // Step 2: Auto-dismiss ALL sets before currentSet
+                    // If we're at Set 2, dismiss Set 1. If at Set 3, dismiss Sets 1 and 2, etc.
+                    const autoDismissedSets: number[] = []
+                    for (let i = 1; i < initialDerived.currentSet; i++) {
+                        autoDismissedSets.push(i)
+                    }
+
+                    console.log('[DEBUG loadMatch] currentSet:', initialDerived.currentSet)
+                    console.log('[DEBUG loadMatch] Auto-dismissing sets:', autoDismissedSets)
+
+                    // Step 3: Recalculate with dismissed sets if needed
+                    const derived = autoDismissedSets.length > 0
+                        ? calculateDerivedState(mappedEvents, ourSide, state.initialOnCourtPlayers, autoDismissedSets)
+                        : initialDerived
 
                     return {
                         events: mappedEvents,
-                        derivedState: derived
+                        derivedState: derived,
+                        dismissedSetSummaries: autoDismissedSets
                     }
                 })
             },

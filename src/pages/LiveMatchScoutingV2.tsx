@@ -118,11 +118,14 @@ export function LiveMatchScoutingV2() {
         // Only validate after loading is complete
         if (loading) return
 
-        // Check if we have no players AND no lineup configured
-        if (availablePlayers.length === 0 && !derivedState.hasLineupForCurrentSet) {
+        // Check if we have no players AND no lineup configured AND no events
+        // The events.length check is CRITICAL: if match has events, it's in progress
+        // and we should allow re-entry even if convocations aren't loaded yet
+        if (availablePlayers.length === 0 && !derivedState.hasLineupForCurrentSet && events.length === 0) {
             console.error('⚠️ CRITICAL C5: Cannot enter live match without convocated players')
             console.error('  Match ID:', matchId)
             console.error('  Available players:', availablePlayers.length)
+            console.error('  Events:', events.length)
 
             toast.error('No hay jugadoras convocadas. Configure la convocatoria primero.', {
                 duration: 5000
@@ -131,7 +134,7 @@ export function LiveMatchScoutingV2() {
             // Redirect back to matches list where user can configure convocations
             navigate('/matches')
         }
-    }, [loading, availablePlayers.length, derivedState.hasLineupForCurrentSet, matchId, navigate])
+    }, [loading, availablePlayers.length, derivedState.hasLineupForCurrentSet, events.length, matchId, navigate])
 
     const handleGoToMatches = () => {
         navigate('/matches')
