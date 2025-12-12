@@ -4,6 +4,7 @@ import { Undo2, Users, DoorOpen, ClipboardList, ChevronDown, ChevronRight } from
 import { useMatchStoreV2, validateFIVBSubstitution } from '@/stores/matchStoreV2'
 import { toast } from 'sonner'
 import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
+import { getEffectiveOnCourtPlayers } from '../lib/volleyball/effectivePlayers'
 import { MatchTimelineV2 } from '@/components/MatchTimelineV2'
 import { formatTimeline } from '@/utils/timelineFormatter'
 import { MatchFinishedModalV2 } from '@/components/matches/MatchFinishedModalV2'
@@ -207,8 +208,13 @@ export function LiveMatchScoutingV2() {
     }
 
     const handlePointUs = (reason: string) => {
-        // All our-point actions open modal for player selection
-        actionModal.openForAction(reason as ActionType)
+        // "Error rival" (opponent_error) does NOT open modal - opponent made the error, not us
+        if (reason === 'opponent_error') {
+            handleAction(() => addEvent('POINT_US', { reason }))
+        } else {
+            // All other our-point actions open modal for player selection
+            actionModal.openForAction(reason as ActionType)
+        }
     }
 
     const handleFreeball = () => {
@@ -456,10 +462,19 @@ export function LiveMatchScoutingV2() {
     // derived booleans
     const isServing = derivedState.servingSide === 'our'
 
+    // EFFECTIVE on-court players with libero logic applied
+    // This is the SINGLE SOURCE OF TRUTH for who is actually on court
+    const effectiveOnCourtPlayers = getEffectiveOnCourtPlayers(
+        derivedState.onCourtPlayers,
+        derivedState.currentLiberoId,
+        isServing,
+        availablePlayers
+    )
+
     // Compute bench players for substitution modal
+    // Uses effective players to correctly exclude libero when on court
     const benchPlayers = availablePlayers.filter(p => {
-        const isOnCourt = derivedState.onCourtPlayers.some(entry => entry.player.id === p.id)
-        // Incluir todos los jugadores que no estÃ¡n en pista (incluye lÃ­beros para permitir cambio lÃ­beroâ†”lÃ­bero)
+        const isOnCourt = effectiveOnCourtPlayers.some(entry => entry.player.id === p.id)
         return !isOnCourt
     })
 
@@ -690,7 +705,7 @@ export function LiveMatchScoutingV2() {
                     isOpen={substitutionModal.showSubstitutionModal}
                     onClose={() => substitutionModal.closeModal()}
                     onConfirm={handleConfirmSubstitution}
-                    onCourtPlayers={derivedState.onCourtPlayers}
+                    onCourtPlayers={effectiveOnCourtPlayers}
                     benchPlayers={benchPlayers}
                     currentSetNumber={derivedState.currentSet}
                     allPlayers={availablePlayers}
@@ -710,7 +725,7 @@ export function LiveMatchScoutingV2() {
                     isOpen={actionModal.isOpen}
                     actionType={actionModal.actionType}
                     currentSet={derivedState.currentSet}
-                    onCourtPlayers={derivedState.onCourtPlayers}
+                    onCourtPlayers={effectiveOnCourtPlayers}
                     onConfirm={handleConfirmActionPlayer}
                     onClose={actionModal.close}
                 />
