@@ -280,10 +280,11 @@ export function LiveMatchScoutingV2() {
         }, 100)
     }
 
-    const handleConfirmSetSummary = () => {
+    const handleConfirmSetSummary = async () => {
         // Confirm just means closing the modal and effectively "accepting" the set end state
-        // Save state to Supabase
-        saveMatchState()
+        // CRITICAL: Save state to Supabase and WAIT for completion before proceeding
+        // This prevents data loss if user closes tab immediately after confirming
+        await saveMatchState()
 
         closeSetSummaryModal()
 
