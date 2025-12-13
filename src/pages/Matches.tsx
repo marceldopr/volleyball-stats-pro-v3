@@ -126,6 +126,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
 
   // Calculate actual match result from V2 SET_END events or use result field
   const getActualMatchResult = (match: any): string | null => {
+
     // V2: Check for SET_END events
     if (match.actions && Array.isArray(match.actions)) {
       const setEndEvents = match.actions.filter((a: any) => a.type === 'SET_END')
@@ -134,25 +135,43 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
         // Count sets won by home and away teams
         let setsWonHome = 0
         let setsWonAway = 0
+        const setScores: string[] = []
+
+        // Sort by set number
+        setEndEvents.sort((a: any, b: any) => (a.payload?.setNumber || 0) - (b.payload?.setNumber || 0))
 
         setEndEvents.forEach((event: any) => {
-          const homeScore = event.payload?.homeScore ?? 0
-          const awayScore = event.payload?.awayScore ?? 0
-          if (homeScore > awayScore) {
+          // Get scores for display
+          const homeScore = event.payload?.score?.home ?? event.payload?.homeScore ?? 0
+          const awayScore = event.payload?.score?.away ?? event.payload?.awayScore ?? 0
+          setScores.push(`${homeScore}-${awayScore}`)
+
+          // Check for winner field first (standard V2)
+          if (event.payload?.winner === 'home') {
             setsWonHome++
-          } else if (awayScore > homeScore) {
+          } else if (event.payload?.winner === 'away') {
             setsWonAway++
+          } else {
+            // Fallback: Check score object or direct properties (legacy support)
+            if (homeScore > awayScore) {
+              setsWonHome++
+            } else if (awayScore > homeScore) {
+              setsWonAway++
+            }
           }
         })
 
-        return `${setsWonHome}-${setsWonAway}`
+        const scoresString = setScores.length > 0 ? ` (${setScores.join(', ')})` : ''
+        return `${setsWonHome}-${setsWonAway}${scoresString}`
       }
     }
 
-    // Fallback to stored result
+    // Fallback to stored result - clean V2 format "Sets: X-Y (...)"
     if (match.result) {
+      // Remove only "Sets:" prefix, keep the rest (including parentheses with set details)
       return match.result.replace(/^Sets:\s*/i, '')
     }
+
 
     return null
   }

@@ -223,7 +223,7 @@ export const teamStatsService = {
                 .select('match_date, opponent_name, result, home_away')
                 .eq('team_id', teamId)
                 .eq('status', 'finished')
-                .eq('engine', 'v2') // V2-ONLY
+                
                 .order('match_date', { ascending: false })
                 .limit(1)
                 .single()
@@ -285,7 +285,7 @@ export const teamStatsService = {
                 .from('matches')
                 .select('match_date, opponent_name, location, home_away')
                 .eq('team_id', teamId)
-                .eq('engine', 'v2') // V2-ONLY
+                
                 .in('status', ['planned', 'in_progress'])
                 .gte('match_date', new Date().toISOString())
                 .order('match_date', { ascending: true })
@@ -354,7 +354,7 @@ export const teamStatsService = {
                 .from('matches')
                 .select('id, match_date, opponent_name')
                 .eq('team_id', teamId)
-                .eq('engine', 'v2') // V2-ONLY
+                
                 .eq('status', 'planned')
                 .gte('match_date', new Date().toISOString())
                 .lte('match_date', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString())
@@ -579,7 +579,7 @@ export const teamStatsService = {
             .eq('team_id', teamId)
             .eq('season_id', seasonId)
             .eq('status', 'finished')
-            .eq('engine', 'v2') // V2-ONLY
+            
 
         if (error) {
             console.error('Error fetching match results:', error)
@@ -593,10 +593,16 @@ export const teamStatsService = {
         let wins = 0
         let losses = 0
 
-        // Parse results in LOCAL-VISITOR format
+        // Parse results - handle V2 format "Sets: X-Y (...)" or simple "X-Y"
         matches.forEach(match => {
             if (match.result && match.home_away) {
-                const parts = match.result.split('-')
+                // Clean the result: remove "Sets:" prefix and anything in parentheses
+                let cleanResult = match.result
+                    .replace(/^Sets:\s*/i, '')  // Remove "Sets:" prefix
+                    .split('(')[0]              // Take only part before parentheses
+                    .trim()
+
+                const parts = cleanResult.split('-')
                 if (parts.length === 2) {
                     const localSets = parseInt(parts[0])
                     const visitorSets = parseInt(parts[1])

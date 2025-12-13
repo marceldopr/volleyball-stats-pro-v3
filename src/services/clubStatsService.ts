@@ -114,7 +114,7 @@ export const clubStatsService = {
                 .select('result, status, home_away, our_sets, opponent_sets')
                 .in('team_id', teamIds)
                 .eq('status', 'finished')
-                .eq('engine', 'v2') // V2-ONLY
+
 
             let wins = 0
             let losses = 0
@@ -248,7 +248,7 @@ export const clubStatsService = {
                     .select('result, status, home_away, our_sets, opponent_sets')
                     .in('team_id', teamIds)
                     .eq('status', 'finished')
-                    .eq('engine', 'v2') // V2-ONLY
+
 
                 let wins = 0
                 let losses = 0
@@ -481,7 +481,7 @@ export const clubStatsService = {
                 .select('id, match_date, opponent_name, team_id')
                 .in('team_id', teamIds)
                 .eq('status', 'planned')
-                .eq('engine', 'v2') // V2-ONLY
+
                 .gte('match_date', new Date().toISOString())
                 .lte('match_date', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString())
                 .order('match_date', { ascending: true })
@@ -500,7 +500,7 @@ export const clubStatsService = {
                 .select('team_id, result, status, home_away')
                 .in('team_id', teamIds)
                 .eq('status', 'finished')
-                .eq('engine', 'v2') // V2-ONLY
+
 
             if (allMatches) {
                 const teamPerformance = new Map<string, { wins: number, losses: number }>()
@@ -550,6 +550,8 @@ export const clubStatsService = {
 /**
  * Helper function: Extreu els sets d'un partit amb lògica de fallback robusta
  * Prioritza our_sets/opponent_sets, i fa fallback a result (string) amb validació
+ * V2: Handles "Sets: X-Y (...)" format and considers home_away field
+ * IMPORTANT: result is ALWAYS stored as "home-away" format
  */
 function getSetsFromMatch(match: any): { ourSets: number | null; theirSets: number | null } {
     // 1. Prioritat: utilitzar columnes numèriques
@@ -565,22 +567,35 @@ function getSetsFromMatch(match: any): { ourSets: number | null; theirSets: numb
         return { ourSets: null, theirSets: null }
     }
 
-    if (!match.result.includes('-')) {
+    // V2: Clean result from "Sets: X-Y (...)" format
+    let cleanResult = match.result
+        .replace(/^Sets:\s*/i, '')  // Remove "Sets:" prefix
+        .split('(')[0]              // Take only part before parentheses
+        .trim()
+
+    if (!cleanResult.includes('-')) {
         return { ourSets: null, theirSets: null }
     }
 
-    const parts = match.result.split('-')
+    const parts = cleanResult.split('-')
 
     if (parts.length !== 2) {
         return { ourSets: null, theirSets: null }
     }
 
-    const ourSets = Number(parts[0])
-    const theirSets = Number(parts[1])
+    const homeSets = Number(parts[0])
+    const awaySets = Number(parts[1])
 
-    if (Number.isNaN(ourSets) || Number.isNaN(theirSets)) {
+    if (Number.isNaN(homeSets) || Number.isNaN(awaySets)) {
         return { ourSets: null, theirSets: null }
     }
 
-    return { ourSets, theirSets }
+    // CRITICAL: Result is ALWAYS in home-away format
+    // If we are 'away', our sets = second number
+    // Otherwise (home or undefined), our sets = first number
+    if (match.home_away === 'away') {
+        return { ourSets: awaySets, theirSets: homeSets }
+    } else {
+        return { ourSets: homeSets, theirSets: awaySets }
+    }
 }

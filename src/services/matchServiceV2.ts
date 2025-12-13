@@ -92,7 +92,7 @@ export const matchServiceV2 = {
                 .from('matches')
                 .select('*, teams(custom_name, category_stage, gender)')
                 .eq('id', id)
-                .eq('engine', 'v2')  // NOMÉS V2
+                
                 .single()
 
             if (error) {
@@ -120,7 +120,7 @@ export const matchServiceV2 = {
                 .select('*')
                 .eq('club_id', clubId)
                 .eq('season_id', seasonId)
-                .eq('engine', 'v2')  // NOMÉS V2
+                
                 .order('match_date', { ascending: false })
 
             if (error) {
@@ -160,7 +160,7 @@ export const matchServiceV2 = {
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', id)
-                .eq('engine', 'v2')  // NOMÉS V2
+                
 
             if (error) {
                 console.error('Error updating V2 match:', error)
@@ -181,7 +181,7 @@ export const matchServiceV2 = {
                 .from('matches')
                 .delete()
                 .eq('id', id)
-                .eq('engine', 'v2')  // NOMÉS V2
+                
 
             if (error) {
                 console.error('Error deleting V2 match:', error)
@@ -259,7 +259,7 @@ export const matchServiceV2 = {
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', matchId)
-                .eq('engine', 'v2')
+                
 
             if (error) throw error
         } catch (error) {
