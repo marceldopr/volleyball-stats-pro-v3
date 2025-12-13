@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom'
 // MatchDetail component removed - using only MatchAnalysis now
 import { ConvocationManager } from '../components/ConvocationManager'
 import { ConvocationModalV2 } from '../components/matches/ConvocationModalV2'
-import { useMatchStore } from '../stores/matchStore'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useAuthStore } from '../stores/authStore'
 import { seasonService } from '../services/seasonService'
@@ -22,7 +21,6 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
   // LEGACY_V1: const [isWizardOpen, setIsWizardOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [matchToDelete, setMatchToDelete] = useState<any>(null)
-  const { deleteMatch } = useMatchStore()
   const { profile } = useAuthStore()
   const { isCoach, assignedTeamIds, loading: roleLoading } = useRoleScope()
 
@@ -173,9 +171,6 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
       try {
         // Delete from Supabase
         await matchService.deleteMatch(matchToDelete.id)
-
-        // Also delete from local store if it exists there
-        deleteMatch(matchToDelete.id)
 
         // Reload matches from Supabase
         if (profile?.club_id && currentSeason) {

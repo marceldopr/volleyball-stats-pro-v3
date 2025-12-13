@@ -1,5 +1,63 @@
 import { supabase } from '@/lib/supabaseClient'
-import { Match, MatchPlayer, PlayerStats, Set } from '../stores/matchStore'
+
+// Types defined locally (previously from matchStore which is now V2-only)
+export interface PlayerStats {
+    serves: number
+    aces: number
+    serveErrors: number
+    receptions: number
+    receptionErrors: number
+    attacks: number
+    kills: number
+    attackErrors: number
+    blocks: number
+    blockErrors: number
+    digs: number
+    digsErrors: number
+    sets: number
+    setErrors: number
+}
+
+export interface MatchPlayer {
+    playerId: string
+    name: string
+    number: number
+    position: string
+    starter: boolean
+    stats: PlayerStats
+}
+
+export interface Set {
+    id: string
+    number: number
+    homeScore: number
+    awayScore: number
+    status: 'in_progress' | 'completed'
+}
+
+export interface Match {
+    id: string
+    dbMatchId?: string
+    opponent: string
+    date: string
+    time: string
+    location: string
+    status: 'upcoming' | 'live' | 'completed'
+    result?: string
+    teamId?: string
+    season_id?: string
+    teamSide: 'local' | 'visitante'
+    sets: Set[]
+    players: MatchPlayer[]
+    currentSet: number
+    setsWonLocal: number
+    setsWonVisitor: number
+    sacadorInicialSet1?: 'local' | 'visitor' | null
+    sacadorInicialSet5?: 'local' | 'visitor' | null
+    acciones: any[]
+    createdAt?: string
+    updatedAt?: string
+}
 
 export interface MatchDB {
     id: string
