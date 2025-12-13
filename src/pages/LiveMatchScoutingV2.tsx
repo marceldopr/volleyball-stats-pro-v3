@@ -623,9 +623,10 @@ export function LiveMatchScoutingV2() {
     )
 
     // Compute bench players for substitution modal
-    // Uses effective players to correctly exclude libero when on court
+    // CRITICAL: Uses BASE rotation (onCourtPlayers), NOT effective rotation
+    // This ensures consistency with SubstitutionModalV2 which shows base rotation
     const benchPlayers = availablePlayers.filter(p => {
-        const isOnCourt = effectiveOnCourtPlayers.some(entry => entry.player.id === p.id)
+        const isOnCourt = derivedState.onCourtPlayers.some(entry => entry.player.id === p.id)
         return !isOnCourt
     })
 

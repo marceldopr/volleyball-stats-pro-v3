@@ -56,6 +56,11 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
     })
     const [adding, setAdding] = useState(false)
 
+    // Inline Jersey Edit State
+    const [editingJerseyId, setEditingJerseyId] = useState<string | null>(null)
+    const [editingJerseyValue, setEditingJerseyValue] = useState('')
+    const [savingJersey, setSavingJersey] = useState(false)
+
     // Evaluation Modal State
     const [evaluationModalOpen, setEvaluationModalOpen] = useState(false)
     const [selectedPlayer, setSelectedPlayer] = useState<PlayerDB | null>(null)
@@ -136,9 +141,24 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
         }
     }
 
+    // Helper to check for duplicate jersey number
+    const isJerseyDuplicate = (jerseyNumber: string, excludeId?: string) => {
+        if (!jerseyNumber.trim()) return false
+        return roster.some(r =>
+            r.jersey_number === jerseyNumber.trim() &&
+            (excludeId ? r.id !== excludeId : true)
+        )
+    }
+
     const handleAddPlayer = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!selectedPlayerId) return
+
+        // Check for duplicate jersey number
+        if (addFormData.jersey_number && isJerseyDuplicate(addFormData.jersey_number)) {
+            toast.error(`El dorsal ${addFormData.jersey_number} ya está asignado en este equipo`)
+            return
+        }
 
         setAdding(true)
         try {
@@ -157,6 +177,42 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
             toast.error('Error al añadir jugadora')
         } finally {
             setAdding(false)
+        }
+    }
+
+    // Handle inline jersey number edit
+    const handleStartEditJersey = (item: RosterItem) => {
+        setEditingJerseyId(item.id)
+        setEditingJerseyValue(item.jersey_number || '')
+    }
+
+    const handleCancelEditJersey = () => {
+        setEditingJerseyId(null)
+        setEditingJerseyValue('')
+    }
+
+    const handleSaveJersey = async () => {
+        if (!editingJerseyId) return
+
+        // Check for duplicate
+        if (editingJerseyValue && isJerseyDuplicate(editingJerseyValue, editingJerseyId)) {
+            toast.error(`El dorsal ${editingJerseyValue} ya está asignado`)
+            return
+        }
+
+        setSavingJersey(true)
+        try {
+            await playerTeamSeasonService.updatePlayerInTeamSeason(editingJerseyId, {
+                jersey_number: editingJerseyValue.trim() || null
+            })
+            toast.success('Dorsal actualizado')
+            setEditingJerseyId(null)
+            setEditingJerseyValue('')
+            loadRoster()
+        } catch (error) {
+            toast.error('Error al actualizar dorsal')
+        } finally {
+            setSavingJersey(false)
         }
     }
 
@@ -262,7 +318,51 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                 {roster.map((item) => (
                                     <tr key={item.id} className="hover:bg-gray-700/50 transition-colors">
                                         <td className="px-6 py-4 whitespace-nowrap font-medium text-white">
-                                            {item.jersey_number || '-'}
+                                            {editingJerseyId === item.id ? (
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={editingJerseyValue}
+                                                        onChange={(e) => setEditingJerseyValue(e.target.value)}
+                                                        className={`w-16 bg-gray-900 border rounded px-2 py-1 text-sm text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${editingJerseyValue && isJerseyDuplicate(editingJerseyValue, item.id)
+                                                            ? 'border-red-500'
+                                                            : 'border-gray-600'
+                                                            }`}
+                                                        placeholder="#"
+                                                        autoFocus
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') handleSaveJersey()
+                                                            if (e.key === 'Escape') handleCancelEditJersey()
+                                                        }}
+                                                    />
+                                                    <button
+                                                        onClick={handleSaveJersey}
+                                                        disabled={savingJersey || !!(editingJerseyValue && isJerseyDuplicate(editingJerseyValue, item.id))}
+                                                        className="text-green-400 hover:text-green-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        title="Guardar"
+                                                    >
+                                                        ✓
+                                                    </button>
+                                                    <button
+                                                        onClick={handleCancelEditJersey}
+                                                        className="text-gray-400 hover:text-gray-300"
+                                                        title="Cancelar"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => !isReadOnly && handleStartEditJersey(item)}
+                                                    className={`group flex items-center gap-2 ${!isReadOnly ? 'hover:text-blue-400 cursor-pointer' : ''}`}
+                                                    disabled={isReadOnly}
+                                                >
+                                                    <span>{item.jersey_number || '-'}</span>
+                                                    {!isReadOnly && (
+                                                        <span className="opacity-0 group-hover:opacity-100 text-gray-500 text-xs">✎</span>
+                                                    )}
+                                                </button>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-gray-200">
                                             {item.player ? `${item.player.first_name} ${item.player.last_name}` : 'Jugadora desconocida'}
@@ -399,9 +499,15 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                         type="text"
                                         value={addFormData.jersey_number}
                                         onChange={(e) => setAddFormData({ ...addFormData, jersey_number: e.target.value })}
-                                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                        className={`w-full bg-gray-900 border rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${addFormData.jersey_number && isJerseyDuplicate(addFormData.jersey_number)
+                                                ? 'border-red-500'
+                                                : 'border-gray-700'
+                                            }`}
                                         placeholder="#"
                                     />
+                                    {addFormData.jersey_number && isJerseyDuplicate(addFormData.jersey_number) && (
+                                        <p className="text-xs text-red-400 mt-1">Este dorsal ya está asignado</p>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-1">Estado</label>
