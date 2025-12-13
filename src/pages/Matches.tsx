@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-// LEGACY_V1: import { MatchWizard } from '../components/MatchWizard'
-// MatchDetail component removed - using only MatchAnalysis now
 import { ConvocationManager } from '../components/ConvocationManager'
 import { ConvocationModalV2 } from '../components/matches/ConvocationModalV2'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -18,7 +16,6 @@ import { Button } from '@/components/ui/Button'
 
 
 export function Matches({ teamId }: { teamId?: string } = {}) {
-  // LEGACY_V1: const [isWizardOpen, setIsWizardOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [matchToDelete, setMatchToDelete] = useState<any>(null)
   const { profile } = useAuthStore()
@@ -127,33 +124,32 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
 
   // transformMatchForDetail function removed - no longer needed
 
-  // Calculate actual match result from set_completed events in actions array
+  // Calculate actual match result from V2 SET_END events or use result field
   const getActualMatchResult = (match: any): string | null => {
-    // If we have actions with set_completed events, calculate from there
+    // V2: Check for SET_END events
     if (match.actions && Array.isArray(match.actions)) {
-      const setCompletedEvents = match.actions.filter((a: any) => a.tipo === 'set_completed')
+      const setEndEvents = match.actions.filter((a: any) => a.type === 'SET_END')
 
-      if (setCompletedEvents.length > 0) {
+      if (setEndEvents.length > 0) {
         // Count sets won by home and away teams
         let setsWonHome = 0
         let setsWonAway = 0
 
-        setCompletedEvents.forEach((event: any) => {
-          if (event.homeScore > event.awayScore) {
+        setEndEvents.forEach((event: any) => {
+          const homeScore = event.payload?.homeScore ?? 0
+          const awayScore = event.payload?.awayScore ?? 0
+          if (homeScore > awayScore) {
             setsWonHome++
-          } else if (event.awayScore > event.homeScore) {
+          } else if (awayScore > homeScore) {
             setsWonAway++
           }
         })
 
-        // Return in LOCAL-VISITOR format (ALWAYS)
-        // homeScore = local team, awayScore = visitor team
         return `${setsWonHome}-${setsWonAway}`
       }
     }
 
-    // Fallback to stored result if no actions or no set events
-    // Clean any "Sets:" prefix that might come from database
+    // Fallback to stored result
     if (match.result) {
       return match.result.replace(/^Sets:\s*/i, '')
     }
@@ -568,12 +564,6 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
           </div>
         )
       })()}
-
-
-      {/* LEGACY_V1: Match Wizard Modal removed - using V2 (/matches/create-v2) */}
-      {/* <MatchWizard ... /> */}
-
-      {/* Match Detail Modal removed - using only MatchAnalysis now */}
 
       {/* Convocation Manager Modal */}
       {

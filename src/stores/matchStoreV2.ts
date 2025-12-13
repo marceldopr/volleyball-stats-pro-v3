@@ -814,12 +814,8 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                     )
 
                     if (!hasLineupSet1) {
-                        console.warn('⚠️ Match loaded without SET_LINEUP for set 1. UI will trigger starter selection.')
-                        console.warn('  Match ID:', dbMatchId)
-                        console.warn('  Total events:', mappedEvents.length)
+                        // Match needs starter selection - UI will trigger modal
                     }
-
-                    console.log('[DEBUG loadMatch] Before reset', { dismissedSetSummaries: state.dismissedSetSummaries })
 
                     // CRITICAL FIX: Auto-dismiss completed sets when loading match
                     // Strategy: Calculate derived state first to know currentSet,
@@ -834,9 +830,6 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                     for (let i = 1; i < initialDerived.currentSet; i++) {
                         autoDismissedSets.push(i)
                     }
-
-                    console.log('[DEBUG loadMatch] currentSet:', initialDerived.currentSet)
-                    console.log('[DEBUG loadMatch] Auto-dismissing sets:', autoDismissedSets)
 
                     // Step 3: Recalculate with dismissed sets if needed
                     const derived = autoDismissedSets.length > 0

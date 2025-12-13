@@ -28,23 +28,13 @@ export function useStartersModal({ derivedState, loading }: UseStartersModalProp
         if (lastSetRef.current !== derivedState.currentSet) {
             lastSetRef.current = derivedState.currentSet
 
-            console.log('[DEBUG useEffect] Set changed', {
-                newSet: derivedState.currentSet,
-                setSummaryModalOpen: derivedState.setSummaryModalOpen,
-                hasLineupForCurrentSet: derivedState.hasLineupForCurrentSet
-            })
-
-            // CRITICAL: Do NOT open starters modal if set summary modal is currently open
-            // This prevents skipping the set summary when transitioning between sets
+            // Do NOT open starters modal if set summary modal is currently open
             if (derivedState.setSummaryModalOpen) {
-                // Set summary takes priority - starters modal will open after user closes it
-                console.log('[DEBUG useEffect] Skipping StartersModal - SetSummaryModal is open')
                 return
             }
 
             // Only open if NO lineup exists for this new set
             if (!derivedState.hasLineupForCurrentSet) {
-                console.log('[DEBUG useEffect] Opening StartersModal')
                 setShowStartersModal(true)
             } else {
                 setShowStartersModal(false)

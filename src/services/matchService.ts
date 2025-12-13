@@ -225,21 +225,21 @@ export const matchService = {
             // Reconstruct sets
             let sets: Set[] = []
 
-            // PRIORITY 1: Try to get set scores from actions array (most accurate for live-tracked matches)
-            const setCompletedEvents = (matchData.actions || []).filter((a: any) => a.tipo === 'set_completed')
-            if (setCompletedEvents.length > 0) {
-                // Use set_completed events - these have the actual scores
-                setCompletedEvents.forEach((event: any) => {
+            // V2: Try to get set scores from SET_END events
+            const setEndEvents = (matchData.actions || []).filter((a: any) => a.type === 'SET_END')
+            if (setEndEvents.length > 0) {
+                // Use SET_END events (V2 format) - these have the actual scores
+                setEndEvents.forEach((event: any) => {
                     sets.push({
-                        id: `set-${event.set}`,
-                        number: event.set,
-                        homeScore: event.homeScore,
-                        awayScore: event.awayScore,
+                        id: `set-${event.setNumber || event.payload?.setNumber || sets.length + 1}`,
+                        number: event.setNumber || event.payload?.setNumber || sets.length + 1,
+                        homeScore: event.payload?.homeScore ?? 0,
+                        awayScore: event.payload?.awayScore ?? 0,
                         status: 'completed'
                     })
                 })
             } else {
-                // PRIORITY 2: Try to infer sets from match_stats if no set_completed events
+                // Fallback: Infer sets from match_stats if no SET_END events
                 const maxSetFromStats = (statsData || []).reduce((max: number, s: any) => Math.max(max, s.set_number), 0)
 
                 if (maxSetFromStats > 0) {
@@ -328,10 +328,10 @@ export const matchService = {
                 sets: sets,
                 players: players,
                 currentSet: sets.length || 1,
-                setsWonLocal: 0, // Would need to parse result
-                setsWonVisitor: 0, // Calculated in UI or helper
-                sacadorInicialSet1: (matchData.actions || []).find((a: any) => a.tipo === 'initial_serve_selection' && a.set === 1)?.serveSelection || null,
-                sacadorInicialSet5: (matchData.actions || []).find((a: any) => a.tipo === 'initial_serve_selection' && a.set === 5)?.serveSelection || null,
+                setsWonLocal: 0,
+                setsWonVisitor: 0,
+                sacadorInicialSet1: null, // V2 handles this differently via events
+                sacadorInicialSet5: null,
                 acciones: matchData.actions || [],
                 createdAt: matchData.created_at,
                 updatedAt: matchData.updated_at
