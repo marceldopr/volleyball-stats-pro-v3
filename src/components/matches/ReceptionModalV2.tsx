@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { X, Timer, RefreshCw, Users } from 'lucide-react'
 import { RotationGridStandard, type RotationSlotPlayer } from '../match/RotationGridStandard'
 
 interface ReceptionModalV2Props {
@@ -14,8 +14,17 @@ interface ReceptionModalV2Props {
     }>
     currentSet: number
     rotation?: Array<{ position: number; player: { id: string; name: string; number: number; role: string } }>
-    // Add helper from parent
     getPlayerDisplay: (playerId: string | null | undefined) => { number: string; name: string; role: string }
+    // Pre-reception action props
+    onTimeoutLocal?: () => void
+    onTimeoutVisitor?: () => void
+    onSubstitution?: () => void
+    onLiberoSwap?: () => void
+    timeoutsHome?: number
+    timeoutsAway?: number
+    substitutionsUsed?: number
+    ourSide?: 'home' | 'away'
+    liberoAvailable?: boolean
 }
 
 const RATING_CONFIG = {
@@ -30,10 +39,20 @@ export function ReceptionModalV2({
     isOpen,
     onClose,
     onConfirm,
-    players: _players, // Kept for backwards compatibility, now using rotation + getPlayerDisplay
+    players: _players,
     currentSet,
     rotation,
-    getPlayerDisplay
+    getPlayerDisplay,
+    // Pre-reception actions
+    onTimeoutLocal,
+    onTimeoutVisitor,
+    onSubstitution,
+    onLiberoSwap,
+    timeoutsHome = 0,
+    timeoutsAway = 0,
+    substitutionsUsed = 0,
+    ourSide = 'home',
+    liberoAvailable = false
 }: ReceptionModalV2Props) {
     const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
 
@@ -94,6 +113,77 @@ export function ReceptionModalV2({
 
                 {/* Body */}
                 <div className="p-4">
+                    {/* Pre-reception actions row - Compact */}
+                    {(onTimeoutLocal || onTimeoutVisitor || onSubstitution || onLiberoSwap) && (
+                        <div className="mb-3 p-1.5 bg-zinc-800/50 rounded-lg border border-zinc-700/50">
+                            <p className="text-[9px] text-zinc-500 uppercase tracking-wide mb-1.5 text-center font-semibold">Acciones previas</p>
+                            <div className="grid grid-cols-4 gap-2">
+                                {/* 1. T.M. Local */}
+                                {onTimeoutLocal && (
+                                    <button
+                                        onClick={onTimeoutLocal}
+                                        disabled={(ourSide === 'home' ? timeoutsHome : timeoutsAway) >= 2}
+                                        className="flex flex-col items-center justify-center p-2 bg-zinc-700/40 hover:bg-zinc-600/60 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed border border-zinc-700/30 w-full h-12"
+                                        title="Tiempo Muerto Local"
+                                    >
+                                        <div className="flex items-center gap-1.5 align-middle h-full">
+                                            <Timer size={20} className="text-blue-400" />
+                                            <span className="text-xs text-zinc-300 font-mono font-bold leading-none translate-y-[1px]">
+                                                {ourSide === 'home' ? timeoutsHome : timeoutsAway}<span className="text-zinc-500 text-[9px] ml-0.5">/2</span>
+                                            </span>
+                                        </div>
+                                    </button>
+                                )}
+
+                                {/* 2. Cambio (Substitution) */}
+                                {onSubstitution && (
+                                    <button
+                                        onClick={onSubstitution}
+                                        className="flex flex-col items-center justify-center p-2 bg-zinc-700/40 hover:bg-zinc-600/60 rounded-xl transition-colors border border-zinc-700/30 w-full h-12"
+                                        title="Sustitución"
+                                    >
+                                        <div className="flex items-center gap-1.5 align-middle h-full">
+                                            <RefreshCw size={20} className="text-emerald-400" />
+                                            <span className="text-xs text-zinc-300 font-mono font-bold leading-none translate-y-[1px]">
+                                                {substitutionsUsed}<span className="text-zinc-500 text-[9px] ml-0.5">/6</span>
+                                            </span>
+                                        </div>
+                                    </button>
+                                )}
+
+                                {/* 3. Líbero */}
+                                {onLiberoSwap && liberoAvailable && (
+                                    <button
+                                        onClick={onLiberoSwap}
+                                        className="flex flex-col items-center justify-center p-2 bg-zinc-700/40 hover:bg-zinc-600/60 rounded-xl transition-colors border border-zinc-700/30 w-full h-12"
+                                        title="Cambio de Líbero"
+                                    >
+                                        <div className="flex items-center justify-center h-full">
+                                            <Users size={22} className="text-purple-400" />
+                                        </div>
+                                    </button>
+                                )}
+
+                                {/* 4. T.M. Visitante */}
+                                {onTimeoutVisitor && (
+                                    <button
+                                        onClick={onTimeoutVisitor}
+                                        disabled={(ourSide === 'home' ? timeoutsAway : timeoutsHome) >= 2}
+                                        className="flex flex-col items-center justify-center p-2 bg-zinc-700/40 hover:bg-zinc-600/60 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed border border-zinc-700/30 w-full h-12"
+                                        title="Tiempo Muerto Visitante"
+                                    >
+                                        <div className="flex items-center gap-1.5 align-middle h-full">
+                                            <Timer size={20} className="text-orange-400" />
+                                            <span className="text-xs text-zinc-300 font-mono font-bold leading-none translate-y-[1px]">
+                                                {ourSide === 'home' ? timeoutsAway : timeoutsHome}<span className="text-zinc-500 text-[9px] ml-0.5">/2</span>
+                                            </span>
+                                        </div>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     <p className="text-xs text-zinc-400 mb-3">
                         1. Selecciona la jugadora que recibió
                     </p>

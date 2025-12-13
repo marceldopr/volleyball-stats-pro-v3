@@ -20,6 +20,14 @@ interface StartersModalV2Props {
     onBack: () => void
 }
 
+function formatName(fullName: string): string {
+    const parts = fullName.trim().split(/\s+/)
+    if (parts.length === 1) return parts[0]
+    const firstName = parts[0]
+    const lastNameInitial = parts[parts.length - 1][0]
+    return `${firstName} ${lastNameInitial}.`
+}
+
 export function StartersModalV2({
     isOpen,
     derivedState,
@@ -119,7 +127,7 @@ export function StartersModalV2({
                                     position={pos as 1 | 2 | 3 | 4 | 5 | 6}
                                     compact={true}
                                     onClick={() => setActivePosition(pos)}
-                                    className="cursor-pointer"
+                                    className="cursor-pointer !w-[100px]"
                                 />
                             )
                         })}
@@ -140,7 +148,7 @@ export function StartersModalV2({
                                     position={pos as 1 | 2 | 3 | 4 | 5 | 6}
                                     compact={true}
                                     onClick={() => setActivePosition(pos)}
-                                    className="cursor-pointer"
+                                    className="cursor-pointer !w-[100px]"
                                 />
                             )
                         })}
@@ -158,7 +166,7 @@ export function StartersModalV2({
                                     role="L"
                                     compact={true}
                                     onClick={() => setActivePosition(999)}
-                                    className="cursor-pointer"
+                                    className="cursor-pointer !w-[100px]"
                                 />
                             )
                         })() : (
@@ -168,7 +176,7 @@ export function StartersModalV2({
                                 role="L"
                                 compact={true}
                                 onClick={() => setActivePosition(999)}
-                                className="cursor-pointer"
+                                className="cursor-pointer !w-[100px]"
                             />
                         )}
                     </div>
@@ -255,7 +263,7 @@ export function StartersModalV2({
                                                 <span className={`font-bold text-xl ${isCurrentlySelected ? (activePosition === 999 ? 'text-amber-400' : 'text-emerald-400') : 'text-zinc-300'}`}>
                                                     {p.number}
                                                 </span>
-                                                <span className="font-medium text-sm flex-1 text-center">{p.name}</span>
+                                                <span className="font-medium text-sm flex-1 text-center">{formatName(p.name)}</span>
                                                 {p.role && p.role.toLowerCase() !== 'starter' && (
                                                     <span className={`flex-shrink-0 w-7 h-7 rounded-full border flex items-center justify-center text-[9px] font-bold uppercase ${p.role.toUpperCase() === 'S' ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' :
                                                         p.role.toUpperCase() === 'OPP' ? 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/40' :

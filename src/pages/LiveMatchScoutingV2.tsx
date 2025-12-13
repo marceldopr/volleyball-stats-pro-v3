@@ -590,8 +590,24 @@ export function LiveMatchScoutingV2() {
                 isLiberoSwap: true
             }
         })
+        toast.success(`Líbero: ${nextLibero.name} entra`)
+    }
 
-        toast.success(`LÃ­bero: ${nextLibero.name} entra`)
+    // PRE-RECEPTION ACTION HANDLERS
+    // These are called from within ReceptionModalV2 before the user selects a receiver
+
+    // Timeout from reception modal - does NOT close reception modal
+    const handleTimeoutFromReception = (team: 'home' | 'away') => {
+        addEvent('TIMEOUT', { team, setNumber: derivedState.currentSet })
+        toast.success(`Tiempo muerto: ${team === derivedState.ourSide ? 'Nuestro equipo' : 'Rival'}`)
+    }
+
+    // Substitution from reception - closes reception, opens substitution modal
+    // When substitution is complete/cancelled, reception modal will auto-reopen
+    // (handled by useReceptionModal hook which checks showSubstitutionModal)
+    const handleSubstitutionFromReception = () => {
+        receptionModal.setShowReceptionModal(false)
+        substitutionModal.setShowSubstitutionModal(true)
     }
 
     // Helper to get player display info (used by modals and rotation views)
@@ -832,6 +848,16 @@ export function LiveMatchScoutingV2() {
                             currentSet={derivedState.currentSet}
                             rotation={rotationWithLibero}
                             getPlayerDisplay={getPlayerDisplay}
+                            // Pre-reception actions
+                            onTimeoutLocal={() => handleTimeoutFromReception(derivedState.ourSide)}
+                            onTimeoutVisitor={() => handleTimeoutFromReception(derivedState.ourSide === 'home' ? 'away' : 'home')}
+                            onSubstitution={handleSubstitutionFromReception}
+                            onLiberoSwap={handleInstantLiberoSwap}
+                            timeoutsHome={derivedState.timeoutsHome}
+                            timeoutsAway={derivedState.timeoutsAway}
+                            substitutionsUsed={derivedState.currentSetSubstitutions?.totalSubstitutions || 0}
+                            ourSide={derivedState.ourSide}
+                            liberoAvailable={availablePlayers.filter(p => p.role?.toUpperCase() === 'L' || p.role?.toUpperCase() === 'LIBERO').length > 1}
                         />
                     )
                 })()}
