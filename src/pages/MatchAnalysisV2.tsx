@@ -14,6 +14,9 @@ import {
 } from '@/lib/analysis/matchAnalytics'
 import { Button } from '@/components/ui/Button'
 import { toast } from 'sonner'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
+import { calculateGameFlow } from '@/lib/volleyball/gameFlow'
+import { SetGameFlowChart } from '@/components/match/SetGameFlowChart'
 
 export function MatchAnalysisV2() {
     const { matchId } = useParams<{ matchId: string }>()
@@ -47,9 +50,13 @@ export function MatchAnalysisV2() {
 
                 setMatchData(match)
 
-                // Determine our side
+                // Determine our side and team names
                 const side = match.home_away === 'home' ? 'home' : 'away'
-                const teamName = 'Nuestro Equipo'
+
+                // Use getTeamDisplayName to format team name like live scouting page
+                const teamName = match.teams
+                    ? getTeamDisplayName(match.teams)
+                    : 'Nuestro Equipo'
                 const opponentName = match.opponent_name || 'Rival'
 
                 const homeTeamNameFinal = side === 'home' ? teamName : opponentName
@@ -83,7 +90,8 @@ export function MatchAnalysisV2() {
             receptionStats: calculateReceptionStats(events, players),
             substitutions: extractSubstitutions(events),
             timeouts: extractTimeouts(events, ourSide),
-            streaks: calculateMaxStreaks(events, ourSide)
+            streaks: calculateMaxStreaks(events, ourSide),
+            gameFlow: calculateGameFlow(events, ourSide)
         }
     }, [matchData, events, initialOnCourtPlayers, ourSide])
 
@@ -407,15 +415,21 @@ export function MatchAnalysisV2() {
                             <div>
                                 <h3 className="text-sm font-semibold text-zinc-400 mb-3 uppercase">Sustituciones ({analytics.substitutions.length})</h3>
                                 <div className="space-y-2">
-                                    {analytics.substitutions.map((sub, idx) => (
-                                        <div key={idx} className="flex items-center gap-3 p-2 bg-zinc-800/40 rounded text-sm">
-                                            <span className="text-zinc-500 font-mono text-xs">Set {sub.setNumber}</span>
-                                            <span className="text-zinc-400">P{sub.position}</span>
-                                            <span className="text-rose-400">↓ ID:{sub.playerOut.slice(0, 8)}</span>
-                                            <RefreshCw size={12} className="text-cyan-400" />
-                                            <span className="text-emerald-400">↑ ID:{sub.playerIn.slice(0, 8)}</span>
-                                        </div>
-                                    ))}
+                                    {analytics.substitutions.map((sub, idx) => {
+                                        // Look up player names
+                                        const playerOutName = initialOnCourtPlayers.find(p => p.id === sub.playerOut)?.name || sub.playerOut.slice(0, 8)
+                                        const playerInName = initialOnCourtPlayers.find(p => p.id === sub.playerIn)?.name || sub.playerIn.slice(0, 8)
+
+                                        return (
+                                            <div key={idx} className="flex items-center gap-3 p-2 bg-zinc-800/40 rounded text-sm">
+                                                <span className="text-zinc-500 font-mono text-xs">Set {sub.setNumber}</span>
+                                                <span className="text-zinc-400">P{sub.position}</span>
+                                                <span className="text-rose-400">↓ {playerOutName}</span>
+                                                <RefreshCw size={12} className="text-cyan-400" />
+                                                <span className="text-emerald-400">↑ {playerInName}</span>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -457,19 +471,39 @@ export function MatchAnalysisV2() {
                     </div>
                 </section>
 
-                {/* Block 7: Complete Timeline (Collapsible) */}
+                {/* Block 7: Evolución por Set (Game Flow Chart) */}
+                {analytics.gameFlow.length > 0 && (
+                    <section className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+                        <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                            <TrendingUp size={20} className="text-cyan-400" />
+                            Evolución por Set
+                        </h2>
+
+                        <div className="space-y-4">
+                            {analytics.gameFlow.map(setData => (
+                                <SetGameFlowChart
+                                    key={setData.setNumber}
+                                    data={setData}
+                                    ourSide={ourSide}
+                                />
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* Block 8: Timeline (Collapsible - Secondary) */}
                 <section className="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
                     <button
                         onClick={() => setTimelineExpanded(!timelineExpanded)}
-                        className="w-full p-6 flex items-center justify-between hover:bg-zinc-800/30 transition-colors"
+                        className="w-full p-4 flex items-center justify-between hover:bg-zinc-800/30 transition-colors"
                     >
-                        <h2 className="text-lg font-bold text-white">Historial Completo ({events.length} eventos)</h2>
-                        {timelineExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                        <span className="text-sm font-medium text-zinc-400">Ver eventos detallados ({events.length})</span>
+                        {timelineExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </button>
 
                     {timelineExpanded && (
-                        <div className="border-t border-zinc-800 p-4 max-h-96 overflow-y-auto">
-                            <div className="space-y-2">
+                        <div className="border-t border-zinc-800 p-4 max-h-64 overflow-y-auto">
+                            <div className="space-y-1">
                                 {events.map((event, idx) => (
                                     <div key={event.id} className="p-2 bg-zinc-800/30 rounded text-xs">
                                         <span className="text-zinc-500 font-mono">{idx + 1}.</span>
