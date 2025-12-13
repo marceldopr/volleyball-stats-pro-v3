@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState, useRef } from 'react'
-import { useParams, useNavigate, useBlocker } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { Undo2, Users, DoorOpen, ClipboardList, ChevronDown, ChevronRight } from 'lucide-react'
 import { useMatchStoreV2, validateFIVBSubstitution } from '@/stores/matchStoreV2'
 import { toast } from 'sonner'
@@ -80,27 +80,6 @@ export function LiveMatchScoutingV2() {
     const [isMatchFinishedModalOpen, setIsMatchFinishedModalOpen] = useState(false)
     const hasShownFinishModal = useRef(false)
 
-    // NAVIGATION BLOCKER: Prevent accidental sidebar navigation during live match
-    // Intercepts all navigation attempts (sidebar links, browser back, etc.)
-    const blocker = useBlocker(
-        ({ currentLocation, nextLocation }) => {
-            // Only block navigation if:
-            // 1. Match is NOT finished
-            // 2. User is actually navigating away (different pathname)
-            return (
-                !derivedState.isMatchFinished &&
-                currentLocation.pathname !== nextLocation.pathname
-            )
-        }
-    )
-
-    // Show exit modal when navigation is blocked
-    useEffect(() => {
-        if (blocker.state === 'blocked') {
-            setExitModalOpen(true)
-        }
-    }, [blocker.state])
-
     useEffect(() => {
         if (derivedState.isMatchFinished && !hasShownFinishModal.current && !derivedState.setSummaryModalOpen) {
             setIsMatchFinishedModalOpen(true)
@@ -149,6 +128,8 @@ export function LiveMatchScoutingV2() {
     const handleSaveAndExit = async () => {
         if (!matchId) return
 
+        setExitModalOpen(false)
+
         try {
             // Save current match state
             const setsWon = `${derivedState.setsWonHome}-${derivedState.setsWonAway}`
@@ -164,26 +145,17 @@ export function LiveMatchScoutingV2() {
             })
 
             toast.success('Partido guardado')
-
-            // If navigation was blocked, proceed with it. Otherwise navigate manually
-            if (blocker.state === 'blocked') {
-                blocker.proceed()
-            } else {
-                navigate('/matches')
-            }
+            navigate('/matches')
         } catch (error) {
             console.error('Error saving match:', error)
             toast.error('Error al guardar')
+            setExitModalOpen(true)
         }
     }
 
     const handleExitWithoutSaving = () => {
-        // If navigation was blocked, proceed with it. Otherwise navigate manually
-        if (blocker.state === 'blocked') {
-            blocker.proceed()
-        } else {
-            navigate('/matches')
-        }
+        setExitModalOpen(false)
+        navigate('/matches')
     }
 
     // Auto-save match when finished
@@ -814,13 +786,7 @@ export function LiveMatchScoutingV2() {
                 {/* EXIT MODAL */}
                 <ExitMatchModal
                     isOpen={exitModalOpen}
-                    onClose={() => {
-                        setExitModalOpen(false)
-                        // If navigation was blocked, reset it (user cancelled)
-                        if (blocker.state === 'blocked') {
-                            blocker.reset()
-                        }
-                    }}
+                    onClose={() => setExitModalOpen(false)}
                     onSaveAndExit={handleSaveAndExit}
                     onExitWithoutSaving={handleExitWithoutSaving}
                 />
