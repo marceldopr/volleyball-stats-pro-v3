@@ -214,48 +214,31 @@ export const teamStatsService = {
 
     /**
      * Get summary text of last match
+     * V2-ONLY: Uses result field, no event parsing
      */
     async getLastMatchSummary(teamId: string): Promise<string | null> {
         try {
             const { data, error } = await supabase
                 .from('matches')
-                .select('match_date, opponent_name, result, home_away, actions')
+                .select('match_date, opponent_name, result, home_away')
                 .eq('team_id', teamId)
                 .eq('status', 'finished')
+                .eq('engine', 'v2') // V2-ONLY
                 .order('match_date', { ascending: false })
                 .limit(1)
                 .single()
 
             if (error || !data) return null
 
+            // V2: result field is already populated correctly (e.g. "3-1 (25-20, 25-18, 25-22)")
             let resultText = data.result || 'Sin resultado'
-
-            // Calculate actual result from actions if available (source of truth)
-            if (data.actions && Array.isArray(data.actions)) {
-                const setCompletedEvents = data.actions.filter((a: any) => a.tipo === 'set_completed')
-
-                if (setCompletedEvents.length > 0) {
-                    let setsWonHome = 0
-                    let setsWonAway = 0
-
-                    setCompletedEvents.forEach((event: any) => {
-                        if (event.homeScore > event.awayScore) {
-                            setsWonHome++
-                        } else if (event.awayScore > event.homeScore) {
-                            setsWonAway++
-                        }
-                    })
-
-                    resultText = `${setsWonHome}-${setsWonAway}`
-                }
-            }
-
             let outcome = ''
 
             // Parse result to determine win/loss and correct score order
             if (resultText && resultText !== 'Sin resultado') {
-                // Try to handle "3-1 (25-20...)" format by taking just the set score part
-                const simpleResult = resultText.split(' ')[0]
+                // Handle "3-1 (25-20...)" or "Sets: 3-1 (...)" format
+                const cleanResult = resultText.replace(/^Sets:\s*/i, '')
+                const simpleResult = cleanResult.split(' ')[0]
                 const parts = simpleResult.split('-')
 
                 if (parts.length >= 2) {
@@ -302,6 +285,7 @@ export const teamStatsService = {
                 .from('matches')
                 .select('match_date, opponent_name, location, home_away')
                 .eq('team_id', teamId)
+                .eq('engine', 'v2') // V2-ONLY
                 .in('status', ['planned', 'in_progress'])
                 .gte('match_date', new Date().toISOString())
                 .order('match_date', { ascending: true })
@@ -370,6 +354,7 @@ export const teamStatsService = {
                 .from('matches')
                 .select('id, match_date, opponent_name')
                 .eq('team_id', teamId)
+                .eq('engine', 'v2') // V2-ONLY
                 .eq('status', 'planned')
                 .gte('match_date', new Date().toISOString())
                 .lte('match_date', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString())
@@ -585,6 +570,7 @@ export const teamStatsService = {
 
     /**
      * Get win/loss record for a team in a season
+     * V2-ONLY
      */
     async getWinLossRecord(teamId: string, seasonId: string): Promise<{ wins: number, losses: number }> {
         const { data: matches, error } = await supabase
@@ -593,6 +579,7 @@ export const teamStatsService = {
             .eq('team_id', teamId)
             .eq('season_id', seasonId)
             .eq('status', 'finished')
+            .eq('engine', 'v2') // V2-ONLY
 
         if (error) {
             console.error('Error fetching match results:', error)

@@ -69,6 +69,7 @@ export const clubStatsService = {
 
     /**
      * Calculate global KPIs for the club
+     * V2-ONLY
      */
     async getGlobalKPIs(clubId: string, seasonId?: string): Promise<{
         attendanceGlobal: number | null
@@ -113,6 +114,7 @@ export const clubStatsService = {
                 .select('result, status, home_away, our_sets, opponent_sets')
                 .in('team_id', teamIds)
                 .eq('status', 'finished')
+                .eq('engine', 'v2') // V2-ONLY
 
             let wins = 0
             let losses = 0
@@ -246,6 +248,7 @@ export const clubStatsService = {
                     .select('result, status, home_away, our_sets, opponent_sets')
                     .in('team_id', teamIds)
                     .eq('status', 'finished')
+                    .eq('engine', 'v2') // V2-ONLY
 
                 let wins = 0
                 let losses = 0
@@ -478,6 +481,7 @@ export const clubStatsService = {
                 .select('id, match_date, opponent_name, team_id')
                 .in('team_id', teamIds)
                 .eq('status', 'planned')
+                .eq('engine', 'v2') // V2-ONLY
                 .gte('match_date', new Date().toISOString())
                 .lte('match_date', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString())
                 .order('match_date', { ascending: true })
@@ -496,6 +500,7 @@ export const clubStatsService = {
                 .select('team_id, result, status, home_away')
                 .in('team_id', teamIds)
                 .eq('status', 'finished')
+                .eq('engine', 'v2') // V2-ONLY
 
             if (allMatches) {
                 const teamPerformance = new Map<string, { wins: number, losses: number }>()
