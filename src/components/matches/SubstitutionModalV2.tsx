@@ -1,11 +1,17 @@
 import { useState, useMemo } from 'react'
-import { Check, X, RefreshCw, Lock } from 'lucide-react'
+import { Check, X, RefreshCw, Lock, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { PlayerV2 } from '@/stores/matchStoreV2'
 import { isLibero, isValidSubstitution } from '@/lib/volleyball/substitutionHelpers'
 import { toast } from 'sonner'
 import { RotationGridStandard } from '../match/RotationGridStandard'
 import { PlayerCard } from '../match/PlayerCard'
+import {
+    PlannedSub,
+    simulatePlannedSubstitutions,
+    canAddToBatch,
+    isPlayerInBatch
+} from '@/lib/volleyball/substitutionBatch'
 
 interface SubstitutionModalV2Props {
     isOpen: boolean
@@ -43,9 +49,28 @@ export function SubstitutionModalV2({
     const [playerOut, setPlayerOut] = useState<{ id: string; position: 1 | 2 | 3 | 4 | 5 | 6 } | null>(null)
     const [playerInId, setPlayerInId] = useState<string | null>(null)
 
-    // Determinar jugadora que sale y si es líbero
+    // Planned substitutions (always available, no toggle needed)
+    const [planned, setPlanned] = useState<PlannedSub[]>([])
+
+    // Simulated state: applies planned subs to preview
+    // Always simulate when there are planned subs
+    const simulatedState = useMemo(() => {
+        if (planned.length === 0) {
+            return {
+                onCourtPlayers,
+                currentSetSubstitutions,
+                totalWithPlanned: currentSetSubstitutions.totalSubstitutions
+            }
+        }
+        return simulatePlannedSubstitutions(onCourtPlayers, currentSetSubstitutions, planned)
+    }, [planned, onCourtPlayers, currentSetSubstitutions])
+
+    // Display players: simulated when there are planned subs
+    const displayOnCourtPlayers = simulatedState.onCourtPlayers
+
+    // Determinar jugadora que sale y si es líbero (using display players)
     const playerOutData = playerOut
-        ? onCourtPlayers.find(p => p.player.id === playerOut.id)?.player
+        ? displayOnCourtPlayers.find(p => p.player.id === playerOut.id)?.player
         : null
     const playerOutIsLibero = playerOutData ? isLibero(playerOutData) : false
 
@@ -160,37 +185,117 @@ export function SubstitutionModalV2({
 
     if (!isOpen) return null
 
-    const handleConfirm = () => {
-        if (!playerOut || !playerInId) return
+    // Validate and get player data for current selection
+    const validateCurrentSelection = () => {
+        if (!playerOut || !playerInId) return null
 
-        // Buscar jugadora que sale (puede estar en pista o ser el líbero)
-        let playerOutData = onCourtPlayers.find(p => p.player.id === playerOut.id)?.player
-
-        // Si no está en onCourtPlayers, buscar en allPlayers (caso líbero)
-        if (!playerOutData) {
-            playerOutData = allPlayers.find(p => p.id === playerOut.id)
+        let outPlayerData = displayOnCourtPlayers.find(p => p.player.id === playerOut.id)?.player
+        if (!outPlayerData) {
+            outPlayerData = allPlayers.find(p => p.id === playerOut.id)
         }
 
-        const playerInData = benchPlayers.find(p => p.id === playerInId) || allPlayers.find(p => p.id === playerInId)
+        const inPlayerData = benchPlayers.find(p => p.id === playerInId) || allPlayers.find(p => p.id === playerInId)
 
-        if (!playerOutData || !playerInData) {
+        if (!outPlayerData || !inPlayerData) {
             toast.error('Jugadora no encontrada')
-            return
+            return null
         }
 
-        // Validación de seguridad
-        if (!isValidSubstitution(playerOutData, playerInData)) {
+        if (!isValidSubstitution(outPlayerData, inPlayerData)) {
             toast.error('Sustitución no válida: los cambios deben ser campo por campo o líbero por líbero')
-            return
+            return null
         }
 
-        onConfirm({
-            playerOutId: playerOut.id,
-            playerInId: playerInId,
-            position: playerOut.position
-        })
+        // Validate with batch helpers (always validate against simulated state)
+        const validation = canAddToBatch(planned, playerOut.id, playerInId, simulatedState)
+        if (!validation.valid) {
+            toast.error(validation.reason || 'No se puede realizar esta sustitución')
+            return null
+        }
 
-        // Reset state
+        return { outPlayerData, inPlayerData }
+    }
+
+    // Add current selection to planned list (without confirming)
+    const handleAddToPlanned = () => {
+        const validated = validateCurrentSelection()
+        if (!validated || !playerOut || !playerInId) return
+
+        const { outPlayerData, inPlayerData } = validated
+
+        const newPlanned: PlannedSub = {
+            outPlayerId: playerOut.id,
+            inPlayerId: playerInId,
+            outPosition: playerOut.position,
+            outPlayer: outPlayerData,
+            inPlayer: inPlayerData
+        }
+        setPlanned([...planned, newPlanned])
+
+        // Reset selection (stay in modal for more subs)
+        setPlayerOut(null)
+        setPlayerInId(null)
+        toast.success(`Cambio añadido (${planned.length + 1} en lista)`)
+    }
+
+    // Confirm immediately: if planned.length > 0, confirm all planned + current
+    // If planned.length === 0, confirm only current selection
+    const handleConfirmAll = () => {
+        // If there's a current selection, validate and add to planned first
+        if (playerOut && playerInId) {
+            const validated = validateCurrentSelection()
+            if (!validated) return
+
+            const { outPlayerData, inPlayerData } = validated
+
+            // Create full list including current selection
+            const allSubs: PlannedSub[] = [
+                ...planned,
+                {
+                    outPlayerId: playerOut.id,
+                    inPlayerId: playerInId,
+                    outPosition: playerOut.position,
+                    outPlayer: outPlayerData,
+                    inPlayer: inPlayerData
+                }
+            ]
+
+            // Apply all substitutions
+            for (const sub of allSubs) {
+                onConfirm({
+                    playerOutId: sub.outPlayerId,
+                    playerInId: sub.inPlayerId,
+                    position: sub.outPosition
+                })
+            }
+        } else if (planned.length > 0) {
+            // No current selection, just confirm planned
+            for (const sub of planned) {
+                onConfirm({
+                    playerOutId: sub.outPlayerId,
+                    playerInId: sub.inPlayerId,
+                    position: sub.outPosition
+                })
+            }
+        } else {
+            return // Nothing to confirm
+        }
+
+        // Clear and close
+        setPlanned([])
+        setPlayerOut(null)
+        setPlayerInId(null)
+        onClose()
+    }
+
+    // Remove a planned substitution
+    const handleRemovePlanned = (index: number) => {
+        setPlanned(planned.filter((_, i) => i !== index))
+    }
+
+    // Clear all planned substitutions
+    const handleClearPlanned = () => {
+        setPlanned([])
         setPlayerOut(null)
         setPlayerInId(null)
     }
@@ -227,7 +332,7 @@ export function SubstitutionModalV2({
             <div className="bg-zinc-900 rounded-xl shadow-2xl w-full max-w-lg p-6 border border-zinc-800 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] overflow-y-auto">
 
                 {/* Header */}
-                <div className="text-center mb-6">
+                <div className="text-center mb-4">
                     <h2 className="text-2xl font-bold text-white mb-2">
                         Sustitución
                     </h2>
@@ -236,6 +341,61 @@ export function SubstitutionModalV2({
                     </p>
                 </div>
 
+                {/* PLANNED SUBSTITUTIONS PANEL (shows when there are planned subs) */}
+                {planned.length > 0 && (
+                    <div className="mb-4 p-3 bg-blue-900/20 rounded-lg border border-blue-800/50">
+                        <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-xs font-semibold text-blue-300 uppercase tracking-wide">
+                                Cambios planificados
+                            </h3>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-blue-200">
+                                    {planned.length} / {6 - currentSetSubstitutions.totalSubstitutions}
+                                </span>
+                                {planned.length > 0 && (
+                                    <button
+                                        onClick={handleClearPlanned}
+                                        className="text-xs text-red-400 hover:text-red-300 px-1.5 py-0.5 bg-red-900/20 rounded"
+                                    >
+                                        Limpiar
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {planned.length === 0 ? (
+                            <p className="text-xs text-zinc-500 text-center py-2">
+                                Selecciona jugadoras para añadir cambios a la lista
+                            </p>
+                        ) : (
+                            <div className="space-y-1">
+                                {planned.map((sub, idx) => (
+                                    <div
+                                        key={idx}
+                                        className="flex items-center justify-between text-xs p-1.5 bg-zinc-800/50 rounded"
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-zinc-500 w-4">P{sub.outPosition}</span>
+                                            <span className="text-red-400">#{sub.outPlayer.number}</span>
+                                            <span className="text-zinc-400">{sub.outPlayer.name}</span>
+                                            <span className="text-zinc-600">→</span>
+                                            <span className="text-emerald-400">#{sub.inPlayer.number}</span>
+                                            <span className="text-zinc-400">{sub.inPlayer.name}</span>
+                                        </div>
+                                        <button
+                                            onClick={() => handleRemovePlanned(idx)}
+                                            className="text-zinc-500 hover:text-red-400 p-1"
+                                            title="Eliminar"
+                                        >
+                                            <Trash2 className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* PANEL DE ESTADO DE SUSTITUCIONES */}
                 <div className="mb-3 p-3 bg-zinc-900/30 rounded-lg border border-zinc-800/50">
                     <div className="flex items-center justify-between mb-2">
@@ -243,53 +403,54 @@ export function SubstitutionModalV2({
                             Sustituciones (Set {currentSetNumber})
                         </h3>
                         <span className="text-xs font-bold text-white">
-                            {currentSetSubstitutions.totalSubstitutions} / 6
+                            {currentSetSubstitutions.totalSubstitutions}{planned.length > 0 ? ` + ${planned.length}` : ''} / 6
                         </span>
                     </div>
 
                     {/* Lista de Parejas compacta */}
                     {enrichedPairs.length > 0 && (
                         <div className="space-y-1">
-                            {enrichedPairs.map((pair, idx) => (
-                                <div
-                                    key={idx}
-                                    className="flex items-center justify-between text-xs p-1.5 bg-zinc-800/30 rounded"
-                                >
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="text-zinc-300">
-                                            #{pair.starter?.number} {pair.starter?.name}
-                                        </span>
-                                        <span className="text-zinc-600">↔</span>
-                                        <span className="text-zinc-300">
-                                            #{pair.substitute?.number} {pair.substitute?.name}
-                                        </span>
-                                        <span className={`text-[10px] ${pair.usesCount === 2 ? 'text-red-400' : 'text-emerald-400'
-                                            }`}>
-                                            ({pair.usesCount}/2)
-                                        </span>
+                            {enrichedPairs.map((pair, idx) => {
+                                // Get position of whoever is on court
+                                const onCourtPosition = pair.starterOnCourt?.position || pair.subOnCourt?.position
+                                return (
+                                    <div
+                                        key={idx}
+                                        className="flex items-center justify-between text-xs p-1.5 bg-zinc-800/30 rounded"
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            {onCourtPosition && (
+                                                <span className="text-zinc-500 font-mono text-[10px] w-5">P{onCourtPosition}</span>
+                                            )}
+                                            <span className="text-zinc-300">
+                                                #{pair.starter?.number} {pair.starter?.name}
+                                            </span>
+                                            <span className="text-zinc-600">↔</span>
+                                            <span className="text-zinc-300">
+                                                #{pair.substitute?.number} {pair.substitute?.name}
+                                            </span>
+                                            <span className={`text-[10px] ${pair.usesCount === 2 ? 'text-red-400' : 'text-emerald-400'
+                                                }`}>
+                                                ({pair.usesCount}/2)
+                                            </span>
+                                        </div>
+
+                                        {/* Icono de acción */}
+                                        {pair.usesCount === 1 && pair.canReturn ? (
+                                            <button
+                                                onClick={() => handleQuickReturn(pair)}
+                                                className="p-1 hover:bg-emerald-600/20 rounded transition-colors"
+                                                title="Hacer vuelta de esta pareja"
+                                            >
+                                                <RefreshCw size={12} className="text-emerald-400" />
+                                            </button>
+                                        ) : (
+                                            <Lock size={11} className="text-zinc-600" />
+                                        )}
                                     </div>
-
-                                    {/* Icono de acción */}
-                                    {pair.usesCount === 1 && pair.canReturn ? (
-                                        <button
-                                            onClick={() => handleQuickReturn(pair)}
-                                            className="p-1 hover:bg-emerald-600/20 rounded transition-colors"
-                                            title="Hacer vuelta de esta pareja"
-                                        >
-                                            <RefreshCw size={12} className="text-emerald-400" />
-                                        </button>
-                                    ) : (
-                                        <Lock size={11} className="text-zinc-600" />
-                                    )}
-                                </div>
-                            ))}
+                                )
+                            })}
                         </div>
-                    )}
-
-                    {enrichedPairs.length === 0 && (
-                        <p className="text-[10px] text-zinc-600 italic">
-                            Sin parejas activas
-                        </p>
                     )}
                 </div>
 
@@ -318,11 +479,13 @@ export function SubstitutionModalV2({
                 <div className="mb-6">
                     <h3 className="text-sm font-semibold text-white mb-3 uppercase tracking-wider flex items-center gap-2">
                         <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                        En Pista (Selecciona quién sale)
+                        En Pista {planned.length > 0 ? '(simulado)' : ''}
                     </h3>
                     <RotationGridStandard
-                        players={onCourtPlayers.map(entry => {
-                            const isDisabled = !isPlayerAvailable(entry.player.id)
+                        players={displayOnCourtPlayers.map(entry => {
+                            // Check if player is already in planned
+                            const inPlanned = isPlayerInBatch(planned, entry.player.id)
+                            const isDisabled = !isPlayerAvailable(entry.player.id) || inPlanned
                             return {
                                 position: entry.position,
                                 playerId: entry.player.id,
@@ -336,7 +499,7 @@ export function SubstitutionModalV2({
                         selectable={true}
                         compact={false}
                         onSlotClick={(position, playerId) => {
-                            if (playerId && isPlayerAvailable(playerId)) {
+                            if (playerId && isPlayerAvailable(playerId) && !isPlayerInBatch(planned, playerId)) {
                                 setPlayerOut({ id: playerId, position })
                             }
                         }}
@@ -423,30 +586,45 @@ export function SubstitutionModalV2({
                     )}
                 </div>
 
-                {/* Actions */}
+                {/* Actions - 2 rows */}
                 <div className="space-y-3 mt-auto">
-                    <Button
-                        variant="primary"
-                        size="lg"
-                        className={`w-full ${canConfirm
-                            ? 'bg-blue-600 hover:bg-blue-700'
-                            : 'bg-zinc-700 cursor-not-allowed opacity-50'
-                            } text-white`}
-                        icon={Check}
-                        onClick={handleConfirm}
-                        disabled={!canConfirm}
-                    >
-                        Confirmar Sustitución
-                    </Button>
+                    {/* Row 1: Add to list (only shows when there's a selection) */}
+                    {canConfirm && (
+                        <Button
+                            variant="secondary"
+                            size="lg"
+                            className="w-full border-blue-600/50 text-blue-400 hover:bg-blue-900/20"
+                            onClick={handleAddToPlanned}
+                        >
+                            + Añadir cambio {planned.length > 0 ? 'a la lista' : ''}
+                        </Button>
+                    )}
 
-                    <Button
-                        variant="secondary"
-                        className="w-full"
-                        icon={X}
-                        onClick={handleClose}
-                    >
-                        Cancelar
-                    </Button>
+                    {/* Row 2: Confirm + Cancel side by side */}
+                    <div className="flex gap-2">
+                        <Button
+                            variant="primary"
+                            size="lg"
+                            className={`flex-1 ${(canConfirm || planned.length > 0)
+                                ? 'bg-emerald-600 hover:bg-emerald-700'
+                                : 'bg-zinc-700 cursor-not-allowed opacity-50'
+                                } text-white`}
+                            icon={Check}
+                            onClick={handleConfirmAll}
+                            disabled={!canConfirm && planned.length === 0}
+                        >
+                            Confirmar ({planned.length + (canConfirm ? 1 : 0)})
+                        </Button>
+
+                        <Button
+                            variant="secondary"
+                            className="flex-1"
+                            icon={X}
+                            onClick={handleClose}
+                        >
+                            Cancelar
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>
