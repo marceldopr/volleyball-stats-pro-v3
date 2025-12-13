@@ -1,8 +1,8 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ChevronDown, ChevronUp, Clock, TrendingUp, Users, AlertCircle, Hash, RefreshCw, Timer } from 'lucide-react'
 import { useMatchStoreV2 } from '@/stores/matchStoreV2'
-import { matchServiceV2 } from '@/services/matchServiceV2'
+import { useMatchData } from '@/hooks/match/useMatchData'
 import {
     calculateMatchDuration,
     calculatePointsByType,
@@ -13,8 +13,7 @@ import {
     calculateMaxStreaks
 } from '@/lib/analysis/matchAnalytics'
 import { Button } from '@/components/ui/Button'
-import { toast } from 'sonner'
-import { getTeamDisplayName } from '@/utils/teamDisplay'
+
 import { calculateGameFlow } from '@/lib/volleyball/gameFlow'
 import { SetGameFlowChart } from '@/components/match/SetGameFlowChart'
 
@@ -22,72 +21,37 @@ export function MatchAnalysisV2() {
     const { matchId } = useParams<{ matchId: string }>()
     const navigate = useNavigate()
 
-    const [loading, setLoading] = useState(true)
-    const [matchData, setMatchData] = useState<any>(null)
     const [timelineExpanded, setTimelineExpanded] = useState(false)
 
-    // Load match data
-    const { derivedState, loadMatch } = useMatchStoreV2()
+    // Store state
+    const { derivedState, loadMatch, setInitialOnCourtPlayers } = useMatchStoreV2()
     const homeTeamName = useMatchStoreV2(state => state.homeTeamName)
     const awayTeamName = useMatchStoreV2(state => state.awayTeamName)
     const events = useMatchStoreV2(state => state.events)
     const ourSide = useMatchStoreV2(state => state.ourSide)
     const initialOnCourtPlayers = useMatchStoreV2(state => state.initialOnCourtPlayers)
 
-    useEffect(() => {
-        if (!matchId) return
-
-        const init = async () => {
-            try {
-                setLoading(true)
-                const match = await matchServiceV2.getMatchV2(matchId)
-
-                if (!match) {
-                    toast.error('Partido no encontrado')
-                    navigate('/matches')
-                    return
-                }
-
-                setMatchData(match)
-
-                // Determine our side and team names
-                const side = match.home_away === 'home' ? 'home' : 'away'
-
-                // Use getTeamDisplayName to format team name like live scouting page
-                const teamName = match.teams
-                    ? getTeamDisplayName(match.teams)
-                    : 'Nuestro Equipo'
-                const opponentName = match.opponent_name || 'Rival'
-
-                const homeTeamNameFinal = side === 'home' ? teamName : opponentName
-                const awayTeamNameFinal = side === 'away' ? teamName : opponentName
-
-                // Load match into store (read-only for analysis)
-                loadMatch(match.id, match.actions || [], side, { home: homeTeamNameFinal, away: awayTeamNameFinal })
-
-            } catch (error) {
-                console.error('Error loading match for analysis:', error)
-                toast.error('Error al cargar el análisis')
-                navigate('/matches')
-            } finally {
-                setLoading(false)
-            }
-        }
-
-        init()
-    }, [matchId])
+    // Use the same hook as LiveMatchScoutingV2 to properly load match data  
+    // This ensures convocations are loaded and setInitialOnCourtPlayers is called
+    const { loading, matchData, availablePlayers } = useMatchData({
+        matchId,
+        loadMatch,
+        setInitialOnCourtPlayers
+    })
 
     // Calculate analytics
     const analytics = useMemo(() => {
-        if (!matchData || events.length === 0 || !initialOnCourtPlayers.length) return null
+        if (!matchData || events.length === 0 || availablePlayers.length === 0) return null
 
-        const players = initialOnCourtPlayers
+        // Use ALL available players (including libero) for name lookups
+        // initialOnCourtPlayers only has 6 starters, but reception stats need libero too
+        const allPlayers = availablePlayers
 
         return {
             duration: calculateMatchDuration(events),
             pointsByType: calculatePointsByType(events, ourSide),
-            playerStats: calculatePlayerStats(events, players, ourSide),
-            receptionStats: calculateReceptionStats(events, players),
+            playerStats: calculatePlayerStats(events, allPlayers, ourSide),
+            receptionStats: calculateReceptionStats(events, allPlayers),
             substitutions: extractSubstitutions(events),
             timeouts: extractTimeouts(events, ourSide),
             streaks: calculateMaxStreaks(events, ourSide),
@@ -416,9 +380,9 @@ export function MatchAnalysisV2() {
                                 <h3 className="text-sm font-semibold text-zinc-400 mb-3 uppercase">Sustituciones ({analytics.substitutions.length})</h3>
                                 <div className="space-y-2">
                                     {analytics.substitutions.map((sub, idx) => {
-                                        // Look up player names
-                                        const playerOutName = initialOnCourtPlayers.find(p => p.id === sub.playerOut)?.name || sub.playerOut.slice(0, 8)
-                                        const playerInName = initialOnCourtPlayers.find(p => p.id === sub.playerIn)?.name || sub.playerIn.slice(0, 8)
+                                        // Look up player names from ALL available players (includes libero)
+                                        const playerOutName = availablePlayers.find(p => p.id === sub.playerOut)?.name || sub.playerOut.slice(0, 8)
+                                        const playerInName = availablePlayers.find(p => p.id === sub.playerIn)?.name || sub.playerIn.slice(0, 8)
 
                                         return (
                                             <div key={idx} className="flex items-center gap-3 p-2 bg-zinc-800/40 rounded text-sm">

@@ -494,7 +494,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                             icon={BarChart3}
                             onClick={() => {
                               if (match.engine === 'v2') {
-                                navigate(`/live-match-v2/${match.id}`)
+                                navigate(`/match-analysis-v2/${match.id}`)
                               } else {
                                 navigate(`/matches/${match.id}/analysis`)
                               }
