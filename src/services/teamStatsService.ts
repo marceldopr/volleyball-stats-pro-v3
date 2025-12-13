@@ -127,34 +127,59 @@ export const teamStatsService = {
      */
     async getPointsErrorsRatio(teamId: string, limit: number = 5): Promise<number | null> {
         try {
-            const { data, error } = await supabase.rpc('get_points_errors_ratio', {
-                p_team_id: teamId,
-                p_limit: limit,
-            })
+            // Fetch last N matches with their actions
+            const { data: matches, error } = await supabase
+                .from('matches')
+                .select('actions')
+                .eq('team_id', teamId)
+                .order('match_date', { ascending: false })
+                .limit(limit)
 
             if (error) {
-                console.error('Error from get_points_errors_ratio RPC:', error)
+                console.error('Error fetching matches for ratio:', error)
                 return null
             }
 
-            if (!data || data.length === 0) {
+            if (!matches || matches.length === 0) {
                 return null
             }
 
-            const { total_points, total_errors } = data[0]
+            let totalPoints = 0
+            let totalErrors = 0
+
+            matches.forEach(match => {
+                if (match.actions && Array.isArray(match.actions)) {
+                    match.actions.forEach((action: any) => {
+                        // Count Earned Points (Performance)
+                        if (action.type === 'POINT_US') {
+                            const reason = action.payload?.reason
+                            if (['attack_point', 'serve_point', 'block_point'].includes(reason)) {
+                                totalPoints++
+                            }
+                        }
+                        // Count Unforced Errors (Points given to opponent)
+                        else if (action.type === 'POINT_OPPONENT') {
+                            const reason = action.payload?.reason
+                            if (['service_error', 'attack_error', 'reception_error', 'block_error', 'setting_error'].includes(reason)) {
+                                totalErrors++
+                            }
+                        }
+                    })
+                }
+            })
 
             // If no points and no errors, return null
-            if (!total_points && !total_errors) {
+            if (totalPoints === 0 && totalErrors === 0) {
                 return null
             }
 
-            // If no errors but there are points, return total points
-            if (total_errors === 0) {
-                return total_points > 0 ? total_points : null
+            // If no errors but there are points, return total points (infinite ratio)
+            if (totalErrors === 0) {
+                return totalPoints > 0 ? totalPoints : null
             }
 
             // Calculate and return ratio
-            return parseFloat((total_points / total_errors).toFixed(2))
+            return parseFloat((totalPoints / totalErrors).toFixed(2))
 
         } catch (error) {
             console.error('Error calculating points/error ratio:', error)
@@ -223,7 +248,7 @@ export const teamStatsService = {
                 .select('match_date, opponent_name, result, home_away')
                 .eq('team_id', teamId)
                 .eq('status', 'finished')
-                
+
                 .order('match_date', { ascending: false })
                 .limit(1)
                 .single()
@@ -285,7 +310,7 @@ export const teamStatsService = {
                 .from('matches')
                 .select('match_date, opponent_name, location, home_away')
                 .eq('team_id', teamId)
-                
+
                 .in('status', ['planned', 'in_progress'])
                 .gte('match_date', new Date().toISOString())
                 .order('match_date', { ascending: true })
@@ -354,7 +379,7 @@ export const teamStatsService = {
                 .from('matches')
                 .select('id, match_date, opponent_name')
                 .eq('team_id', teamId)
-                
+
                 .eq('status', 'planned')
                 .gte('match_date', new Date().toISOString())
                 .lte('match_date', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString())
@@ -579,7 +604,7 @@ export const teamStatsService = {
             .eq('team_id', teamId)
             .eq('season_id', seasonId)
             .eq('status', 'finished')
-            
+
 
         if (error) {
             console.error('Error fetching match results:', error)

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Calendar, Clock, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useAuthStore } from '@/stores/authStore'
@@ -27,9 +27,10 @@ export function MatchWizardV2() {
         homeAway: 'home' | 'away'
     }
 
+    const [searchParams] = useSearchParams()
+
     const [formData, setFormData] = useState<WizardFormData>(() => {
         const now = new Date()
-        // Format YYYY-MM-DD
         const year = now.getFullYear()
         const month = String(now.getMonth() + 1).padStart(2, '0')
         const day = String(now.getDate()).padStart(2, '0')
@@ -41,7 +42,7 @@ export function MatchWizardV2() {
         const timeNow = `${hours}:${minutes}`
 
         return {
-            teamId: '',
+            teamId: searchParams.get('teamId') || '',
             opponentName: '',
             competitionName: '',
             matchDate: today,

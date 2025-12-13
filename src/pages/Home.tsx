@@ -165,6 +165,7 @@ export function Home() {
                             variant="secondary"
                             size="md"
                             icon={Plus}
+                            onClick={() => navigate('/matches/create-v2')}
                         >
                             Crear partido
                         </Button>
@@ -407,7 +408,7 @@ export function Home() {
                                         size="md"
                                         icon={Trophy}
                                         disabled={!activeTab}
-                                        onClick={() => activeTab && navigate(`/matches/new?teamId=${activeTab}`)}
+                                        onClick={() => activeTab && navigate(`/matches/create-v2?teamId=${activeTab}`)}
                                     >
                                         Crear partido
                                     </Button>
