@@ -1,13 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Calendar, Clock, Trophy, BarChart3 } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
+import { ArrowLeft, ChevronDown, ChevronUp, Clock, TrendingUp, Users, AlertCircle, Hash, RefreshCw, Timer } from 'lucide-react'
 import { useMatchStoreV2 } from '@/stores/matchStoreV2'
 import { matchServiceV2 } from '@/services/matchServiceV2'
-import { teamService } from '@/services/teamService'
-import { getTeamDisplayName } from '@/utils/teamDisplay'
-import { MatchTimelineV2 } from '@/components/MatchTimelineV2'
-import { formatTimeline } from '@/utils/timelineFormatter'
+import {
+    calculateMatchDuration,
+    calculatePointsByType,
+    calculatePlayerStats,
+    calculateReceptionStats,
+    extractSubstitutions,
+    extractTimeouts,
+    calculateMaxStreaks
+} from '@/lib/analysis/matchAnalytics'
+import { Button } from '@/components/ui/Button'
 import { toast } from 'sonner'
 
 export function MatchAnalysisV2() {
@@ -16,12 +21,15 @@ export function MatchAnalysisV2() {
 
     const [loading, setLoading] = useState(true)
     const [matchData, setMatchData] = useState<any>(null)
+    const [timelineExpanded, setTimelineExpanded] = useState(false)
 
-    // Load match into store for analysis
+    // Load match data
     const { derivedState, loadMatch } = useMatchStoreV2()
     const homeTeamName = useMatchStoreV2(state => state.homeTeamName)
     const awayTeamName = useMatchStoreV2(state => state.awayTeamName)
     const events = useMatchStoreV2(state => state.events)
+    const ourSide = useMatchStoreV2(state => state.ourSide)
+    const initialOnCourtPlayers = useMatchStoreV2(state => state.initialOnCourtPlayers)
 
     useEffect(() => {
         if (!matchId) return
@@ -29,8 +37,8 @@ export function MatchAnalysisV2() {
         const init = async () => {
             try {
                 setLoading(true)
-
                 const match = await matchServiceV2.getMatchV2(matchId)
+
                 if (!match) {
                     toast.error('Partido no encontrado')
                     navigate('/matches')
@@ -39,23 +47,20 @@ export function MatchAnalysisV2() {
 
                 setMatchData(match)
 
-                // Determine Our Side
-                const ourSide = match.home_away === 'home' ? 'home' : 'away'
-
-                // Load team data for complete name
-                const team = await teamService.getTeamById(match.team_id)
-                const teamName = team ? getTeamDisplayName(team) : 'Nuestro Equipo'
+                // Determine our side
+                const side = match.home_away === 'home' ? 'home' : 'away'
+                const teamName = 'Nuestro Equipo'
                 const opponentName = match.opponent_name || 'Rival'
 
-                const homeTeamName = ourSide === 'home' ? teamName : opponentName
-                const awayTeamName = ourSide === 'away' ? teamName : opponentName
+                const homeTeamNameFinal = side === 'home' ? teamName : opponentName
+                const awayTeamNameFinal = side === 'away' ? teamName : opponentName
 
-                // Load Match into Store (READ-ONLY)
-                loadMatch(match.id, match.actions || [], ourSide, { home: homeTeamName, away: awayTeamName })
+                // Load match into store (read-only for analysis)
+                loadMatch(match.id, match.actions || [], side, { home: homeTeamNameFinal, away: awayTeamNameFinal })
 
             } catch (error) {
                 console.error('Error loading match for analysis:', error)
-                toast.error('Error al cargar el análisis del partido')
+                toast.error('Error al cargar el análisis')
                 navigate('/matches')
             } finally {
                 setLoading(false)
@@ -64,6 +69,23 @@ export function MatchAnalysisV2() {
 
         init()
     }, [matchId])
+
+    // Calculate analytics
+    const analytics = useMemo(() => {
+        if (!matchData || events.length === 0 || !initialOnCourtPlayers.length) return null
+
+        const players = initialOnCourtPlayers
+
+        return {
+            duration: calculateMatchDuration(events),
+            pointsByType: calculatePointsByType(events, ourSide),
+            playerStats: calculatePlayerStats(events, players, ourSide),
+            receptionStats: calculateReceptionStats(events, players),
+            substitutions: extractSubstitutions(events),
+            timeouts: extractTimeouts(events, ourSide),
+            streaks: calculateMaxStreaks(events, ourSide)
+        }
+    }, [matchData, events, initialOnCourtPlayers, ourSide])
 
     if (loading) {
         return (
@@ -76,242 +98,392 @@ export function MatchAnalysisV2() {
         )
     }
 
-    const { setsScores, setsWonHome, setsWonAway } = derivedState
+    if (!matchData || !analytics) {
+        return (
+            <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+                <div className="text-center">
+                    <h2 className="text-xl font-bold text-white mb-2">Partido no encontrado</h2>
+                    <Button variant="secondary" onClick={() => navigate('/matches')}>
+                        <ArrowLeft size={16} className="mr-2" />
+                        Volver a Partidos
+                    </Button>
+                </div>
+            </div>
+        )
+    }
+
+    const ourTeamName = ourSide === 'home' ? homeTeamName : awayTeamName
+    const rivalTeamName = ourSide === 'home' ? awayTeamName : homeTeamName
 
     // Calculate total points
-    const totalPointsHome = setsScores.reduce((sum, set) => sum + set.home, 0)
-    const totalPointsAway = setsScores.reduce((sum, set) => sum + set.away, 0)
+    const totalHomePoints = Object.values(analytics.pointsByType.home).reduce((a, b) => a + b, 0)
+    const totalAwayPoints = Object.values(analytics.pointsByType.away).reduce((a, b) => a + b, 0)
+    const ourPoints = ourSide === 'home' ? totalHomePoints : totalAwayPoints
+    const rivalPoints = ourSide === 'home' ? totalAwayPoints : totalHomePoints
 
-    // Determine winner
-    const homeWon = setsWonHome > setsWonAway
-    const awayWon = setsWonAway > setsWonHome
-
-    // Format date
-    const formattedDate = matchData?.match_date
-        ? new Date(matchData.match_date).toLocaleDateString('es-ES', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric'
-        })
-        : 'Sin fecha'
+    // Count errors
+    const rivalSide: 'home' | 'away' = ourSide === 'home' ? 'away' : 'home'
+    const ownErrors = analytics.pointsByType[rivalSide].opponentError
+    const opponentErrors = analytics.pointsByType[ourSide].opponentError
 
     return (
-        <div className="min-h-screen bg-zinc-950 text-white">
-            {/* Header */}
-            <div className="bg-zinc-900 border-b border-zinc-800 sticky top-0 z-10">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                    <div className="flex items-center justify-between">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            icon={ArrowLeft}
-                            onClick={() => navigate('/matches')}
-                        >
-                            Volver a Partidos
-                        </Button>
+        <div className="min-h-screen bg-zinc-950 text-zinc-100">
+            {/* Sticky Header */}
+            <div className="sticky top-0 z-50 bg-zinc-900 border-b border-zinc-800 shadow-lg">
+                <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+                    <button
+                        onClick={() => navigate('/matches')}
+                        className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
+                    >
+                        <ArrowLeft size={20} />
+                        <span className="font-semibold">Volver</span>
+                    </button>
 
-                        <div className="flex items-center gap-2 text-emerald-400">
-                            <BarChart3 className="w-5 h-5" />
-                            <span className="text-sm font-semibold uppercase tracking-wider">Análisis</span>
-                        </div>
+                    <div className="text-center flex-1">
+                        <h1 className="text-xl font-bold text-white">Análisis del Partido</h1>
+                        <p className="text-sm text-zinc-400">{homeTeamName} vs {awayTeamName}</p>
                     </div>
+
+                    <div className="w-24" />
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {/* Title Section */}
-                <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold mb-2">
-                        Análisis del Partido
-                    </h1>
-                    <div className="flex items-center justify-center gap-3 text-2xl font-bold mb-4">
-                        <span className={homeWon ? 'text-emerald-400' : 'text-zinc-300'}>
-                            {homeTeamName || 'Local'}
-                        </span>
-                        <span className="text-zinc-600">vs</span>
-                        <span className={awayWon ? 'text-emerald-400' : 'text-zinc-300'}>
-                            {awayTeamName || 'Visitante'}
-                        </span>
-                    </div>
+            {/* Main Content */}
+            <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
 
-                    {/* match Info */}
-                    <div className="flex items-center justify-center gap-4 text-sm text-zinc-400">
-                        {formattedDate && formattedDate !== 'Sin fecha' && (
-                            <div className="flex items-center gap-1.5">
-                                <Calendar className="w-4 h-4" />
-                                <span>{formattedDate}</span>
-                            </div>
-                        )}
-                        {matchData?.match_time && (
-                            <div className="flex items-center gap-1.5">
-                                <Clock className="w-4 h-4" />
-                                <span>{matchData.match_time}</span>
-                            </div>
-                        )}
-                        {(matchData?.competition_name || matchData?.teams?.category_stage) && (
-                            <div className="flex items-center gap-1.5">
-                                <Trophy className="w-4 h-4" />
-                                <span>{matchData?.competition_name || matchData?.teams?.category_stage}</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
+                {/* Block 1: Executive Summary */}
+                <section className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+                    <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                        <TrendingUp size={20} className="text-emerald-400" />
+                        Resumen Ejecutivo
+                    </h2>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Left Column: Summary & Sets */}
-                    <div className="lg:col-span-2 space-y-6">
-                        {/* Result Summary Card */}
-                        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-                            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                                <Trophy className="w-5 h-5 text-amber-500" />
-                                Resultado Final
-                            </h2>
-
-                            <div className="flex items-center justify-center gap-6 mb-6">
-                                <div className="text-center">
-                                    <div className="text-zinc-400 text-sm mb-1">{homeTeamName || 'Local'}</div>
-                                    <div className={`text-5xl font-black ${homeWon ? 'text-emerald-400' : 'text-zinc-500'}`}>
-                                        {setsWonHome}
-                                    </div>
-                                </div>
-
-                                <div className="text-3xl font-bold text-zinc-600">-</div>
-
-                                <div className="text-center">
-                                    <div className="text-zinc-400 text-sm mb-1">{awayTeamName || 'Visitante'}</div>
-                                    <div className={`text-5xl font-black ${awayWon ? 'text-emerald-400' : 'text-zinc-500'}`}>
-                                        {setsWonAway}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center justify-center gap-2 px-4 py-2 bg-zinc-800/50 rounded-lg">
-                                <span className="text-sm text-zinc-400">Estado:</span>
-                                <span className="text-sm font-semibold text-emerald-400">Finalizado</span>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-zinc-800/40 p-4 rounded-lg border border-zinc-700/30">
+                            <div className="text-xs text-zinc-500 uppercase font-bold mb-1">Resultado</div>
+                            <div className="text-2xl font-black text-white">
+                                <span className="text-emerald-400">{derivedState.setsWonHome || 0}</span>
+                                <span className="text-zinc-600 mx-2">-</span>
+                                <span className="text-orange-400">{derivedState.setsWonAway || 0}</span>
                             </div>
                         </div>
 
-                        {/* Sets Table */}
-                        <div className="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
-                            <div className="px-6 py-4 border-b border-zinc-800">
-                                <h2 className="text-lg font-semibold">Marcador por Sets</h2>
+                        <div className="bg-zinc-800/40 p-4 rounded-lg border border-zinc-700/30">
+                            <div className="text-xs text-zinc-500 uppercase font-bold mb-1 flex items-center gap-1">
+                                <Clock size={12} />
+                                Duración
                             </div>
+                            <div className="text-2xl font-black text-white">{analytics.duration}</div>
+                        </div>
 
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-b border-zinc-800 bg-zinc-800/30">
-                                            <th className="px-6 py-3 text-left text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                                                Set
-                                            </th>
-                                            <th className="px-6 py-3 text-center text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                                                {homeTeamName || 'Local'}
-                                            </th>
-                                            <th className="px-6 py-3 text-center text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                                                {awayTeamName || 'Visitante'}
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-zinc-800">
-                                        {setsScores.map((set) => {
-                                            const homeWonSet = set.home > set.away
-                                            const awayWonSet = set.away > set.home
+                        <div className="bg-zinc-800/40 p-4 rounded-lg border border-zinc-700/30">
+                            <div className="text-xs text-zinc-500 uppercase font-bold mb-1 flex items-center gap-1">
+                                <Hash size={12} />
+                                Puntos
+                            </div>
+                            <div className="text-lg font-mono font-bold text-white">
+                                <span className="text-blue-400">{ourPoints}</span>
+                                <span className="text-zinc-600 mx-1">/</span>
+                                <span className="text-orange-400">{rivalPoints}</span>
+                            </div>
+                        </div>
 
-                                            return (
-                                                <tr key={set.setNumber} className="hover:bg-zinc-800/30 transition-colors">
-                                                    <td className="px-6 py-4 text-sm font-medium text-zinc-300">
-                                                        Set {set.setNumber}
-                                                    </td>
-                                                    <td className={`px-6 py-4 text-center text-xl font-bold ${homeWonSet ? 'text-emerald-400' : 'text-zinc-500'
-                                                        }`}>
-                                                        {set.home}
-                                                    </td>
-                                                    <td className={`px-6 py-4 text-center text-xl font-bold ${awayWonSet ? 'text-emerald-400' : 'text-zinc-500'
-                                                        }`}>
-                                                        {set.away}
-                                                    </td>
-                                                </tr>
-                                            )
-                                        })}
-                                    </tbody>
-                                </table>
+                        <div className="bg-zinc-800/40 p-4 rounded-lg border border-zinc-700/30">
+                            <div className="text-xs text-zinc-500 uppercase font-bold mb-1 flex items-center gap-1">
+                                <AlertCircle size={12} />
+                                Errores
+                            </div>
+                            <div className="text-lg font-mono font-bold text-white">
+                                <span className="text-rose-400">{ownErrors}</span>
+                                <span className="text-zinc-600 mx-1">/</span>
+                                <span className="text-emerald-400">{opponentErrors}</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Right Column: Basic Stats */}
+                    <div className="mt-4 flex items-center justify-between p-3 bg-zinc-800/30 rounded-lg">
+                        <span className="text-sm text-zinc-400">Mejor racha</span>
+                        <span className="text-sm font-mono font-bold">
+                            <span className="text-emerald-400">+{analytics.streaks.homeMaxStreak}</span>
+                            <span className="text-zinc-600 mx-2">|</span>
+                            <span className="text-rose-400">-{analytics.streaks.awayMaxStreak}</span>
+                        </span>
+                    </div>
+                </section>
+
+                {/* Block 3: Team Action Statistics */}
+                <section className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+                    <h2 className="text-lg font-bold text-white mb-4">Estadísticas por Tipo de Acción</h2>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="border-b border-zinc-800">
+                                    <th className="text-left py-2 px-3 text-xs font-bold text-zinc-400 uppercase">Acción</th>
+                                    <th className="text-center py-2 px-3 text-xs font-bold text-blue-400 uppercase">{ourTeamName}</th>
+                                    <th className="text-center py-2 px-3 text-xs font-bold text-orange-400 uppercase">{rivalTeamName}</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-800/50">
+                                <tr className="hover:bg-zinc-800/30">
+                                    <td className="py-2 px-3 text-sm text-zinc-300">Punto Ataque</td>
+                                    <td className="py-2 px-3 text-center text-sm font-bold text-blue-300">
+                                        {analytics.pointsByType[ourSide].attack}
+                                    </td>
+                                    <td className="py-2 px-3 text-center text-sm font-bold text-orange-300">
+                                        {analytics.pointsByType[rivalSide].attack}
+                                    </td>
+                                </tr>
+                                <tr className="hover:bg-zinc-800/30">
+                                    <td className="py-2 px-3 text-sm text-zinc-300">Punto Bloqueo</td>
+                                    <td className="py-2 px-3 text-center text-sm font-bold text-blue-300">
+                                        {analytics.pointsByType[ourSide].block}
+                                    </td>
+                                    <td className="py-2 px-3 text-center text-sm font-bold text-orange-300">
+                                        {analytics.pointsByType[rivalSide].block}
+                                    </td>
+                                </tr>
+                                <tr className="hover:bg-zinc-800/30">
+                                    <td className="py-2 px-3 text-sm text-zinc-300">Punto Saque</td>
+                                    <td className="py-2 px-3 text-center text-sm font-bold text-blue-300">
+                                        {analytics.pointsByType[ourSide].serve}
+                                    </td>
+                                    <td className="py-2 px-3 text-center text-sm font-bold text-orange-300">
+                                        {analytics.pointsByType[rivalSide].serve}
+                                    </td>
+                                </tr>
+                                <tr className="hover:bg-zinc-800/30">
+                                    <td className="py-2 px-3 text-sm text-zinc-300">Error Rival</td>
+                                    <td className="py-2 px-3 text-center text-sm font-bold text-emerald-400">
+                                        {analytics.pointsByType[ourSide].opponentError}
+                                    </td>
+                                    <td className="py-2 px-3 text-center text-sm font-bold text-emerald-400">
+                                        {analytics.pointsByType[rivalSide].opponentError}
+                                    </td>
+                                </tr>
+                                <tr className="bg-zinc-800/50 font-bold">
+                                    <td className="py-2 px-3 text-sm text-white">TOTAL</td>
+                                    <td className="py-2 px-3 text-center text-base font-black text-blue-400">
+                                        {ourPoints}
+                                    </td>
+                                    <td className="py-2 px-3 text-center text-base font-black text-orange-400">
+                                        {rivalPoints}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                {/* Block 4: Player Performance */}
+                {analytics.playerStats.length > 0 && (
+                    <section className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+                        <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                            <Users size={20} className="text-purple-400" />
+                            Rendimiento por Jugadora
+                        </h2>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="border-b border-zinc-800">
+                                        <th className="text-left py-2 px-3 text-xs font-bold text-zinc-400 uppercase">Jugadora</th>
+                                        <th className="text-center py-2 px-3 text-xs font-bold text-emerald-400 uppercase">✓</th>
+                                        <th className="text-center py-2 px-3 text-xs font-bold text-rose-400 uppercase">✗</th>
+                                        <th className="text-center py-2 px-3 text-xs font-bold text-zinc-400 uppercase">Balance</th>
+                                        <th className="text-center py-2 px-3 text-xs font-bold text-zinc-400 uppercase">Recepciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-800/50">
+                                    {analytics.playerStats.map(player => {
+                                        const balance = player.positiveActions - player.negativeActions
+                                        const receptionAvg = player.receptions > 0
+                                            ? (player.receptionTotal / player.receptions).toFixed(1)
+                                            : '-'
+
+                                        return (
+                                            <tr key={player.playerId} className="hover:bg-zinc-800/30">
+                                                <td className="py-2 px-3 text-sm text-zinc-200 font-medium">{player.playerName}</td>
+                                                <td className="py-2 px-3 text-center text-sm font-bold text-emerald-400">
+                                                    {player.positiveActions}
+                                                </td>
+                                                <td className="py-2 px-3 text-center text-sm font-bold text-rose-400">
+                                                    {player.negativeActions}
+                                                </td>
+                                                <td className={`py-2 px-3 text-center text-sm font-bold ${balance > 0 ? 'text-emerald-400' : balance < 0 ? 'text-rose-400' : 'text-zinc-500'
+                                                    }`}>
+                                                    {balance > 0 ? '+' : ''}{balance}
+                                                </td>
+                                                <td className="py-2 px-3 text-center text-xs font-mono text-zinc-300">
+                                                    {player.receptions > 0 ? `${player.receptions} (${receptionAvg})` : '-'}
+                                                </td>
+                                            </tr>
+                                        )
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                )}
+
+                {/* Block 5: Reception Analysis */}
+                {analytics.receptionStats.total > 0 && (
+                    <section className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+                        <h2 className="text-lg font-bold text-white mb-4">Análisis de Recepción</h2>
+
+                        <div className="grid md:grid-cols-2 gap-6">
+                            {/* Distribution */}
+                            <div>
+                                <h3 className="text-sm font-semibold text-zinc-400 mb-3 uppercase">Distribución</h3>
+                                <div className="space-y-2">
+                                    {[4, 3, 2, 1, 0].map(rating => {
+                                        const count = analytics.receptionStats.byRating[rating] || 0
+                                        const percentage = analytics.receptionStats.total > 0
+                                            ? Math.round((count / analytics.receptionStats.total) * 100)
+                                            : 0
+
+                                        return (
+                                            <div key={rating} className="flex items-center gap-3">
+                                                <span className="text-xs font-mono font-bold text-zinc-500 w-4">{rating}</span>
+                                                <div className="flex-1 bg-zinc-800 rounded-full h-6 overflow-hidden">
+                                                    <div
+                                                        className={`h-full transition-all ${rating >= 3 ? 'bg-emerald-500' :
+                                                            rating === 2 ? 'bg-amber-500' : 'bg-rose-500'
+                                                            }`}
+                                                        style={{ width: `${percentage}%` }}
+                                                    />
+                                                </div>
+                                                <span className="text-xs font-mono font-bold text-zinc-400 w-16 text-right">
+                                                    {count} ({percentage}%)
+                                                </span>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+
+                                <div className="mt-4 p-3 bg-emerald-900/20 border border-emerald-500/30 rounded-lg">
+                                    <div className="text-xs text-emerald-400 uppercase font-bold">Recepciones Positivas (3-4)</div>
+                                    <div className="text-2xl font-black text-emerald-400 mt-1">
+                                        {analytics.receptionStats.positivePercentage}%
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* By Player */}
+                            <div>
+                                <h3 className="text-sm font-semibold text-zinc-400 mb-3 uppercase">Por Jugadora</h3>
+                                <div className="space-y-2">
+                                    {analytics.receptionStats.byPlayer
+                                        .sort((a, b) => b.count - a.count)
+                                        .map(player => (
+                                            <div key={player.playerId} className="flex items-center justify-between p-2 bg-zinc-800/40 rounded">
+                                                <span className="text-sm text-zinc-300">{player.playerName}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-xs font-mono text-zinc-500">{player.count} rec</span>
+                                                    <span className={`text-sm font-bold font-mono ${player.average >= 3 ? 'text-emerald-400' :
+                                                        player.average >= 2 ? 'text-amber-400' : 'text-rose-400'
+                                                        }`}>
+                                                        {player.average.toFixed(1)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
+                {/* Block 6: Technical Decisions */}
+                <section className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+                    <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                        <RefreshCw size={20} className="text-cyan-400" />
+                        Decisiones Técnicas
+                    </h2>
+
                     <div className="space-y-6">
-                        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-                            <h2 className="text-lg font-semibold mb-4">Estadísticas Básicas</h2>
-
-                            <div className="space-y-4">
-                                <div>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-sm text-zinc-400">Total Puntos {homeTeamName || 'Local'}</span>
-                                        <span className="text-2xl font-bold text-emerald-400">{totalPointsHome}</span>
-                                    </div>
-                                    <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-emerald-500"
-                                            style={{ width: `${(totalPointsHome / (totalPointsHome + totalPointsAway)) * 100}%` }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-sm text-zinc-400">Total Puntos {awayTeamName || 'Visitante'}</span>
-                                        <span className="text-2xl font-bold text-blue-400">{totalPointsAway}</span>
-                                    </div>
-                                    <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-blue-500"
-                                            style={{ width: `${(totalPointsAway / (totalPointsHome + totalPointsAway)) * 100}%` }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="pt-4 border-t border-zinc-800">
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="text-zinc-400">Sets Jugados</span>
-                                        <span className="font-semibold text-zinc-200">{setsScores.length}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-sm mt-2">
-                                        <span className="text-zinc-400">Total Acciones</span>
-                                        <span className="font-semibold text-zinc-200">{events.length}</span>
-                                    </div>
+                        {/* Substitutions */}
+                        {analytics.substitutions.length > 0 && (
+                            <div>
+                                <h3 className="text-sm font-semibold text-zinc-400 mb-3 uppercase">Sustituciones ({analytics.substitutions.length})</h3>
+                                <div className="space-y-2">
+                                    {analytics.substitutions.map((sub, idx) => (
+                                        <div key={idx} className="flex items-center gap-3 p-2 bg-zinc-800/40 rounded text-sm">
+                                            <span className="text-zinc-500 font-mono text-xs">Set {sub.setNumber}</span>
+                                            <span className="text-zinc-400">P{sub.position}</span>
+                                            <span className="text-rose-400">↓ ID:{sub.playerOut.slice(0, 8)}</span>
+                                            <RefreshCw size={12} className="text-cyan-400" />
+                                            <span className="text-emerald-400">↑ ID:{sub.playerIn.slice(0, 8)}</span>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-                        </div>
+                        )}
 
-                        {/* Info Note */}
-                        <div className="bg-blue-900/20 border border-blue-800/50 rounded-xl p-4">
-                            <p className="text-sm text-blue-300">
-                                <strong>Nota:</strong> Esta es una vista de solo lectura.
-                                Las estadísticas detalladas por jugadora estarán disponibles próximamente.
-                            </p>
-                        </div>
+                        {/* Timeouts */}
+                        {analytics.timeouts.length > 0 && (
+                            <div>
+                                <h3 className="text-sm font-semibold text-zinc-400 mb-3 uppercase flex items-center gap-2">
+                                    <Timer size={14} />
+                                    Tiempos Muertos ({analytics.timeouts.length})
+                                </h3>
+                                <div className="space-y-2">
+                                    {analytics.timeouts.map((timeout, idx) => {
+                                        const teamName = timeout.team === 'home' ? homeTeamName : awayTeamName
+                                        return (
+                                            <div key={idx} className="flex items-center justify-between p-3 bg-zinc-800/40 rounded">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-xs font-mono text-zinc-500">Set {timeout.setNumber}</span>
+                                                    <span className={`text-sm font-semibold ${timeout.team === ourSide ? 'text-blue-400' : 'text-orange-400'
+                                                        }`}>
+                                                        {teamName}
+                                                    </span>
+                                                </div>
+                                                <span className="text-sm font-mono text-zinc-400">
+                                                    {timeout.scoreHome} - {timeout.scoreAway}
+                                                </span>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {analytics.substitutions.length === 0 && analytics.timeouts.length === 0 && (
+                            <div className="text-center text-zinc-500 py-8 italic text-sm">
+                                No se registraron decisiones técnicas en este partido
+                            </div>
+                        )}
                     </div>
-                </div>
+                </section>
 
-                {/* Timeline Section */}
-                <div className="mt-8">
-                    <div className="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
-                        <div className="px-6 py-4 border-b border-zinc-800">
-                            <h2 className="text-lg font-semibold">Historial Completo del Partido</h2>
-                            <p className="text-sm text-zinc-400 mt-1">
-                                Cronología detallada de todas las acciones registradas
-                            </p>
-                        </div>
+                {/* Block 7: Complete Timeline (Collapsible) */}
+                <section className="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
+                    <button
+                        onClick={() => setTimelineExpanded(!timelineExpanded)}
+                        className="w-full p-6 flex items-center justify-between hover:bg-zinc-800/30 transition-colors"
+                    >
+                        <h2 className="text-lg font-bold text-white">Historial Completo ({events.length} eventos)</h2>
+                        {timelineExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    </button>
 
-                        <div className="max-h-[600px] overflow-y-auto">
-                            <MatchTimelineV2
-                                events={formatTimeline(events, derivedState.ourSide, homeTeamName || 'Local', awayTeamName || 'Visitante')}
-                                className="p-4"
-                            />
+                    {timelineExpanded && (
+                        <div className="border-t border-zinc-800 p-4 max-h-96 overflow-y-auto">
+                            <div className="space-y-2">
+                                {events.map((event, idx) => (
+                                    <div key={event.id} className="p-2 bg-zinc-800/30 rounded text-xs">
+                                        <span className="text-zinc-500 font-mono">{idx + 1}.</span>
+                                        <span className="text-zinc-300 ml-2">{event.type}</span>
+                                        {event.payload?.reason && (
+                                            <span className="text-zinc-500 ml-2">- {event.payload.reason}</span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                </div>
+                    )}
+                </section>
+
             </div>
         </div>
     )

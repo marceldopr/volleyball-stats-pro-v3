@@ -211,7 +211,7 @@ export function LiveMatchScoutingV2() {
 
     const handleGoToAnalysis = () => {
         if (!matchData) return
-        navigate(`/matches/${matchData.id}/analysis`)
+        navigate(`/match-analysis-v2/${matchData.id}`)
     }
 
     // Exit Modal Handlers
@@ -887,7 +887,74 @@ export function LiveMatchScoutingV2() {
                             year: 'numeric'
                         }) : undefined,
                         time: matchData?.match_time || undefined,
-                        competition: matchData?.competition_name || matchData?.teams?.category_stage || undefined
+                        competition: matchData?.competition_name || matchData?.teams?.category_stage || undefined,
+                        stats: (() => {
+                            // Helper to parse timestamp
+                            const getTime = (iso: string) => new Date(iso).getTime()
+
+                            // 1. Duration
+                            let duration = "0m"
+                            if (events.length > 1) {
+                                const start = getTime(events[0].timestamp)
+                                const end = getTime(events[events.length - 1].timestamp)
+                                const diffMs = end - start
+                                const hrs = Math.floor(diffMs / (1000 * 60 * 60))
+                                const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+                                duration = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`
+                            }
+
+                            // 2. Points
+
+                            // Re-calculation using standard 'winner' logic from payload if available, or event type
+                            const homePoints = events.filter(e => (e.type === 'POINT_US' && derivedState.ourSide === 'home') || (e.type === 'POINT_OPPONENT' && derivedState.ourSide === 'away')).length
+                            const awayPoints = events.filter(e => (e.type === 'POINT_US' && derivedState.ourSide === 'away') || (e.type === 'POINT_OPPONENT' && derivedState.ourSide === 'home')).length
+
+                            // 3. Errors (Approximation based on event flow or payload)
+                            // We count "POINT_OPPONENT" usually as an error if we are tracking our team, 
+                            // BUT specific error tracking depends on how payload is structured.
+                            // Assuming 'POINT_OPPONENT' often implies an error by us if we are scouting us.
+                            // However, 'reason' payload is often "Attack Error", "Service Error", etc.
+                            const ownErrors = events.filter(e =>
+                                (e.type === 'POINT_OPPONENT' && derivedState.ourSide === 'home') ||
+                                (e.type === 'POINT_US' && derivedState.ourSide === 'away' && e.payload?.reason?.toLowerCase().includes('error'))
+                            ).length
+
+                            const opponentErrors = events.filter(e =>
+                                (e.type === 'POINT_US' && derivedState.ourSide === 'home' && e.payload?.reason?.toLowerCase().includes('error')) ||
+                                (e.type === 'POINT_OPPONENT' && derivedState.ourSide === 'away')
+                            ).length
+
+                            // 4. Max Streak (Simplistic calculation)
+                            let currentHomeStreak = 0
+                            let maxHomeStreak = 0
+                            let currentAwayStreak = 0
+                            let maxAwayStreak = 0
+
+                            events.forEach(e => {
+                                const isHomePoint = (e.type === 'POINT_US' && derivedState.ourSide === 'home') || (e.type === 'POINT_OPPONENT' && derivedState.ourSide === 'away')
+                                const isAwayPoint = (e.type === 'POINT_US' && derivedState.ourSide === 'away') || (e.type === 'POINT_OPPONENT' && derivedState.ourSide === 'home')
+
+                                if (isHomePoint) {
+                                    currentHomeStreak++
+                                    currentAwayStreak = 0
+                                    maxHomeStreak = Math.max(maxHomeStreak, currentHomeStreak)
+                                } else if (isAwayPoint) {
+                                    currentAwayStreak++
+                                    currentHomeStreak = 0
+                                    maxAwayStreak = Math.max(maxAwayStreak, currentAwayStreak)
+                                }
+                            })
+
+                            return {
+                                duration,
+                                totalPointsHome: homePoints,
+                                totalPointsAway: awayPoints,
+                                ownErrors: ownErrors, // Placeholder logic, refining broadly
+                                opponentErrors: opponentErrors, // Placeholder logic
+                                homeMaxStreak: maxHomeStreak,
+                                awayMaxStreak: maxAwayStreak
+                            }
+                        })()
                     }}
                     onGoToMatches={handleGoToMatches}
                     onGoToAnalysis={handleGoToAnalysis}
