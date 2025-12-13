@@ -13,6 +13,15 @@ import {
     isPlayerInBatch
 } from '@/lib/volleyball/substitutionBatch'
 
+// Helper: Format name as "FirstName I." (first name + first initial of last name)
+function formatName(fullName: string): string {
+    const parts = fullName.trim().split(/\s+/)
+    if (parts.length === 1) return parts[0]
+    const firstName = parts[0]
+    const lastNameInitial = parts[parts.length - 1][0]
+    return `${firstName} ${lastNameInitial}.`
+}
+
 interface SubstitutionModalV2Props {
     isOpen: boolean
     onClose: () => void
@@ -75,25 +84,38 @@ export function SubstitutionModalV2({
     const playerOutIsLibero = playerOutData ? isLibero(playerOutData) : false
 
     // Enriquecer parejas con datos de jugadoras para mostrar en panel
+    // Exclude pairs that have a pending planned substitution
     const enrichedPairs = useMemo(() => {
-        return currentSetSubstitutions.pairs.map(pair => {
-            const starter = allPlayers.find(p => p.id === pair.starterId)
-            const substitute = allPlayers.find(p => p.id === pair.substituteId)
-
-            // Determinar quién está en pista
-            const starterOnCourt = onCourtPlayers.find(p => p.player.id === pair.starterId)
-            const subOnCourt = onCourtPlayers.find(p => p.player.id === pair.substituteId)
-
-            return {
-                ...pair,
-                starter,
-                substitute,
-                starterOnCourt,
-                subOnCourt,
-                canReturn: pair.usesCount === 1 && (starterOnCourt || subOnCourt)
-            }
+        // Get IDs of players involved in planned substitutions
+        const plannedPlayerIds = new Set<string>()
+        planned.forEach(sub => {
+            plannedPlayerIds.add(sub.outPlayer.id)
+            plannedPlayerIds.add(sub.inPlayer.id)
         })
-    }, [currentSetSubstitutions.pairs, allPlayers, onCourtPlayers])
+
+        return currentSetSubstitutions.pairs
+            .filter(pair => {
+                // Exclude pair if either player is in a planned substitution
+                return !plannedPlayerIds.has(pair.starterId) && !plannedPlayerIds.has(pair.substituteId)
+            })
+            .map(pair => {
+                const starter = allPlayers.find(p => p.id === pair.starterId)
+                const substitute = allPlayers.find(p => p.id === pair.substituteId)
+
+                // Determinar quién está en pista
+                const starterOnCourt = onCourtPlayers.find(p => p.player.id === pair.starterId)
+                const subOnCourt = onCourtPlayers.find(p => p.player.id === pair.substituteId)
+
+                return {
+                    ...pair,
+                    starter,
+                    substitute,
+                    starterOnCourt,
+                    subOnCourt,
+                    canReturn: pair.usesCount === 1 && (starterOnCourt || subOnCourt)
+                }
+            })
+    }, [currentSetSubstitutions.pairs, allPlayers, onCourtPlayers, planned])
 
     // Filtrar banquillo basado en rol de jugadora que sale
     const filteredBenchPlayers = useMemo(() => {
@@ -329,7 +351,7 @@ export function SubstitutionModalV2({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-zinc-900 rounded-xl shadow-2xl w-full max-w-lg p-6 border border-zinc-800 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] overflow-y-auto">
+            <div className="bg-zinc-900 rounded-xl shadow-2xl w-full max-w-lg p-6 border border-zinc-800 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] overflow-y-auto scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
 
                 {/* Header */}
                 <div className="text-center mb-4">
@@ -340,140 +362,6 @@ export function SubstitutionModalV2({
                         Set {currentSetNumber} - Selecciona jugadora que sale y entra
                     </p>
                 </div>
-
-                {/* PLANNED SUBSTITUTIONS PANEL (shows when there are planned subs) */}
-                {planned.length > 0 && (
-                    <div className="mb-4 p-3 bg-blue-900/20 rounded-lg border border-blue-800/50">
-                        <div className="flex items-center justify-between mb-2">
-                            <h3 className="text-xs font-semibold text-blue-300 uppercase tracking-wide">
-                                Cambios planificados
-                            </h3>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-blue-200">
-                                    {planned.length} / {6 - currentSetSubstitutions.totalSubstitutions}
-                                </span>
-                                {planned.length > 0 && (
-                                    <button
-                                        onClick={handleClearPlanned}
-                                        className="text-xs text-red-400 hover:text-red-300 px-1.5 py-0.5 bg-red-900/20 rounded"
-                                    >
-                                        Limpiar
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
-                        {planned.length === 0 ? (
-                            <p className="text-xs text-zinc-500 text-center py-2">
-                                Selecciona jugadoras para añadir cambios a la lista
-                            </p>
-                        ) : (
-                            <div className="space-y-1">
-                                {planned.map((sub, idx) => (
-                                    <div
-                                        key={idx}
-                                        className="flex items-center justify-between text-xs p-1.5 bg-zinc-800/50 rounded"
-                                    >
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="text-zinc-500 w-4">P{sub.outPosition}</span>
-                                            <span className="text-red-400">#{sub.outPlayer.number}</span>
-                                            <span className="text-zinc-400">{sub.outPlayer.name}</span>
-                                            <span className="text-zinc-600">→</span>
-                                            <span className="text-emerald-400">#{sub.inPlayer.number}</span>
-                                            <span className="text-zinc-400">{sub.inPlayer.name}</span>
-                                        </div>
-                                        <button
-                                            onClick={() => handleRemovePlanned(idx)}
-                                            className="text-zinc-500 hover:text-red-400 p-1"
-                                            title="Eliminar"
-                                        >
-                                            <Trash2 className="w-3 h-3" />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* PANEL DE ESTADO DE SUSTITUCIONES */}
-                <div className="mb-3 p-3 bg-zinc-900/30 rounded-lg border border-zinc-800/50">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
-                            Sustituciones (Set {currentSetNumber})
-                        </h3>
-                        <span className="text-xs font-bold text-white">
-                            {currentSetSubstitutions.totalSubstitutions}{planned.length > 0 ? ` + ${planned.length}` : ''} / 6
-                        </span>
-                    </div>
-
-                    {/* Lista de Parejas compacta */}
-                    {enrichedPairs.length > 0 && (
-                        <div className="space-y-1">
-                            {enrichedPairs.map((pair, idx) => {
-                                // Get position of whoever is on court
-                                const onCourtPosition = pair.starterOnCourt?.position || pair.subOnCourt?.position
-                                return (
-                                    <div
-                                        key={idx}
-                                        className="flex items-center justify-between text-xs p-1.5 bg-zinc-800/30 rounded"
-                                    >
-                                        <div className="flex items-center gap-1.5">
-                                            {onCourtPosition && (
-                                                <span className="text-zinc-500 font-mono text-[10px] w-5">P{onCourtPosition}</span>
-                                            )}
-                                            <span className="text-zinc-300">
-                                                #{pair.starter?.number} {pair.starter?.name}
-                                            </span>
-                                            <span className="text-zinc-600">↔</span>
-                                            <span className="text-zinc-300">
-                                                #{pair.substitute?.number} {pair.substitute?.name}
-                                            </span>
-                                            <span className={`text-[10px] ${pair.usesCount === 2 ? 'text-red-400' : 'text-emerald-400'
-                                                }`}>
-                                                ({pair.usesCount}/2)
-                                            </span>
-                                        </div>
-
-                                        {/* Icono de acción */}
-                                        {pair.usesCount === 1 && pair.canReturn ? (
-                                            <button
-                                                onClick={() => handleQuickReturn(pair)}
-                                                className="p-1 hover:bg-emerald-600/20 rounded transition-colors"
-                                                title="Hacer vuelta de esta pareja"
-                                            >
-                                                <RefreshCw size={12} className="text-emerald-400" />
-                                            </button>
-                                        ) : (
-                                            <Lock size={11} className="text-zinc-600" />
-                                        )}
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    )}
-                </div>
-
-                {/* Visual Indicator */}
-                {playerOut && playerInId && (
-                    <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                        <div className="flex items-center justify-between text-sm">
-                            <div className="flex items-center gap-2">
-                                <span className="text-red-400 font-bold">SALE:</span>
-                                <span className="text-white">
-                                    {onCourtPlayers.find(p => p.player.id === playerOut.id)?.player.name} (#{onCourtPlayers.find(p => p.player.id === playerOut.id)?.player.number})
-                                </span>
-                            </div>
-                            <span className="text-zinc-500">→</span>
-                            <div className="flex items-center gap-2">
-                                <span className="text-emerald-400 font-bold">ENTRA:</span>
-                                <span className="text-white">
-                                    {benchPlayers.find(p => p.id === playerInId)?.name} (#{benchPlayers.find(p => p.id === playerInId)?.number})
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 {/* En Pista Section */}
                 <div className="mb-6">
@@ -587,7 +475,65 @@ export function SubstitutionModalV2({
                 </div>
 
                 {/* Actions - 2 rows */}
+                {/* Actions */}
                 <div className="space-y-3 mt-auto">
+                    {/* PANEL DE ESTADO DE SUSTITUCIONES (moved here) */}
+                    <div className="p-3 bg-zinc-900/30 rounded-lg border border-zinc-800/50">
+                        <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+                                Sustituciones (Set {currentSetNumber})
+                            </h3>
+                            <span className="text-xs font-bold text-white">
+                                {currentSetSubstitutions.totalSubstitutions}{planned.length > 0 ? ` + ${planned.length}` : ''} / 6
+                            </span>
+                        </div>
+
+                        {/* Lista de Parejas compacta */}
+                        {enrichedPairs.length > 0 && (
+                            <div className="space-y-1">
+                                {enrichedPairs.map((pair, idx) => {
+                                    const onCourtPosition = pair.starterOnCourt?.position || pair.subOnCourt?.position
+                                    return (
+                                        <div
+                                            key={idx}
+                                            className="flex items-center justify-between text-xs p-1.5 bg-zinc-800/30 rounded"
+                                        >
+                                            <div className="flex items-center gap-1.5">
+                                                {onCourtPosition && (
+                                                    <span className="text-zinc-500 font-mono text-[10px] w-5">P{onCourtPosition}</span>
+                                                )}
+                                                <span className="text-zinc-300">
+                                                    #{pair.starter?.number} {formatName(pair.starter?.name || '')}
+                                                </span>
+                                                <span className="text-zinc-500 text-[10px] uppercase">{pair.starter?.role}</span>
+                                                <span className="text-zinc-600">↔</span>
+                                                <span className="text-zinc-300">
+                                                    #{pair.substitute?.number} {formatName(pair.substitute?.name || '')}
+                                                </span>
+                                                <span className="text-zinc-500 text-[10px] uppercase">{pair.substitute?.role}</span>
+                                                <span className={`text-[10px] ${pair.usesCount === 2 ? 'text-red-400' : 'text-emerald-400'}`}>
+                                                    ({pair.usesCount}/2)
+                                                </span>
+                                            </div>
+
+                                            {pair.usesCount === 1 && pair.canReturn ? (
+                                                <button
+                                                    onClick={() => handleQuickReturn(pair)}
+                                                    className="p-1 hover:bg-emerald-600/20 rounded transition-colors"
+                                                    title="Hacer vuelta de esta pareja"
+                                                >
+                                                    <RefreshCw size={12} className="text-emerald-400" />
+                                                </button>
+                                            ) : (
+                                                <Lock size={11} className="text-zinc-600" />
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+                    </div>
+
                     {/* Row 1: Add to list (only shows when there's a selection) */}
                     {canConfirm && (
                         <Button
@@ -600,25 +546,71 @@ export function SubstitutionModalV2({
                         </Button>
                     )}
 
-                    {/* Row 2: Confirm + Cancel side by side */}
+                    {/* PLANNED SUBSTITUTIONS PANEL (below add button) */}
+                    {planned.length > 0 && (
+                        <div className="p-3 bg-blue-900/20 rounded-lg border border-blue-800/50">
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="text-xs font-semibold text-blue-300 uppercase tracking-wide">
+                                    Cambios planificados
+                                </h3>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-blue-200">
+                                        {planned.length} / {6 - currentSetSubstitutions.totalSubstitutions}
+                                    </span>
+                                    <button
+                                        onClick={handleClearPlanned}
+                                        className="text-xs text-red-400 hover:text-red-300 px-1.5 py-0.5 bg-red-900/20 rounded"
+                                    >
+                                        Limpiar
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                {planned.map((sub, idx) => (
+                                    <div
+                                        key={idx}
+                                        className="flex items-center justify-between text-xs p-1.5 bg-zinc-800/50 rounded"
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-zinc-500 w-4">P{sub.outPosition}</span>
+                                            <span className="text-red-400">#{sub.outPlayer.number}</span>
+                                            <span className="text-zinc-400">{formatName(sub.outPlayer.name)}</span>
+                                            <span className="text-zinc-500 text-[10px] uppercase">{sub.outPlayer.role}</span>
+                                            <span className="text-zinc-600">→</span>
+                                            <span className="text-emerald-400">#{sub.inPlayer.number}</span>
+                                            <span className="text-zinc-400">{formatName(sub.inPlayer.name)}</span>
+                                            <span className="text-zinc-500 text-[10px] uppercase">{sub.inPlayer.role}</span>
+                                        </div>
+                                        <button
+                                            onClick={() => handleRemovePlanned(idx)}
+                                            className="text-zinc-500 hover:text-red-400 p-1"
+                                            title="Eliminar"
+                                        >
+                                            <Trash2 className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Row 2: Confirm + Cancel side by side (Confirm only when planned > 0) */}
                     <div className="flex gap-2">
-                        <Button
-                            variant="primary"
-                            size="lg"
-                            className={`flex-1 ${(canConfirm || planned.length > 0)
-                                ? 'bg-emerald-600 hover:bg-emerald-700'
-                                : 'bg-zinc-700 cursor-not-allowed opacity-50'
-                                } text-white`}
-                            icon={Check}
-                            onClick={handleConfirmAll}
-                            disabled={!canConfirm && planned.length === 0}
-                        >
-                            Confirmar ({planned.length + (canConfirm ? 1 : 0)})
-                        </Button>
+                        {planned.length > 0 && (
+                            <Button
+                                variant="primary"
+                                size="lg"
+                                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                icon={Check}
+                                onClick={handleConfirmAll}
+                            >
+                                Confirmar ({planned.length + (canConfirm ? 1 : 0)})
+                            </Button>
+                        )}
 
                         <Button
                             variant="secondary"
-                            className="flex-1"
+                            className={planned.length > 0 ? "flex-1" : "w-full"}
                             icon={X}
                             onClick={handleClose}
                         >
