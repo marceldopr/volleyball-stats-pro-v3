@@ -139,12 +139,20 @@ export function SubstitutionModalV2({
         // Si la pareja está completa (2/2), NO puede ser seleccionada
         if (pair.usesCount >= 2) return false
 
-        // Si tiene pareja activa (1/2), solo puede si está emparejada con playerOut
-        if (playerOut) {
-            const isPartner =
-                (pair.starterId === playerOut.id && pair.substituteId === playerId) ||
-                (pair.substituteId === playerOut.id && pair.starterId === playerId)
-            return isPartner
+        // Si tiene pareja activa (1/2):
+        // - Si hay playerOut seleccionado: solo puede si es su pareja
+        // - Si NO hay playerOut seleccionado: deshabilitar (debe usar botón ♻ o seleccionar pareja primero)
+        if (pair.usesCount === 1) {
+            if (playerOut) {
+                // Solo permitir si playerOut es su pareja
+                const isPartner =
+                    (pair.starterId === playerOut.id && pair.substituteId === playerId) ||
+                    (pair.substituteId === playerOut.id && pair.starterId === playerId)
+                return isPartner
+            } else {
+                // Sin playerOut seleccionado: deshabilitar jugadoras en parejas activas
+                return false
+            }
         }
 
         return true
@@ -313,18 +321,22 @@ export function SubstitutionModalV2({
                         En Pista (Selecciona quién sale)
                     </h3>
                     <RotationGridStandard
-                        players={onCourtPlayers.map(entry => ({
-                            position: entry.position,
-                            playerId: entry.player.id,
-                            number: String(entry.player.number),
-                            name: entry.player.name,
-                            role: entry.player.role || '',
-                            isSelected: playerOut?.id === entry.player.id
-                        }))}
+                        players={onCourtPlayers.map(entry => {
+                            const isDisabled = !isPlayerAvailable(entry.player.id)
+                            return {
+                                position: entry.position,
+                                playerId: entry.player.id,
+                                number: String(entry.player.number),
+                                name: entry.player.name,
+                                role: entry.player.role || '',
+                                isSelected: playerOut?.id === entry.player.id,
+                                disabled: isDisabled
+                            }
+                        })}
                         selectable={true}
                         compact={false}
                         onSlotClick={(position, playerId) => {
-                            if (playerId) {
+                            if (playerId && isPlayerAvailable(playerId)) {
                                 setPlayerOut({ id: playerId, position })
                             }
                         }}

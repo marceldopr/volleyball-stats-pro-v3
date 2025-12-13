@@ -240,6 +240,16 @@ export function validateFIVBSubstitution(
         }
     }
 
+    // 2.5 CRITICAL: Verificar que playerIn NO está ya en pista
+    // Esto previene el bug de jugadoras duplicadas en pista
+    const isPlayerInOnCourt = onCourtPlayers.some(p => p.player.id === playerInId)
+    if (isPlayerInOnCourt) {
+        return {
+            valid: false,
+            reason: 'La jugadora que entra ya está en pista'
+        }
+    }
+
     // 3. Buscar parejas existentes que involucren a estas jugadoras
     const pairWithOut = currentSetState.pairs.find(
         p => p.starterId === playerOutId || p.substituteId === playerOutId

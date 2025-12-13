@@ -30,7 +30,7 @@ export function ReceptionModalV2({
     isOpen,
     onClose,
     onConfirm,
-    players,
+    players: _players, // Kept for backwards compatibility, now using rotation + getPlayerDisplay
     currentSet,
     rotation,
     getPlayerDisplay
@@ -38,8 +38,6 @@ export function ReceptionModalV2({
     const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
 
     if (!isOpen) return null
-
-    const selectedPlayer = players.find(p => p.id === selectedPlayerId)
 
     const handlePlayerClick = (playerId: string) => {
         setSelectedPlayerId(playerId)
@@ -113,16 +111,6 @@ export function ReceptionModalV2({
                             }}
                         />
                     </div>
-
-                    {/* Selected Player Info */}
-                    {selectedPlayer && (
-                        <div className="mb-4 p-3 bg-emerald-900/20 border border-emerald-700/30 rounded-lg">
-                            <p className="text-[10px] text-emerald-400 mb-0.5">Jugadora seleccionada:</p>
-                            <p className="text-base font-bold text-white">
-                                #{selectedPlayer.number} {selectedPlayer.name}
-                            </p>
-                        </div>
-                    )}
 
                     {/* Rating Buttons */}
                     <p className="text-xs text-zinc-400 mb-2">
