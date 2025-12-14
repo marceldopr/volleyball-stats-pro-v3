@@ -1,4 +1,4 @@
-import { Settings as SettingsIcon, Globe, Download, Upload, Building2, Save, Loader2, Info, Trophy, Users, Clock, Award, Heart } from 'lucide-react'
+import { Settings as SettingsIcon, Globe, Building2, Save, Loader2, Info, Trophy, Users, Clock, Award, Heart, Edit, StickyNote } from 'lucide-react'
 import { useThemeStore } from '@/stores/themeStore'
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/stores/authStore'
@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/Button'
 import { toast } from 'sonner'
 import { useSeasonStore } from '@/stores/seasonStore'
 import { isValidWeekRange } from '@/utils/weekUtils'
+import { MOCK_SPACES, Space } from '@/types/spacesTypes'
+import { SpaceModal } from '@/components/settings/SpaceModal'
 
 export function SettingsPage() {
   const { isDarkMode, toggleDarkMode } = useThemeStore()
@@ -28,6 +30,11 @@ export function SettingsPage() {
   const [localStartWeek, setLocalStartWeek] = useState(startWeek || '')
   const [localEndWeek, setLocalEndWeek] = useState(endWeek || '')
   const [seasonError, setSeasonError] = useState('')
+
+  // Spaces Config State (mock)
+  const [spaces, setSpaces] = useState<Space[]>(MOCK_SPACES)
+  const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false)
+  const [editingSpace, setEditingSpace] = useState<Space | undefined>(undefined)
 
   useEffect(() => {
     if (isDT && profile?.club_id) {
@@ -347,50 +354,125 @@ export function SettingsPage() {
               </div>
             )}
 
-          </div>
+            {/* Espacios (Solo DT) */}
+            {isDT && (
+              <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-xl font-semibold flex items-center space-x-2 text-white">
+                    <Building2 className="w-5 h-5 text-primary-500" />
+                    <span>Espacios</span>
+                  </h2>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => {
+                      setEditingSpace(undefined)
+                      setIsSpaceModalOpen(true)
+                    }}
+                  >
+                    Añadir espacio
+                  </Button>
+                </div>
+                <p className="text-sm text-gray-400 mb-6">
+                  Define los espacios reservables del club (pistas, gimnasio, patio, etc.).
+                </p>
 
-          {/* =============== SECCIÓN 2 & 3: IMPORTAR/EXPORTAR DATOS =============== */}
-          <div className="space-y-6">
-
-            {/* Importar Datos */}
-            <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center space-x-2 text-white">
-                <Upload className="w-5 h-5 text-blue-500" />
-                <span>Importar Datos</span>
-                <span className="ml-auto text-xs bg-gray-700 text-gray-300 px-3 py-1 rounded-full">Próximamente</span>
-              </h2>
-              <p className="text-sm text-gray-400 mb-4">
-                Importa tus datos desde archivos JSON o CSV. Esta funcionalidad estará disponible próximamente.
-              </p>
-              <Button
-                variant="secondary"
-                size="md"
-                disabled
-                className="w-full opacity-60"
-              >
-                Importar Archivo
-              </Button>
-            </div>
-
-            {/* Exportar Datos */}
-            <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center space-x-2 text-white">
-                <Download className="w-5 h-5 text-green-500" />
-                <span>Exportar Datos</span>
-                <span className="ml-auto text-xs bg-gray-700 text-gray-300 px-3 py-1 rounded-full">Próximamente</span>
-              </h2>
-              <p className="text-sm text-gray-400 mb-4">
-                Exporta todos tus datos en formato JSON o CSV. Esta funcionalidad estará disponible próximamente.
-              </p>
-              <Button
-                variant="secondary"
-                size="md"
-                disabled
-                className="w-full opacity-60"
-              >
-                Exportar Datos
-              </Button>
-            </div>
+                {spaces.length === 0 ? (
+                  // Empty State
+                  <div className="bg-gray-900 rounded-lg p-8 text-center">
+                    <Building2 className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-white mb-2">
+                      Aún no has creado espacios
+                    </h3>
+                    <p className="text-gray-400 mb-4">
+                      Crea el primero para asignarlo en calendario y planificación.
+                    </p>
+                    <Button
+                      variant="primary"
+                      size="md"
+                      onClick={() => {
+                        setEditingSpace(undefined)
+                        setIsSpaceModalOpen(true)
+                      }}
+                    >
+                      Añadir espacio
+                    </Button>
+                  </div>
+                ) : (
+                  // Spaces Table
+                  <div className="bg-gray-900 rounded-lg overflow-hidden border border-gray-700">
+                    <table className="w-full">
+                      <thead className="bg-gray-800">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Nombre</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Tipo</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Estado</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Capacidad</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Notas</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800">
+                        {spaces.map((space) => (
+                          <tr key={space.id} className="hover:bg-gray-800/50 transition-colors">
+                            <td className="px-4 py-3 text-white font-medium">{space.name}</td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${space.type === 'interior'
+                                ? 'bg-blue-500/20 text-blue-400'
+                                : 'bg-green-500/20 text-green-400'
+                                }`}>
+                                {space.type === 'interior' ? 'Interior' : 'Exterior'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <button
+                                onClick={() => {
+                                  const updated = spaces.map(s =>
+                                    s.id === space.id ? { ...s, isActive: !s.isActive } : s
+                                  )
+                                  setSpaces(updated)
+                                  toast.success(`Espacio ${space.isActive ? 'desactivado' : 'activado'}`)
+                                }}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${space.isActive ? 'bg-primary-500' : 'bg-gray-600'
+                                  }`}
+                              >
+                                <span
+                                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${space.isActive ? 'translate-x-5' : 'translate-x-1'
+                                    }`}
+                                />
+                              </button>
+                            </td>
+                            <td className="px-4 py-3 text-gray-400">
+                              {space.capacity || '—'}
+                            </td>
+                            <td className="px-4 py-3">
+                              {space.notes ? (
+                                <div title={space.notes}>
+                                  <StickyNote className="w-4 h-4 text-gray-400" />
+                                </div>
+                              ) : (
+                                <span className="text-gray-600">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <button
+                                onClick={() => {
+                                  setEditingSpace(space)
+                                  setIsSpaceModalOpen(true)
+                                }}
+                                className="text-primary-500 hover:text-primary-400 transition-colors"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
 
           </div>
 
@@ -478,6 +560,38 @@ export function SettingsPage() {
         </div>
 
       </div>
+
+      {/* Space Modal */}
+      <SpaceModal
+        isOpen={isSpaceModalOpen}
+        onClose={() => {
+          setIsSpaceModalOpen(false)
+          setEditingSpace(undefined)
+        }}
+        space={editingSpace}
+        onSave={(spaceData) => {
+          if (editingSpace) {
+            // Edit existing
+            const updated = spaces.map(s =>
+              s.id === editingSpace.id ? { ...s, ...spaceData } : s
+            )
+            setSpaces(updated)
+            toast.success('Espacio actualizado (mock)')
+          } else {
+            // Add new
+            const newSpace: Space = {
+              id: Date.now().toString(),
+              name: spaceData.name!,
+              type: spaceData.type!,
+              capacity: spaceData.capacity,
+              notes: spaceData.notes,
+              isActive: spaceData.isActive ?? true
+            }
+            setSpaces([...spaces, newSpace])
+            toast.success('Espacio creado (mock)')
+          }
+        }}
+      />
     </div>
   )
 }

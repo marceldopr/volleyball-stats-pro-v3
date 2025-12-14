@@ -224,13 +224,29 @@ export function CalendarioPage() {
                     </div>
 
                     {/* Filters */}
-                    <div className="flex gap-2 mt-4">
+                    <div className="flex flex-wrap gap-2 mt-4">
                         <select disabled className="px-4 py-2 bg-gray-800 text-gray-400 rounded-lg border border-gray-700 opacity-50 cursor-not-allowed">
                             <option>Equipo</option>
                         </select>
                         <select disabled className="px-4 py-2 bg-gray-800 text-gray-400 rounded-lg border border-gray-700 opacity-50 cursor-not-allowed">
                             <option>Tipo</option>
                         </select>
+                        <select disabled className="px-4 py-2 bg-gray-800 text-gray-400 rounded-lg border border-gray-700 opacity-50 cursor-not-allowed">
+                            <option>Todos los espacios</option>
+                            <option>Pista 1</option>
+                            <option>Pista 2</option>
+                            <option>Gimnasio</option>
+                            <option>Patio exterior</option>
+                        </select>
+                        <button
+                            disabled
+                            className="px-4 py-2 bg-gray-800 text-gray-400 rounded-lg border border-gray-700 opacity-50 cursor-not-allowed flex items-center gap-2"
+                        >
+                            Vista por espacio
+                            <span className="bg-amber-500/30 text-amber-300 px-2 py-0.5 rounded text-xs">
+                                Pronto
+                            </span>
+                        </button>
                     </div>
                 </div>
 
