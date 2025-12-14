@@ -21,6 +21,7 @@ import { useReceptionModal } from '@/hooks/match/useReceptionModal'
 import { useSubstitutionModal } from '@/hooks/match/useSubstitutionModal'
 import { useActionCaptureV2 } from '@/hooks/match/useActionCaptureV2'
 import { useMatchModalsManagerV2 } from '@/hooks/match/useMatchModalsManagerV2'
+import { useTimeoutsV2 } from '@/hooks/match/useTimeoutsV2'
 
 // UI Components
 import { ReadOnlyBanner } from '@/components/match/ReadOnlyBanner'
@@ -162,7 +163,7 @@ export function LiveMatchScoutingV2() {
         addEvent
     })
 
-    // Custom Hooks - Modals Manager (NEW)
+    // Custom Hooks - Modals Manager
     const { modals, handlers } = useMatchModalsManagerV2({
         matchId,
         derivedState,
@@ -173,6 +174,15 @@ export function LiveMatchScoutingV2() {
         startersModal,
         substitutionModal,
         receptionModal
+    })
+
+    // Custom Hooks - Timeouts
+    const timeouts = useTimeoutsV2({
+        currentSet: derivedState.currentSet,
+        timeoutsHome: derivedState.timeoutsHome,
+        timeoutsAway: derivedState.timeoutsAway,
+        addEvent,
+        isMatchFinished: derivedState.isMatchFinished
     })
 
     // Timeline Logic
@@ -484,15 +494,10 @@ export function LiveMatchScoutingV2() {
                     ourSide={derivedState.ourSide}
                     servingSide={derivedState.servingSide}
                     setsScores={derivedState.setsScores}
-                    timeoutsHome={derivedState.timeoutsHome}
-                    timeoutsAway={derivedState.timeoutsAway}
-                    onTimeoutHome={() => addEvent('TIMEOUT', { team: 'home', setNumber: derivedState.currentSet })}
-                    onTimeoutAway={() => addEvent('TIMEOUT', { team: 'away', setNumber: derivedState.currentSet })}
-                    // CRITICAL C4: Timeouts must NEVER be disabled by action debounce (buttonsDisabled)
-                    // Per FIVB rules, teams can request timeouts at almost any moment during play
-                    // If we disable timeouts during the 200ms debounce window, coaches cannot
-                    // request strategic timeouts immediately after a point
-                    // → ONLY disable when match is completely finished
+                    timeoutsHome={timeouts.homeTimeoutsUsed}
+                    timeoutsAway={timeouts.awayTimeoutsUsed}
+                    onTimeoutHome={timeouts.callTimeoutHome}
+                    onTimeoutAway={timeouts.callTimeoutAway}
                     disabled={derivedState.isMatchFinished}
                 />
 
