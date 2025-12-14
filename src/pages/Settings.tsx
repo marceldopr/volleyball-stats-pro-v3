@@ -45,9 +45,9 @@ export function SettingsPage() {
   const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false)
   const [editingSpace, setEditingSpace] = useState<Space | undefined>(undefined)
 
-  // Calendar preferences (mock)
-  const [defaultView, setDefaultView] = useState<'month' | 'week'>('month')
-  const [highlightSeason, setHighlightSeason] = useState(true)
+  // Calendar preferences (mock, read-only for now)
+  const highlightSeason = true
+
 
   // Load club data
   useEffect(() => {
@@ -468,19 +468,13 @@ export function SettingsPage() {
                 <div className="flex gap-2 bg-gray-900 rounded-lg p-1 opacity-60">
                   <button
                     disabled
-                    className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors cursor-not-allowed ${defaultView === 'month'
-                      ? 'bg-primary-600 text-white'
-                      : 'text-gray-400'
-                      }`}
+                    className="flex-1 px-4 py-2 rounded-md font-medium transition-colors cursor-not-allowed bg-primary-600 text-white"
                   >
                     Mes
                   </button>
                   <button
                     disabled
-                    className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors cursor-not-allowed ${defaultView === 'week'
-                      ? 'bg-primary-600 text-white'
-                      : 'text-gray-400'
-                      }`}
+                    className="flex-1 px-4 py-2 rounded-md font-medium transition-colors cursor-not-allowed text-gray-400"
                   >
                     Semana
                   </button>
