@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useMatchStoreV2, validateFIVBSubstitution } from '@/stores/matchStoreV2'
 import { toast } from 'sonner'
 import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
-import { getEffectiveOnCourtPlayers } from '../lib/volleyball/effectivePlayers'
 import { MatchTimelineV2 } from '@/components/MatchTimelineV2'
 import { formatTimeline } from '@/utils/timelineFormatter'
 import { MatchFinishedModalV2 } from '@/components/matches/MatchFinishedModalV2'
@@ -22,6 +21,7 @@ import { useActionCaptureV2 } from '@/hooks/match/useActionCaptureV2'
 import { useMatchModalsManagerV2 } from '@/hooks/match/useMatchModalsManagerV2'
 import { useTimeoutsV2 } from '@/hooks/match/useTimeoutsV2'
 import { useMatchEffectsV2 } from '@/hooks/match/useMatchEffectsV2'
+import { usePlayerHelpersV2 } from '@/hooks/match/usePlayerHelpersV2'
 
 // UI Components
 import { ReadOnlyBanner } from '@/components/match/ReadOnlyBanner'
@@ -286,46 +286,20 @@ export function LiveMatchScoutingV2() {
         substitutionModal.setShowSubstitutionModal(true)
     }
 
-    // Helper to get player display info (used by modals and rotation views)
-    const getPlayerDisplay = (playerId: string | null | undefined): { number: string; name: string; role: string } => {
-        if (!playerId) {
-            return { number: '?', name: '-', role: '' }
-        }
-        const player = availablePlayers.find(p => p.id === playerId)
-        if (!player) {
-            return { number: '?', name: '-', role: '' }
-        }
-        return {
-            number: String(player.number),
-            name: player.name,
-            role: player.role || ''
-        }
-    }
-
     // derived booleans
     const isServing = derivedState.servingSide === 'our'
 
-    // EFFECTIVE on-court players with libero logic applied
-    // This is the SINGLE SOURCE OF TRUTH for who is actually on court
-    const effectiveOnCourtPlayers = getEffectiveOnCourtPlayers(
-        derivedState.onCourtPlayers,
-        derivedState.currentLiberoId,
-        isServing,
-        availablePlayers
-    )
-
-    // Compute bench players for substitution modal
-    // CRITICAL: Uses BASE rotation (onCourtPlayers), NOT effective rotation
-    // This ensures consistency with SubstitutionModalV2 which shows base rotation
-    const benchPlayers = availablePlayers.filter(p => {
-        const isOnCourt = derivedState.onCourtPlayers.some(entry => entry.player.id === p.id)
-        return !isOnCourt
+    // Custom Hooks - Player Helpers
+    const {
+        getPlayerDisplay,
+        effectiveOnCourtPlayers,
+        benchPlayers,
+        getPlayerAt
+    } = usePlayerHelpersV2({
+        availablePlayers,
+        derivedState,
+        isServing
     })
-
-    // Helper functions
-    const getPlayerAt = (position: number) => {
-        return derivedState.onCourtPlayers.find(entry => entry.position === position)?.player
-    }
 
     // Reception handler with player selection
     const handleReceptionEval = (playerId: string, rating: 0 | 1 | 2 | 3 | 4) => {
