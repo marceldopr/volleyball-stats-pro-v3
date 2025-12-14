@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/Button'
 import { toast } from 'sonner'
 import { useSeasonStore } from '@/stores/seasonStore'
 import { isValidWeekRange } from '@/utils/weekUtils'
-import { MOCK_SPACES, Space } from '@/types/spacesTypes'
+import { Space } from '@/types/spacesTypes'
 import { SpaceModal } from '@/components/settings/SpaceModal'
+import { useSpacesStore } from '@/stores/spacesStore'
 import { TrainingSchedule } from '@/types/trainingScheduleTypes'
 import { ScheduleModal } from '@/components/settings/ScheduleModal'
 import { useTrainingStore } from '@/stores/trainingStore'
@@ -46,8 +47,8 @@ export function SettingsPage() {
   const [localEndWeek, setLocalEndWeek] = useState(endWeek || '')
   const [seasonError, setSeasonError] = useState('')
 
-  // Spaces Config State (mock)
-  const [spaces, setSpaces] = useState<Space[]>(MOCK_SPACES)
+  // Spaces Config State (from Store)
+  const { spaces, addSpace, updateSpace, toggleSpaceActive } = useSpacesStore()
   const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false)
   const [editingSpace, setEditingSpace] = useState<Space | undefined>(undefined)
 
@@ -442,10 +443,7 @@ export function SettingsPage() {
                         <td className="px-6 py-4">
                           <button
                             onClick={() => {
-                              const updated = spaces.map(s =>
-                                s.id === space.id ? { ...s, isActive: !s.isActive } : s
-                              )
-                              setSpaces(updated)
+                              toggleSpaceActive(space.id)
                               toast.success(`Espacio ${space.isActive ? 'desactivado' : 'activado'}`)
                             }}
                             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${space.isActive ? 'bg-primary-500' : 'bg-gray-600'
@@ -907,11 +905,8 @@ export function SettingsPage() {
         onSave={(spaceData) => {
           if (editingSpace) {
             // Edit existing
-            const updated = spaces.map(s =>
-              s.id === editingSpace.id ? { ...s, ...spaceData } : s
-            )
-            setSpaces(updated)
-            toast.success('Espacio actualizado (mock)')
+            updateSpace(editingSpace.id, spaceData)
+            toast.success('Espacio actualizado')
           } else {
             // Add new
             const newSpace: Space = {
@@ -922,8 +917,8 @@ export function SettingsPage() {
               notes: spaceData.notes,
               isActive: spaceData.isActive ?? true
             }
-            setSpaces([...spaces, newSpace])
-            toast.success('Espacio creado (mock)')
+            addSpace(newSpace)
+            toast.success('Espacio creado')
           }
         }}
       />
@@ -937,6 +932,7 @@ export function SettingsPage() {
         }}
         schedule={editingSchedule}
         preselectedTeam={preselectedTeam}
+        spaces={spaces.filter(s => s.isActive).map(s => ({ id: s.id, name: s.name }))}
         onSave={(scheduleData) => {
           if (editingSchedule) {
             // Edit existing

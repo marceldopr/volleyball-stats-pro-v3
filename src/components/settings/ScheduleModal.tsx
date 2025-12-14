@@ -8,14 +8,18 @@ interface ScheduleModalProps {
     onClose: () => void
     schedule?: TrainingSchedule
     preselectedTeam?: { id: string, name: string }
+    spaces?: { id: string, name: string }[]
     onSave?: (schedule: Partial<TrainingSchedule>) => void
 }
 
 const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const MOCK_TEAMS = ['Cadete F', 'Cadete M', 'Junior F', 'Junior M', 'Senior F', 'Senior M']
-const MOCK_SPACES = ['Pista 1', 'Pista 2', 'Pista 3', 'Gimnasio', 'Patio exterior']
+const DEFAULT_SPACES = ['Pista 1', 'Pista 2', 'Gimnasio']
 
-export function ScheduleModal({ isOpen, onClose, schedule, preselectedTeam, onSave }: ScheduleModalProps) {
+export function ScheduleModal({ isOpen, onClose, schedule, preselectedTeam, spaces, onSave }: ScheduleModalProps) {
+    // Use provided spaces or fallback to defaults
+    const availableSpaces = spaces && spaces.length > 0 ? spaces.map(s => s.name) : DEFAULT_SPACES
+
     const [teamName, setTeamName] = useState(schedule?.teamName || preselectedTeam?.name || '')
     const [selectedDays, setSelectedDays] = useState<number[]>(schedule?.days || [])
     const [startTime, setStartTime] = useState(schedule?.startTime || '18:00')
@@ -199,7 +203,7 @@ export function ScheduleModal({ isOpen, onClose, schedule, preselectedTeam, onSa
                             className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
                         >
                             <option value="">Selecciona un espacio</option>
-                            {MOCK_SPACES.map((space) => (
+                            {availableSpaces.map((space) => (
                                 <option key={space} value={space}>{space}</option>
                             ))}
                         </select>
@@ -211,7 +215,7 @@ export function ScheduleModal({ isOpen, onClose, schedule, preselectedTeam, onSa
                             Espacios alternativos (opcional)
                         </label>
                         <div className="flex flex-wrap gap-2">
-                            {MOCK_SPACES.filter(s => s !== preferredSpace).map((space) => (
+                            {availableSpaces.filter(s => s !== preferredSpace).map((space) => (
                                 <button
                                     key={space}
                                     type="button"

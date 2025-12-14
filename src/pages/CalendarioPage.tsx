@@ -13,11 +13,13 @@ export function CalendarioPage() {
     const { startWeek, endWeek } = useSeasonStore()
     const { schedules } = useTrainingStore()
 
-    // Helper to check if a schedule matches a specific date
+    // Helper to check if a schedule matches a specific date (sorted by time)
     const getSchedulesForDate = (date: Date): TrainingSchedule[] => {
         const dayOfWeek = (date.getDay() + 6) % 7 // Convert Sunday=0 to Monday=0, Sunday=6
-        // Filter active schedules that match the day of week
-        return schedules.filter(s => s.isActive && s.days.includes(dayOfWeek))
+        // Filter active schedules that match the day of week, then sort by start time
+        return schedules
+            .filter(s => s.isActive && s.days.includes(dayOfWeek))
+            .sort((a, b) => a.startTime.localeCompare(b.startTime))
     }
 
     // Get month/week info
