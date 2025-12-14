@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useRef } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Undo2, Users, DoorOpen, ClipboardList, ChevronDown, ChevronRight } from 'lucide-react'
 import { useMatchStoreV2, validateFIVBSubstitution } from '@/stores/matchStoreV2'
@@ -20,6 +20,7 @@ import { useStartersModal } from '@/hooks/match/useStartersModal'
 import { useReceptionModal } from '@/hooks/match/useReceptionModal'
 import { useSubstitutionModal } from '@/hooks/match/useSubstitutionModal'
 import { useActionCaptureV2 } from '@/hooks/match/useActionCaptureV2'
+import { useMatchModalsManagerV2 } from '@/hooks/match/useMatchModalsManagerV2'
 
 // UI Components
 import { ReadOnlyBanner } from '@/components/match/ReadOnlyBanner'
@@ -161,28 +162,21 @@ export function LiveMatchScoutingV2() {
         addEvent
     })
 
-    // State for UX
-    // buttonsDisabled removed - using actionCapture.isProcessing now
-    const [showRotationModal, setShowRotationModal] = useState(false)
-    const [exitModalOpen, setExitModalOpen] = useState(false)
+    // Custom Hooks - Modals Manager (NEW)
+    const { modals, handlers } = useMatchModalsManagerV2({
+        matchId,
+        derivedState,
+        events,
+        navigate,
+        undoEvent,
+        closeSetSummaryModal,
+        startersModal,
+        substitutionModal,
+        receptionModal
+    })
 
     // Timeline Logic
     const [showTimeline, setShowTimeline] = useState(false)
-
-    // Match Finished Logic
-    const [isMatchFinishedModalOpen, setIsMatchFinishedModalOpen] = useState(false)
-    const hasShownFinishModal = useRef(false)
-
-    useEffect(() => {
-        if (derivedState.isMatchFinished && !hasShownFinishModal.current && !derivedState.setSummaryModalOpen) {
-            setIsMatchFinishedModalOpen(true)
-            hasShownFinishModal.current = true
-        } else if (!derivedState.isMatchFinished) {
-            // Reset if undone
-            hasShownFinishModal.current = false
-            setIsMatchFinishedModalOpen(false)
-        }
-    }, [derivedState.isMatchFinished, derivedState.setSummaryModalOpen])
 
     // CRITICAL C5 VALIDATION: Prevent entering live match without convocated players
     // This prevents crashes in starters modal and rotation display
@@ -217,39 +211,7 @@ export function LiveMatchScoutingV2() {
         navigate(`/match-analysis-v2/${matchData.id}`)
     }
 
-    // Exit Modal Handlers
-    const handleSaveAndExit = async () => {
-        if (!matchId) return
-
-        setExitModalOpen(false)
-
-        try {
-            // Save current match state
-            const setsWon = `${derivedState.setsWonHome}-${derivedState.setsWonAway}`
-            const setScores = derivedState.setsScores
-                .map(s => `${s.home}-${s.away}`)
-                .join(', ')
-            const detailedResult = `Sets: ${setsWon} (${setScores})`
-
-            await matchServiceV2.updateMatchV2(matchId, {
-                actions: events,
-                status: derivedState.isMatchFinished ? 'finished' : 'in_progress',
-                result: detailedResult
-            })
-
-            toast.success('Partido guardado')
-            navigate('/matches')
-        } catch (error) {
-            console.error('Error saving match:', error)
-            toast.error('Error al guardar')
-            setExitModalOpen(true)
-        }
-    }
-
-    const handleExitWithoutSaving = () => {
-        setExitModalOpen(false)
-        navigate('/matches')
-    }
+    // Exit Modal Handlers removed - logic moved to useMatchModalsManagerV2
 
     // Auto-save match when finished
     useEffect(() => {
@@ -282,78 +244,11 @@ export function LiveMatchScoutingV2() {
         saveMatchToSupabase()
     }, [derivedState.isMatchFinished, matchId, events, derivedState.setsWonHome, derivedState.setsWonAway, derivedState.setsScores])
 
-    // Explicit save function for intermediate states (e.g. between sets)
-    const saveMatchState = async () => {
-        if (!matchId) return
-
-        try {
-            // Prepare match result string
-            const setsWon = `${derivedState.setsWonHome}-${derivedState.setsWonAway}`
-            const setScores = derivedState.setsScores
-                .map(s => `${s.home}-${s.away}`)
-                .join(', ')
-            const detailedResult = `Sets: ${setsWon} (${setScores})`
-
-            // Save to Supabase with current status
-            await matchServiceV2.updateMatchV2(matchId, {
-                actions: events,
-                status: derivedState.isMatchFinished ? 'finished' : 'in_progress',
-                result: detailedResult
-            })
-            console.log('✅ Match state saved (intermediate)')
-        } catch (error) {
-            console.error('❌ Error saving intermediate match state:', error)
-        }
-    }
+    // Explicit save function removed - logic moved to useMatchModalsManagerV2
 
 
     // Set Summary Handlers
-    const handleCloseSetSummary = () => {
-        closeSetSummaryModal()
-
-        // After closing set summary, check if we need to open starters modal
-        setTimeout(() => {
-            if (!derivedState.hasLineupForCurrentSet) {
-                startersModal.openModal()
-            }
-        }, 100)
-    }
-
-    const handleConfirmSetSummary = async () => {
-        // Confirm just means closing the modal and effectively "accepting" the set end state
-        // CRITICAL: Save state to Supabase and WAIT for completion before proceeding
-        // This prevents data loss if user closes tab immediately after confirming
-        await saveMatchState()
-
-        closeSetSummaryModal()
-
-        // After confirming set summary, check if we need to open starters modal
-        setTimeout(() => {
-            if (!derivedState.hasLineupForCurrentSet) {
-                startersModal.openModal()
-            }
-        }, 100)
-    }
-
-    const handleUndoSetSummary = () => {
-        closeSetSummaryModal()
-        // Smart undo: Remove SET_START (if exists), SET_END, and the Point that caused it.
-        // We use getState to access fresh state during execution
-        const { events, undoEvent } = useMatchStoreV2.getState()
-
-        const lastEvt = events[events.length - 1]
-        if (lastEvt?.type === 'SET_START') {
-            undoEvent() // Undo SET_START
-            undoEvent() // Undo SET_END
-            undoEvent() // Undo the Point that caused end
-        } else if (lastEvt?.type === 'SET_END') {
-            undoEvent() // Undo SET_END
-            undoEvent() // Undo the Point
-        } else {
-            // Should not happen if modal is open, but fallback
-            undoEvent()
-        }
-    }
+    // Set Summary Handlers removed - Logic moved to useMatchModalsManagerV2
 
     // Confirm Starters Handler
     const handleConfirmStarters = () => {
@@ -446,26 +341,7 @@ export function LiveMatchScoutingV2() {
         toast.success(`Cambio: ${playerIn.name} entra`)
     }
 
-    // Handle Back from Starters Modal
-    const handleBackFromStarters = () => {
-        const currentSet = derivedState.currentSet
-
-        // Clear any partial selections
-        startersModal.resetModal()
-
-        if (currentSet === 1) {
-            // Set 1: Just close the modal, return to previous screen
-            startersModal.closeModal()
-        } else {
-            // Sets 2-5: Close starters modal and reopen set summary
-            startersModal.closeModal()
-
-            // Reopen the set summary modal via store's closeSetSummaryModal mechanism
-            // Since we want to OPEN it, we need to set the flag directly
-            const store = useMatchStoreV2.getState()
-            store.derivedState.setSummaryModalOpen = true
-        }
-    }
+    // Handle Back from Starters Modal removed - logic moved to useMatchModalsManagerV2
 
     // Instant Libero Swap Handler
     const handleInstantLiberoSwap = () => {
@@ -594,7 +470,7 @@ export function LiveMatchScoutingV2() {
             <div className="w-full max-w-md bg-zinc-950 shadow-2xl min-h-screen flex flex-col pb-4 text-white">
 
                 {/* READ ONLY BANNER */}
-                {derivedState.isMatchFinished && !isMatchFinishedModalOpen && (
+                {derivedState.isMatchFinished && !modals.isMatchFinishedModalOpen && (
                     <ReadOnlyBanner onUndo={undoEvent} />
                 )}
 
@@ -639,7 +515,7 @@ export function LiveMatchScoutingV2() {
                         servingSide={derivedState.servingSide}
                         availablePlayers={availablePlayers}
                         getPlayerDisplay={getPlayerDisplay}
-                        onClick={() => setShowRotationModal(true)}
+                        onClick={handlers.openRotation}
                     />
 
                 </div>
@@ -698,7 +574,7 @@ export function LiveMatchScoutingV2() {
                             </button>
 
                             <button
-                                onClick={() => setExitModalOpen(true)}
+                                onClick={handlers.openExit}
                                 className="flex flex-col items-center gap-1 text-red-400 active:text-white"
                             >
                                 <DoorOpen size={20} />
@@ -720,7 +596,7 @@ export function LiveMatchScoutingV2() {
 
                 {/* MODAL STARTERS (Selección de Titulares - Visual) */}
                 <StartersModalV2
-                    isOpen={startersModal.showStartersModal}
+                    isOpen={modals.showStartersModal}
                     derivedState={derivedState}
                     availablePlayers={availablePlayers}
                     initialServerChoice={startersModal.initialServerChoice}
@@ -735,13 +611,13 @@ export function LiveMatchScoutingV2() {
                     }
                     onLiberoSelect={startersModal.setSelectedLiberoId}
                     onConfirm={handleConfirmStarters}
-                    onBack={handleBackFromStarters}
+                    onBack={handlers.handleBackFromStarters}
                 />
 
                 {/* MODAL ROTATION */}
                 <RotationModalV2
-                    isOpen={showRotationModal}
-                    onClose={() => setShowRotationModal(false)}
+                    isOpen={modals.showRotationModal}
+                    onClose={handlers.closeRotation}
                     onCourtPlayers={derivedState.onCourtPlayers}
                     getPlayerDisplay={getPlayerDisplay}
                 />
@@ -803,17 +679,17 @@ export function LiveMatchScoutingV2() {
                 })()}
 
                 <SetSummaryModalV2
-                    isOpen={derivedState.setSummaryModalOpen}
+                    isOpen={modals.isSetSummaryOpen}
                     summary={derivedState.lastFinishedSetSummary}
                     homeTeamName={homeTeamName || 'Local'}
                     awayTeamName={awayTeamName || 'Visitante'}
-                    onClose={handleCloseSetSummary}
-                    onConfirm={handleConfirmSetSummary}
-                    onUndo={handleUndoSetSummary}
+                    onClose={handlers.handleCloseSetSummary}
+                    onConfirm={handlers.handleConfirmSetSummary}
+                    onUndo={handlers.handleUndoSetSummary}
                 />
 
                 <MatchFinishedModalV2
-                    isOpen={isMatchFinishedModalOpen}
+                    isOpen={modals.isMatchFinishedModalOpen}
                     matchId={matchId}
                     matchInfo={{
                         homeTeamName: homeTeamName || 'Local',
@@ -844,16 +720,11 @@ export function LiveMatchScoutingV2() {
                             }
 
                             // 2. Points
-
                             // Re-calculation using standard 'winner' logic from payload if available, or event type
                             const homePoints = events.filter(e => (e.type === 'POINT_US' && derivedState.ourSide === 'home') || (e.type === 'POINT_OPPONENT' && derivedState.ourSide === 'away')).length
                             const awayPoints = events.filter(e => (e.type === 'POINT_US' && derivedState.ourSide === 'away') || (e.type === 'POINT_OPPONENT' && derivedState.ourSide === 'home')).length
 
                             // 3. Errors (Approximation based on event flow or payload)
-                            // We count "POINT_OPPONENT" usually as an error if we are tracking our team, 
-                            // BUT specific error tracking depends on how payload is structured.
-                            // Assuming 'POINT_OPPONENT' often implies an error by us if we are scouting us.
-                            // However, 'reason' payload is often "Attack Error", "Service Error", etc.
                             const ownErrors = events.filter(e =>
                                 (e.type === 'POINT_OPPONENT' && derivedState.ourSide === 'home') ||
                                 (e.type === 'POINT_US' && derivedState.ourSide === 'away' && e.payload?.reason?.toLowerCase().includes('error'))
@@ -889,20 +760,20 @@ export function LiveMatchScoutingV2() {
                                 duration,
                                 totalPointsHome: homePoints,
                                 totalPointsAway: awayPoints,
-                                ownErrors: ownErrors, // Placeholder logic, refining broadly
-                                opponentErrors: opponentErrors, // Placeholder logic
+                                ownErrors: ownErrors,
+                                opponentErrors: opponentErrors,
                                 homeMaxStreak: maxHomeStreak,
                                 awayMaxStreak: maxAwayStreak
                             }
                         })()
                     }}
-                    onGoToMatches={handleGoToMatches}
                     onGoToAnalysis={handleGoToAnalysis}
+                    onGoToMatches={handleGoToMatches}
                 />
 
                 {/* MODAL SUBSTITUTION */}
                 <SubstitutionModalV2
-                    isOpen={substitutionModal.showSubstitutionModal}
+                    isOpen={modals.showSubstitutionModal}
                     onClose={() => substitutionModal.closeModal()}
                     onConfirm={handleConfirmSubstitution}
                     onCourtPlayers={derivedState.onCourtPlayers}
@@ -914,10 +785,10 @@ export function LiveMatchScoutingV2() {
 
                 {/* EXIT MODAL */}
                 <ExitMatchModal
-                    isOpen={exitModalOpen}
-                    onClose={() => setExitModalOpen(false)}
-                    onSaveAndExit={handleSaveAndExit}
-                    onExitWithoutSaving={handleExitWithoutSaving}
+                    isOpen={modals.exitModalOpen}
+                    onClose={handlers.closeExit}
+                    onSaveAndExit={handlers.handleSaveAndExit}
+                    onExitWithoutSaving={handlers.handleExitWithoutSaving}
                 />
 
                 {/* MODAL ACTION PLAYER (Selección de jugadora para acciones) */}
