@@ -25,6 +25,24 @@ export function useMatchEffectsV2({
     navigate
 }: UseMatchEffectsV2Args): void {
 
+    // DEV-ONLY: Guard for empty events with wrong status
+    useEffect(() => {
+        if (import.meta.env.DEV) {
+            // Only warn after loading complete and if we have a matchId
+            if (!loading && matchId && events.length === 0) {
+                // In a real scenario, status should come from matchData, but we can infer
+                // If derivedState shows activity (sets won, current set > 1) but 0 events, warn
+                if (derivedState.currentSet > 1 || derivedState.setsWonHome > 0 || derivedState.setsWonAway > 0) {
+                    console.warn(
+                        `[DEV][WARN] Match loaded with 0 events but appears active: ` +
+                        `matchId=${matchId} set=${derivedState.currentSet} ` +
+                        `setsWon=${derivedState.setsWonHome}-${derivedState.setsWonAway}`
+                    )
+                }
+            }
+        }
+    }, [loading, matchId, events.length, derivedState.currentSet, derivedState.setsWonHome, derivedState.setsWonAway])
+
     // CRITICAL C5 VALIDATION: Prevent entering live match without convocated players
     // This prevents crashes in starters modal and rotation display
     useEffect(() => {

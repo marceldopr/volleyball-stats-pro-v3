@@ -112,6 +112,34 @@ export function LiveMatchScoutingV2() {
     // Timeline Logic
     const [showTimeline, setShowTimeline] = useState(false)
 
+    // DEV-ONLY: Assert lineup/players validation
+    if (import.meta.env.DEV) {
+        // Only validate if match is active (has lineup and not finished)
+        if (derivedState.hasLineupForCurrentSet && !derivedState.isMatchFinished) {
+            const onCourtCount = derivedState.onCourtPlayers.length
+            if (onCourtCount !== 6) {
+                console.warn(
+                    `[DEV][WARN] On-court players invalid length: ${onCourtCount} (expected 6) ` +
+                    `matchId=${matchId} set=${derivedState.currentSet}`
+                )
+            }
+        }
+    }
+
+    // DEV-ONLY: Performance timing for event processing
+    if (import.meta.env.DEV) {
+        const lastEventType = events[events.length - 1]?.type
+        if (lastEventType && events.length > 0) {
+            // Log compactly on every new event (throttled by events.length dependency)
+            const perfMark = `[DEV] event=${lastEventType} set=${derivedState.currentSet} events=${events.length}`
+            // Note: Actual derived state timing would require measuring in the store,
+            // but we can at least log the event flow
+            if (events.length % 5 === 0 || lastEventType === 'SET_END' || lastEventType === 'SET_START') {
+                console.log(perfMark)
+            }
+        }
+    }
+
     const handleGoToMatches = () => {
         navigate('/matches')
     }
