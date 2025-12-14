@@ -12,7 +12,9 @@ import {
   UserCog,
   FileText,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Calendar,
+  Activity
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { clsx } from 'clsx'
@@ -72,6 +74,11 @@ export function Sidebar() {
         ]
       },
       {
+        items: [
+          { name: 'Calendario', href: '/calendario', icon: Calendar }
+        ]
+      },
+      {
         title: 'CLUB',
         items: [
           { name: 'Equipos', href: '/teams', icon: Users },
@@ -85,6 +92,7 @@ export function Sidebar() {
         title: 'GESTIÓN',
         items: [
           { name: 'Dashboard Club', href: '/club/dashboard', icon: BarChart3 },
+          { name: 'Salud & Disponibilidad', href: '/salud-disponibilidad', icon: Activity },
           { name: 'Planificación', href: '/reports/team-plans', icon: FileText },
           { name: 'Informes', href: '/reports/players', icon: BarChart3 }
         ]

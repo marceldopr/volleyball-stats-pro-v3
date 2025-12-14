@@ -6,6 +6,8 @@ import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 import { clubService } from '@/services/clubService'
 import { Button } from '@/components/ui/Button'
 import { toast } from 'sonner'
+import { useSeasonStore } from '@/stores/seasonStore'
+import { isValidWeekRange } from '@/utils/weekUtils'
 
 export function SettingsPage() {
   const { isDarkMode, toggleDarkMode } = useThemeStore()
@@ -20,6 +22,12 @@ export function SettingsPage() {
   const [clubAcronym, setClubAcronym] = useState('')
   const [loadingClub, setLoadingClub] = useState(false)
   const [savingClub, setSavingClub] = useState(false)
+
+  // Season Config State
+  const { startWeek, endWeek, setSeasonRange, clearSeasonRange } = useSeasonStore()
+  const [localStartWeek, setLocalStartWeek] = useState(startWeek || '')
+  const [localEndWeek, setLocalEndWeek] = useState(endWeek || '')
+  const [seasonError, setSeasonError] = useState('')
 
   useEffect(() => {
     if (isDT && profile?.club_id) {
@@ -239,6 +247,105 @@ export function SettingsPage() {
                 </div>
               </div>
             </div>
+
+            {/* Temporada (Solo DT) */}
+            {isDT && (
+              <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+                <h2 className="text-xl font-semibold mb-2 flex items-center space-x-2 text-white">
+                  <Clock className="w-5 h-5 text-primary-500" />
+                  <span>Temporada</span>
+                </h2>
+                <p className="text-sm text-gray-400 mb-6">
+                  Define el rango de semanas que forman la temporada. Se resaltará en el calendario.
+                </p>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                        Semana de inicio
+                      </label>
+                      <input
+                        type="week"
+                        value={localStartWeek}
+                        onChange={(e) => {
+                          setLocalStartWeek(e.target.value)
+                          setSeasonError('')
+                        }}
+                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                        Semana de fin
+                      </label>
+                      <input
+                        type="week"
+                        value={localEndWeek}
+                        onChange={(e) => {
+                          setLocalEndWeek(e.target.value)
+                          setSeasonError('')
+                        }}
+                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {seasonError && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                      <p className="text-sm text-red-400">{seasonError}</p>
+                    </div>
+                  )}
+
+                  {(startWeek || endWeek) && (
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                      <p className="text-sm text-blue-400">
+                        {startWeek && endWeek
+                          ? `Temporada actual: ${startWeek} a ${endWeek}`
+                          : 'Configuración incompleta'}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3">
+                    <Button
+                      variant="primary"
+                      size="md"
+                      icon={Save}
+                      onClick={() => {
+                        if (!localStartWeek || !localEndWeek) {
+                          setSeasonError('Debes seleccionar ambas semanas')
+                          return
+                        }
+                        if (!isValidWeekRange(localStartWeek, localEndWeek)) {
+                          setSeasonError('La semana final no puede ser anterior a la semana inicial')
+                          return
+                        }
+                        setSeasonRange(localStartWeek, localEndWeek)
+                        setSeasonError('')
+                        toast.success('Temporada configurada correctamente')
+                      }}
+                      disabled={!localStartWeek || !localEndWeek}
+                    >
+                      Guardar Temporada
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      onClick={() => {
+                        setLocalStartWeek('')
+                        setLocalEndWeek('')
+                        clearSeasonRange()
+                        setSeasonError('')
+                        toast.success('Temporada restablecida')
+                      }}
+                    >
+                      Restablecer
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
 
           </div>
 

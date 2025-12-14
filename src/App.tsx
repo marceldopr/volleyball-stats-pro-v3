@@ -32,6 +32,8 @@ import { useThemeStore } from '@/stores/themeStore'
 import { Toaster } from 'sonner'
 import { RoleGuard } from '@/components/routing/RoleGuard'
 import { Home } from './pages/Home'
+import { CalendarioPage } from './pages/CalendarioPage'
+import { SaludDisponibilidadPage } from './pages/SaludDisponibilidadPage'
 
 function App() {
   const { isDarkMode } = useThemeStore()
@@ -194,6 +196,18 @@ function App() {
 
                     {/* Public/Shared */}
                     <Route path="/about" element={<About />} />
+
+                    {/* Placeholder Pages */}
+                    <Route path="/calendario" element={
+                      <RoleGuard allowedForDT allowedForCoach>
+                        <CalendarioPage />
+                      </RoleGuard>
+                    } />
+                    <Route path="/salud-disponibilidad" element={
+                      <RoleGuard allowedForDT>
+                        <SaludDisponibilidadPage />
+                      </RoleGuard>
+                    } />
                   </Routes>
                 </div>
               </div>
