@@ -19,7 +19,7 @@ import { useMatchData } from '@/hooks/match/useMatchData'
 import { useStartersModal } from '@/hooks/match/useStartersModal'
 import { useReceptionModal } from '@/hooks/match/useReceptionModal'
 import { useSubstitutionModal } from '@/hooks/match/useSubstitutionModal'
-import { useActionPlayerModal, isPointUs, isPointOpponent, ActionType } from '@/hooks/match/useActionPlayerModal'
+import { useActionCaptureV2 } from '@/hooks/match/useActionCaptureV2'
 
 // UI Components
 import { ReadOnlyBanner } from '@/components/match/ReadOnlyBanner'
@@ -156,10 +156,13 @@ export function LiveMatchScoutingV2() {
         showSubstitutionModal: substitutionModal.showSubstitutionModal,
         showStartersModal: startersModal.showStartersModal
     })
-    const actionModal = useActionPlayerModal()
+    const actionCapture = useActionCaptureV2({
+        currentSet: derivedState.currentSet,
+        addEvent
+    })
 
     // State for UX
-    const [buttonsDisabled, setButtonsDisabled] = useState(false)
+    // buttonsDisabled removed - using actionCapture.isProcessing now
     const [showRotationModal, setShowRotationModal] = useState(false)
     const [exitModalOpen, setExitModalOpen] = useState(false)
 
@@ -303,88 +306,6 @@ export function LiveMatchScoutingV2() {
         }
     }
 
-
-
-    // Helper functions
-    const getPlayerAt = (position: number) => {
-        return derivedState.onCourtPlayers.find(entry => entry.position === position)?.player
-    }
-
-    const handleAction = (action: () => void) => {
-        if (buttonsDisabled) return
-        setButtonsDisabled(true)
-        try {
-            action()
-        } catch (error) {
-            console.error('Error executing action:', error)
-            toast.error('Error al ejecutar la acciÃ³n')
-        }
-        setTimeout(() => {
-            setButtonsDisabled(false)
-        }, 200)
-    }
-
-    // Reception handler with player selection
-    const handleReceptionEval = (playerId: string, rating: 0 | 1 | 2 | 3 | 4) => {
-        addReceptionEval(playerId, rating)
-        receptionModal.markReceptionCompleted()
-
-        // If rating is 0 (error directo), award point to opponent
-        if (rating === 0) {
-            setTimeout(() => {
-                handleAction(() => addEvent('POINT_OPPONENT', { reason: 'reception_error' }))
-            }, 100)
-        }
-    }
-
-
-    // Handlers - Now open player selection modal (except opponent_point and unforced_error)
-    const handlePointOpponent = (reason: string) => {
-        // "Punto rival" (opponent_point) AND "Error genérico" (unforced_error) do NOT open modal - direct event
-        if (reason === 'opponent_point' || reason === 'unforced_error') {
-            handleAction(() => addEvent('POINT_OPPONENT', { reason }))
-        } else {
-            // All other opponent-scoring actions open modal
-            actionModal.openForAction(reason as ActionType)
-        }
-    }
-
-    const handlePointUs = (reason: string) => {
-        // "Error rival" (opponent_error) does NOT open modal - opponent made the error, not us
-        if (reason === 'opponent_error') {
-            handleAction(() => addEvent('POINT_US', { reason }))
-        } else {
-            // All other our-point actions open modal for player selection
-            actionModal.openForAction(reason as ActionType)
-        }
-    }
-
-    const handleFreeballSent = () => {
-        // Freeball sent by us - no player modal needed
-        handleAction(() => addEvent('FREEBALL_SENT'))
-    }
-
-    const handleFreeballReceived = () => {
-        // Freeball received from opponent - no player modal needed
-        handleAction(() => addEvent('FREEBALL_RECEIVED'))
-    }
-
-    // Callback when player is selected in action modal
-    const handleConfirmActionPlayer = (playerId: string) => {
-        const actionType = actionModal.actionType
-        if (!actionType) return
-
-        // Determine if this action gives us or opponent a point
-        if (isPointUs(actionType)) {
-            handleAction(() => addEvent('POINT_US', { reason: actionType, playerId }))
-        } else if (isPointOpponent(actionType)) {
-            handleAction(() => addEvent('POINT_OPPONENT', { reason: actionType, playerId }))
-        } else if (actionType === 'freeball') {
-            handleAction(() => addEvent('FREEBALL', { playerId }))
-        }
-
-        actionModal.close()
-    }
 
     // Set Summary Handlers
     const handleCloseSetSummary = () => {
@@ -646,6 +567,25 @@ export function LiveMatchScoutingV2() {
         return !isOnCourt
     })
 
+    // Helper functions
+    const getPlayerAt = (position: number) => {
+        return derivedState.onCourtPlayers.find(entry => entry.position === position)?.player
+    }
+
+    // Reception handler with player selection
+    const handleReceptionEval = (playerId: string, rating: 0 | 1 | 2 | 3 | 4) => {
+        addReceptionEval(playerId, rating)
+        receptionModal.markReceptionCompleted()
+
+        // If rating is 0 (error directo), award point to opponent
+        if (rating === 0) {
+            setTimeout(() => {
+                // Direct call is safe here as modal determines timing
+                addEvent('POINT_OPPONENT', { reason: 'reception_error' })
+            }, 100)
+        }
+    }
+
     if (loading) return <div className="h-screen bg-zinc-950 flex items-center justify-center text-zinc-500">Cargando...</div>
     if (!matchData) return null
 
@@ -685,11 +625,11 @@ export function LiveMatchScoutingV2() {
 
                     <ActionButtons
                         isServing={isServing}
-                        disabled={buttonsDisabled}
-                        onPointUs={handlePointUs}
-                        onPointOpponent={handlePointOpponent}
-                        onFreeballSent={handleFreeballSent}
-                        onFreeballReceived={handleFreeballReceived}
+                        disabled={actionCapture.isProcessing}
+                        onPointUs={actionCapture.handlePointUs}
+                        onPointOpponent={actionCapture.handlePointOpponent}
+                        onFreeballSent={actionCapture.handleFreeballSent}
+                        onFreeballReceived={actionCapture.handleFreeballReceived}
                     />
 
                     {/* ROTATION STRIP - Uses shared libero logic */}
@@ -980,24 +920,20 @@ export function LiveMatchScoutingV2() {
                     onExitWithoutSaving={handleExitWithoutSaving}
                 />
 
-                {/* ACTION PLAYER MODAL - Select player for each action */}
+                {/* MODAL ACTION PLAYER (Selección de jugadora para acciones) */}
                 <ActionPlayerModalV2
-                    isOpen={actionModal.isOpen}
-                    actionType={actionModal.actionType}
+                    isOpen={actionCapture.isActionModalOpen}
+                    actionType={actionCapture.currentActionType}
                     currentSet={derivedState.currentSet}
                     onCourtPlayers={effectiveOnCourtPlayers}
-                    onConfirm={handleConfirmActionPlayer}
-                    onClose={actionModal.close}
+                    onConfirm={actionCapture.handleConfirmActionPlayer}
+                    onClose={actionCapture.handleCancelActionPlayer}
                 />
 
             </div>
         </div>
     )
 }
-
-
-
-
 
 
 
