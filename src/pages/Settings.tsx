@@ -1,4 +1,4 @@
-import { Building2, Calendar, MapPin, Bell, Users as UsersIcon, Clock, Save, Edit, StickyNote, ChevronRight } from 'lucide-react'
+import { Building2, Calendar, MapPin, Bell, Users as UsersIcon, Clock, Save, Edit, StickyNote, ChevronRight, AlertCircle } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
@@ -9,8 +9,10 @@ import { useSeasonStore } from '@/stores/seasonStore'
 import { isValidWeekRange } from '@/utils/weekUtils'
 import { MOCK_SPACES, Space } from '@/types/spacesTypes'
 import { SpaceModal } from '@/components/settings/SpaceModal'
+import { MOCK_SCHEDULES, TrainingSchedule } from '@/types/trainingScheduleTypes'
+import { ScheduleModal } from '@/components/settings/ScheduleModal'
 
-type SectionId = 'club' | 'temporada' | 'espacios' | 'calendario' | 'usuarios' | 'notificaciones'
+type SectionId = 'club' | 'temporada' | 'espacios' | 'horarios' | 'calendario' | 'usuarios' | 'notificaciones'
 
 interface Section {
   id: SectionId
@@ -44,6 +46,11 @@ export function SettingsPage() {
   const [spaces, setSpaces] = useState<Space[]>(MOCK_SPACES)
   const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false)
   const [editingSpace, setEditingSpace] = useState<Space | undefined>(undefined)
+
+  // Training Schedules Config State (mock)
+  const [schedules, setSchedules] = useState<TrainingSchedule[]>(MOCK_SCHEDULES)
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false)
+  const [editingSchedule, setEditingSchedule] = useState<TrainingSchedule | undefined>(undefined)
 
   // Calendar preferences (mock, read-only for now)
   const highlightSeason = true
@@ -99,6 +106,7 @@ export function SettingsPage() {
     { id: 'club', name: 'Club', icon: <Building2 className="w-5 h-5" /> },
     { id: 'temporada', name: 'Temporada', icon: <Clock className="w-5 h-5" /> },
     { id: 'espacios', name: 'Espacios', icon: <MapPin className="w-5 h-5" /> },
+    { id: 'horarios', name: 'Horarios de entrenamiento', icon: <Clock className="w-5 h-5" /> },
     { id: 'calendario', name: 'Calendario', icon: <Calendar className="w-5 h-5" /> },
     { id: 'usuarios', name: 'Usuarios y permisos', icon: <UsersIcon className="w-5 h-5" />, badge: 'Pronto' },
     { id: 'notificaciones', name: 'Notificaciones', icon: <Bell className="w-5 h-5" />, badge: 'Pronto' }
@@ -451,6 +459,135 @@ export function SettingsPage() {
           </div>
         )
 
+      case 'horarios':
+        const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+        return (
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-white mb-2">Horarios de entrenamiento</h1>
+                <p className="text-gray-400">Define los horarios base de entrenamiento de cada equipo</p>
+              </div>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => {
+                  setEditingSchedule(undefined)
+                  setIsScheduleModalOpen(true)
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  <span>Añadir horario</span>
+                </div>
+              </Button>
+            </div>
+
+            {/* List */}
+            {schedules.length > 0 ? (
+              <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                <table className="w-full text-left">
+                  <thead className="bg-gray-900/50 text-gray-400 text-xs uppercase font-medium">
+                    <tr>
+                      <th className="px-6 py-3">Equipo</th>
+                      <th className="px-6 py-3">Días</th>
+                      <th className="px-6 py-3">Hora</th>
+                      <th className="px-6 py-3">Espacio</th>
+                      <th className="px-6 py-3">Periodo</th>
+                      <th className="px-6 py-3">Estado</th>
+                      <th className="px-6 py-3 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-700">
+                    {schedules.map((schedule) => (
+                      <tr key={schedule.id} className="hover:bg-gray-700/50 transition-colors">
+                        <td className="px-6 py-4 font-medium text-white">
+                          {schedule.teamName}
+                        </td>
+                        <td className="px-6 py-4 text-gray-300">
+                          {schedule.days.map(d => dayNames[d]).join(' · ')}
+                        </td>
+                        <td className="px-6 py-4 text-gray-300">
+                          {schedule.startTime}–{schedule.endTime}
+                        </td>
+                        <td className="px-6 py-4 text-gray-300">
+                          {schedule.preferredSpace}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-700 text-gray-300">
+                            {schedule.period === 'season' ? 'Temp. actual' : 'Personalizado'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => {
+                              const updated = schedules.map(s =>
+                                s.id === schedule.id ? { ...s, isActive: !s.isActive } : s
+                              )
+                              setSchedules(updated)
+                              toast.success(`Horario ${schedule.isActive ? 'desactivado' : 'activado'}`)
+                            }}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${schedule.isActive ? 'bg-primary-500' : 'bg-gray-600'
+                              }`}
+                          >
+                            <span
+                              className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${schedule.isActive ? 'translate-x-5' : 'translate-x-1'
+                                }`}
+                            />
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => {
+                              setEditingSchedule(schedule)
+                              setIsScheduleModalOpen(true)
+                            }}
+                            className="text-primary-500 hover:text-primary-400 transition-colors"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="bg-gray-800 rounded-xl border border-gray-700 p-12 text-center">
+                <div className="bg-gray-900 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Clock className="w-8 h-8 text-gray-600" />
+                </div>
+                <h3 className="text-xl font-medium text-white mb-2">No hay horarios definidos</h3>
+                <p className="text-gray-400 mb-6 max-w-sm mx-auto">
+                  Crea el primer horario para definir cuándo entrena cada equipo y generar la planificación.
+                </p>
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => setIsScheduleModalOpen(true)}
+                >
+                  Crear primer horario
+                </Button>
+              </div>
+            )}
+
+            {/* Info Box */}
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 flex gap-3">
+              <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-400">
+                <p className="font-medium mb-1">Generación automática próximamente</p>
+                <p className="text-blue-300/80">
+                  Estos horarios no crean entrenamientos todavía. En próximas actualizaciones, podrás generar todos los eventos del calendario con un solo clic.
+                </p>
+              </div>
+              <span className="ml-auto text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded self-start">
+                Pronto
+              </span>
+            </div>
+          </div>
+        )
+
       case 'calendario':
         return (
           <div className="space-y-6">
@@ -724,6 +861,40 @@ export function SettingsPage() {
             }
             setSpaces([...spaces, newSpace])
             toast.success('Espacio creado (mock)')
+          }
+        }}
+      />
+
+      <ScheduleModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => {
+          setIsScheduleModalOpen(false)
+          setEditingSchedule(undefined)
+        }}
+        schedule={editingSchedule}
+        onSave={(scheduleData) => {
+          if (editingSchedule) {
+            // Edit existing
+            const updated = schedules.map(s =>
+              s.id === editingSchedule.id ? { ...s, ...scheduleData } : s
+            )
+            setSchedules(updated)
+            toast.success('Horario actualizado (mock)')
+          } else {
+            // Add new
+            const newSchedule: TrainingSchedule = {
+              id: Date.now().toString(),
+              teamName: scheduleData.teamName!,
+              days: scheduleData.days || [],
+              startTime: scheduleData.startTime || '18:00',
+              endTime: scheduleData.endTime || '19:30',
+              preferredSpace: scheduleData.preferredSpace!,
+              alternativeSpaces: scheduleData.alternativeSpaces || [],
+              period: scheduleData.period || 'season',
+              isActive: scheduleData.isActive ?? true
+            }
+            setSchedules([...schedules, newSchedule])
+            toast.success('Horario creado (mock)')
           }
         }}
       />
