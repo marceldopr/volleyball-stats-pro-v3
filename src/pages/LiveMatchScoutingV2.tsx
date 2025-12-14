@@ -1,6 +1,5 @@
-﻿import { useEffect, useState } from 'react'
+﻿import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Undo2, Users, DoorOpen, ClipboardList, ChevronDown, ChevronRight } from 'lucide-react'
 import { useMatchStoreV2, validateFIVBSubstitution } from '@/stores/matchStoreV2'
 import { toast } from 'sonner'
 import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
@@ -12,7 +11,7 @@ import { ReceptionModalV2 } from '@/components/matches/ReceptionModalV2'
 import { SetSummaryModalV2 } from '@/components/matches/SetSummaryModalV2'
 import { SubstitutionModalV2 } from '@/components/matches/SubstitutionModalV2'
 import { isLibero, isValidSubstitution } from '@/lib/volleyball/substitutionHelpers'
-import { matchServiceV2 } from '@/services/matchServiceV2'
+import { getLastEventLabel } from '@/utils/matchEventLabels'
 
 // Custom Hooks
 import { useMatchData } from '@/hooks/match/useMatchData'
@@ -22,106 +21,21 @@ import { useSubstitutionModal } from '@/hooks/match/useSubstitutionModal'
 import { useActionCaptureV2 } from '@/hooks/match/useActionCaptureV2'
 import { useMatchModalsManagerV2 } from '@/hooks/match/useMatchModalsManagerV2'
 import { useTimeoutsV2 } from '@/hooks/match/useTimeoutsV2'
+import { useMatchEffectsV2 } from '@/hooks/match/useMatchEffectsV2'
 
 // UI Components
 import { ReadOnlyBanner } from '@/components/match/ReadOnlyBanner'
 import { MatchHeader } from '@/components/match/MatchHeader'
 import { ActionButtons } from '@/components/match/ActionButtons'
 import { RotationDisplay } from '@/components/match/RotationDisplay'
+import { BottomActions } from '@/components/match/BottomActions'
 import { StartersModalV2 } from '@/components/match/StartersModalV2'
 import { RotationModalV2 } from '@/components/match/RotationModalV2'
 import { ExitMatchModal } from '@/components/match/ExitMatchModal'
 import { ActionPlayerModalV2 } from '@/components/match/ActionPlayerModalV2'
-import type { MatchEvent, PlayerV2 } from '@/stores/matchStoreV2'
 
-// Helper: Map event type/reason to short label in Spanish
-const eventReasonLabels: Record<string, string> = {
-    // Point reasons (our points)
-    'serve_point': 'Punto saque',
-    'attack_point': 'Punto ataque',
-    'block_point': 'Punto bloqueo',
-    'opponent_error': 'Error rival',
-    // Point reasons (opponent points / our errors)
-    'service_error': 'Error saque',
-    'attack_error': 'Error ataque',
-    'attack_blocked': 'Bloqueado',
-    'unforced_error': 'Error genérico',
-    'fault': 'Falta',
-    'reception_error': 'Error recepción',
-    'opponent_point': 'Punto rival',
-}
 
-const eventTypeLabels: Record<string, string> = {
-    'POINT_US': 'Punto',
-    'POINT_OPPONENT': 'Punto rival',
-    'SUBSTITUTION': 'Cambio',
-    'SET_LINEUP': 'Alineación',
-    'SET_START': 'Inicio set',
-    'SET_END': 'Fin set',
-    'RECEPTION_EVAL': 'Recepción',
-    'FREEBALL': 'Freeball',
-    'FREEBALL_SENT': 'Freeball env.',
-    'FREEBALL_RECEIVED': 'Freeball rec.',
-    'TIMEOUT': 'Tiempo muerto',
-    'SET_SERVICE_CHOICE': 'Saque inicial',
-}
 
-/**
- * Get a short label for the last event, showing player number if available
- * @param event - The last event
- * @param playersById - Map of player IDs to player objects
- * @returns Short label like "#12 Punto ataque" or "Punto rival"
- */
-function getLastEventLabel(
-    event: MatchEvent | undefined,
-    playersById: Map<string, PlayerV2>
-): string {
-    if (!event) return 'Historial'
-
-    // Get player number if playerId exists
-    let playerPrefix = ''
-    const playerId = event.payload?.playerId
-    if (playerId) {
-        const player = playersById.get(playerId)
-        if (player?.number) {
-            playerPrefix = `#${player.number} `
-        } else if (player?.name) {
-            playerPrefix = `${player.name.split(' ')[0]} `
-        }
-    }
-
-    // Handle reception specially (has different structure)
-    if (event.type === 'RECEPTION_EVAL' && event.payload?.reception) {
-        const recPlayerId = event.payload.reception.playerId
-        const recPlayer = playersById.get(recPlayerId)
-        const recValue = event.payload.reception.value
-        if (recPlayer?.number) {
-            return `#${recPlayer.number} Recepción ${recValue}`
-        }
-        return `Recepción ${recValue}`
-    }
-
-    // Handle substitution specially
-    if (event.type === 'SUBSTITUTION' && event.payload?.substitution) {
-        const sub = event.payload.substitution
-        if (sub.isLiberoSwap) {
-            return 'Cambio líbero'
-        }
-        const playerIn = sub.playerIn
-        if (playerIn?.number) {
-            return `#${playerIn.number} Entra`
-        }
-        return 'Cambio'
-    }
-
-    // Get action label from reason or type
-    const reason = event.payload?.reason
-    let actionLabel = reason && eventReasonLabels[reason]
-        ? eventReasonLabels[reason]
-        : eventTypeLabels[event.type] || event.type
-
-    return `${playerPrefix}${actionLabel}`
-}
 
 export function LiveMatchScoutingV2() {
     const { matchId } = useParams<{ matchId: string }>()
@@ -185,32 +99,18 @@ export function LiveMatchScoutingV2() {
         isMatchFinished: derivedState.isMatchFinished
     })
 
+    // Custom Hooks - Effects (validation, auto-save)
+    useMatchEffectsV2({
+        matchId,
+        loading,
+        availablePlayers,
+        derivedState,
+        events,
+        navigate
+    })
+
     // Timeline Logic
     const [showTimeline, setShowTimeline] = useState(false)
-
-    // CRITICAL C5 VALIDATION: Prevent entering live match without convocated players
-    // This prevents crashes in starters modal and rotation display
-    useEffect(() => {
-        // Only validate after loading is complete
-        if (loading) return
-
-        // Check if we have no players AND no lineup configured AND no events
-        // The events.length check is CRITICAL: if match has events, it's in progress
-        // and we should allow re-entry even if convocations aren't loaded yet
-        if (availablePlayers.length === 0 && !derivedState.hasLineupForCurrentSet && events.length === 0) {
-            console.error('⚠️ CRITICAL C5: Cannot enter live match without convocated players')
-            console.error('  Match ID:', matchId)
-            console.error('  Available players:', availablePlayers.length)
-            console.error('  Events:', events.length)
-
-            toast.error('No hay jugadoras convocadas. Configure la convocatoria primero.', {
-                duration: 5000
-            })
-
-            // Redirect back to matches list where user can configure convocations
-            navigate('/matches')
-        }
-    }, [loading, availablePlayers.length, derivedState.hasLineupForCurrentSet, events.length, matchId, navigate])
 
     const handleGoToMatches = () => {
         navigate('/matches')
@@ -221,38 +121,7 @@ export function LiveMatchScoutingV2() {
         navigate(`/match-analysis-v2/${matchData.id}`)
     }
 
-    // Exit Modal Handlers removed - logic moved to useMatchModalsManagerV2
 
-    // Auto-save match when finished
-    useEffect(() => {
-        if (!derivedState.isMatchFinished || !matchId) return
-
-        const saveMatchToSupabase = async () => {
-            try {
-                // Prepare match result string
-                const setsWon = `${derivedState.setsWonHome}-${derivedState.setsWonAway}`
-
-                // Calculate individual set scores for detailed result
-                const setScores = derivedState.setsScores
-                    .map(s => `${s.home}-${s.away}`)
-                    .join(', ')
-                const detailedResult = `Sets: ${setsWon} (${setScores})`
-
-                // Save to Supabase
-                await matchServiceV2.updateMatchV2(matchId, {
-                    actions: events,  // Save all events
-                    status: 'finished',
-                    result: detailedResult
-                })
-
-                console.log('✅ Match saved to Supabase successfully')
-            } catch (error) {
-                console.error('❌ Error saving match:', error)
-            }
-        }
-
-        saveMatchToSupabase()
-    }, [derivedState.isMatchFinished, matchId, events, derivedState.setsWonHome, derivedState.setsWonAway, derivedState.setsScores])
 
     // Explicit save function removed - logic moved to useMatchModalsManagerV2
 
@@ -525,79 +394,33 @@ export function LiveMatchScoutingV2() {
 
                 </div>
 
-                {/* BOTTOM SECTION: Single Row with Timeline Toggle */}
-                <div className="mt-auto bg-zinc-950 border-t border-zinc-900">
-                    {/* Single Row: Actions + Timeline Toggle */}
-                    <div className="px-4 py-3 flex items-center justify-between gap-2">
-                        {/* Left: Cambio + Líbero */}
-                        <div className="flex gap-4">
-                            <button
-                                onClick={() => substitutionModal.openModal()}
-                                disabled={!derivedState.hasLineupForCurrentSet || derivedState.isSetFinished || derivedState.isMatchFinished}
-                                className="flex flex-col items-center gap-1 text-zinc-400 active:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-                            >
-                                <Users size={20} />
-                                <span className="text-[9px] font-bold">CAMBIO</span>
-                            </button>
-                            <button
-                                onClick={handleInstantLiberoSwap}
-                                disabled={!derivedState.hasLineupForCurrentSet || derivedState.isSetFinished || derivedState.isMatchFinished}
-                                className="flex flex-col items-center gap-1 text-purple-400 active:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-                            >
-                                <Users size={18} className="fill-current" />
-                                <span className="text-[9px] font-bold">LÍBERO</span>
-                            </button>
-                        </div>
-
-                        {/* Center: Timeline Toggle */}
-                        <button
-                            onClick={() => setShowTimeline(!showTimeline)}
-                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-lg hover:bg-zinc-800/50 transition-colors"
-                        >
-                            <ClipboardList className="w-4 h-4 text-zinc-400" />
-                            <span className="text-xs font-semibold text-zinc-300 truncate max-w-[120px]">
-                                {getLastEventLabel(
-                                    events[events.length - 1],
-                                    new Map(availablePlayers.map(p => [p.id, p]))
-                                )}
-                            </span>
-                            <span className="text-[10px] text-zinc-500">({events.length})</span>
-                            <span className="text-xs text-zinc-500">
-                                {showTimeline ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                            </span>
-                        </button>
-
-                        {/* Right: Undo + Exit */}
-                        <div className="flex gap-4">
-                            <button
-                                onClick={() => undoEvent()}
-                                disabled={events.length === 0}
-                                className="flex flex-col items-center gap-1 text-zinc-500 active:text-white disabled:opacity-30"
-                            >
-                                <Undo2 size={20} />
-                                <span className="text-[9px] font-bold">DESHACER</span>
-                            </button>
-
-                            <button
-                                onClick={handlers.openExit}
-                                className="flex flex-col items-center gap-1 text-red-400 active:text-white"
-                            >
-                                <DoorOpen size={20} />
-                                <span className="text-[9px] font-bold">SALIR</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Timeline Content (Expands Below) */}
-                    {showTimeline && (
-                        <div className="border-t border-zinc-800">
-                            <MatchTimelineV2
-                                events={formatTimeline(events, derivedState.ourSide, homeTeamName, awayTeamName)}
-                                className=""
-                            />
-                        </div>
+                {/* BOTTOM ACTIONS */}
+                <BottomActions
+                    onSubstitution={() => substitutionModal.openModal()}
+                    onLiberoSwap={handleInstantLiberoSwap}
+                    onUndo={undoEvent}
+                    onExit={handlers.openExit}
+                    onToggleTimeline={() => setShowTimeline(!showTimeline)}
+                    isTimelineOpen={showTimeline}
+                    lastEventLabel={getLastEventLabel(
+                        events[events.length - 1],
+                        new Map(availablePlayers.map(p => [p.id, p]))
                     )}
-                </div>
+                    eventCount={events.length}
+                    disableSubstitution={!derivedState.hasLineupForCurrentSet || derivedState.isSetFinished || derivedState.isMatchFinished}
+                    disableLibero={!derivedState.hasLineupForCurrentSet || derivedState.isSetFinished || derivedState.isMatchFinished}
+                    disableUndo={events.length === 0}
+                />
+
+                {/* Timeline Content (Expands Below) */}
+                {showTimeline && (
+                    <div className="border-t border-zinc-800">
+                        <MatchTimelineV2
+                            events={formatTimeline(events, derivedState.ourSide, homeTeamName, awayTeamName)}
+                            className=""
+                        />
+                    </div>
+                )}
 
                 {/* MODAL STARTERS (Selección de Titulares - Visual) */}
                 <StartersModalV2
