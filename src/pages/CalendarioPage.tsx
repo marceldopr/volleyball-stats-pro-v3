@@ -1,7 +1,9 @@
-import { Calendar, AlertCircle, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { Calendar, AlertCircle, ChevronLeft, ChevronRight, CheckCircle2, Clock } from 'lucide-react'
 import { useState } from 'react'
 import { useSeasonStore } from '@/stores/seasonStore'
+import { useTrainingStore } from '@/stores/trainingStore'
 import { getWeekId, isWeekInRange } from '@/utils/weekUtils'
+import { TrainingSchedule } from '@/types/trainingScheduleTypes'
 
 type ViewMode = 'month' | 'week'
 
@@ -9,6 +11,14 @@ export function CalendarioPage() {
     const [viewMode, setViewMode] = useState<ViewMode>('month')
     const [currentDate, setCurrentDate] = useState(new Date())
     const { startWeek, endWeek } = useSeasonStore()
+    const { schedules } = useTrainingStore()
+
+    // Helper to check if a schedule matches a specific date
+    const getSchedulesForDate = (date: Date): TrainingSchedule[] => {
+        const dayOfWeek = (date.getDay() + 6) % 7 // Convert Sunday=0 to Monday=0, Sunday=6
+        // Filter active schedules that match the day of week
+        return schedules.filter(s => s.isActive && s.days.includes(dayOfWeek))
+    }
 
     // Get month/week info
     const year = currentDate.getFullYear()
@@ -86,7 +96,7 @@ export function CalendarioPage() {
             date.getFullYear() === today.getFullYear()
     }
 
-    // Navigation functions
+    // Navigation functions (same as before)
     const goToPrevious = () => {
         if (viewMode === 'month') {
             setCurrentDate(new Date(year, month - 1, 1))
@@ -111,7 +121,7 @@ export function CalendarioPage() {
         setCurrentDate(new Date())
     }
 
-    // Format month/week title
+    // Format month/week title (kept same)
     const monthNames = [
         'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
@@ -138,21 +148,18 @@ export function CalendarioPage() {
     return (
         <div className="min-h-screen bg-gray-950 p-8">
             <div className="max-w-7xl mx-auto">
-                {/* Header */}
+                {/* Header (same) */}
                 <div className="mb-8">
                     <div className="flex items-center gap-3 mb-2">
                         <Calendar className="w-8 h-8 text-primary-500" />
                         <h1 className="text-3xl font-bold text-white">Calendario</h1>
-                        <span className="bg-amber-500/20 text-amber-400 px-3 py-1 rounded-full text-sm font-medium">
-                            Pronto
-                        </span>
                     </div>
                     <p className="text-gray-400">
-                        Planifica reuniones, entrenamientos y partidos.
+                        Visualización de horarios de entrenamiento (próximamente eventos)
                     </p>
                 </div>
 
-                {/* Controls */}
+                {/* Controls (same) */}
                 <div className="bg-gray-900 rounded-lg p-6 mb-6">
                     <div className="flex flex-wrap gap-4 items-center justify-between">
                         {/* View Toggle */}
@@ -222,32 +229,6 @@ export function CalendarioPage() {
                             </div>
                         )}
                     </div>
-
-                    {/* Filters */}
-                    <div className="flex flex-wrap gap-2 mt-4">
-                        <select disabled className="px-4 py-2 bg-gray-800 text-gray-400 rounded-lg border border-gray-700 opacity-50 cursor-not-allowed">
-                            <option>Equipo</option>
-                        </select>
-                        <select disabled className="px-4 py-2 bg-gray-800 text-gray-400 rounded-lg border border-gray-700 opacity-50 cursor-not-allowed">
-                            <option>Tipo</option>
-                        </select>
-                        <select disabled className="px-4 py-2 bg-gray-800 text-gray-400 rounded-lg border border-gray-700 opacity-50 cursor-not-allowed">
-                            <option>Todos los espacios</option>
-                            <option>Pista 1</option>
-                            <option>Pista 2</option>
-                            <option>Gimnasio</option>
-                            <option>Patio exterior</option>
-                        </select>
-                        <button
-                            disabled
-                            className="px-4 py-2 bg-gray-800 text-gray-400 rounded-lg border border-gray-700 opacity-50 cursor-not-allowed flex items-center gap-2"
-                        >
-                            Vista por espacio
-                            <span className="bg-amber-500/30 text-amber-300 px-2 py-0.5 rounded text-xs">
-                                Pronto
-                            </span>
-                        </button>
-                    </div>
                 </div>
 
                 {/* Calendar Grid */}
@@ -265,7 +246,6 @@ export function CalendarioPage() {
                         {/* Calendar Weeks - Row by Row */}
                         <div>
                             {calendarWeeks.map((week, weekIndex) => {
-                                // Get Monday of this week (first day)
                                 const monday = week[0].date
                                 const weekId = getWeekId(monday)
                                 const isInSeason = isWeekInRange(weekId, startWeek, endWeek)
@@ -275,28 +255,44 @@ export function CalendarioPage() {
                                         {week.map((dayInfo, dayIndex) => {
                                             const today = isToday(dayInfo.date)
                                             const globalIndex = weekIndex * 7 + dayIndex
+                                            const daySchedules = getSchedulesForDate(dayInfo.date)
 
                                             return (
                                                 <div
                                                     key={globalIndex}
                                                     className={`
-                            relative min-h-[80px] p-2 border-r border-b border-gray-800
+                            relative min-h-[120px] p-2 border-r border-b border-gray-800
                             ${dayIndex === 6 ? 'border-r-0' : ''}
                             ${weekIndex === 5 ? 'border-b-0' : ''}
                             ${!dayInfo.isCurrentMonth ? 'bg-gray-950' : 'bg-gray-900'}
                             ${isInSeason && !today ? 'bg-blue-500/5' : ''}
-                            ${today ? 'bg-primary-900/20' : ''}
-                            hover:bg-gray-800 cursor-pointer transition-colors
+                            ${today ? 'bg-primary-900/10' : ''}
+                            hover:bg-gray-800 transition-colors
                           `}
                                                 >
                                                     <div className={`
-                            text-sm font-medium
+                            text-sm font-medium mb-1
                             ${!dayInfo.isCurrentMonth ? 'text-gray-700' : 'text-gray-300'}
                             ${today ? 'text-primary-400 font-bold' : ''}
                           `}>
                                                         {dayInfo.day}
                                                     </div>
-                                                    {/* Future: Events will go here */}
+
+                                                    {/* Events */}
+                                                    <div className="space-y-1">
+                                                        {daySchedules.map((schedule) => (
+                                                            <div
+                                                                key={schedule.id}
+                                                                className="px-2 py-1 rounded bg-blue-600/20 border border-blue-600/30 text-xs text-blue-200 truncate"
+                                                            >
+                                                                <div className="font-semibold truncate">{schedule.teamName}</div>
+                                                                <div className="opacity-75 flex items-center gap-1">
+                                                                    <Clock className="w-3 h-3" />
+                                                                    {schedule.startTime} · {schedule.preferredSpace}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             )
                                         })}
@@ -328,16 +324,34 @@ export function CalendarioPage() {
                         <div className="grid grid-cols-7" style={{ minHeight: '500px' }}>
                             {weekDays.map((date, i) => {
                                 const today = isToday(date)
+                                const daySchedules = getSchedulesForDate(date)
+                                    // Sort by start time
+                                    .sort((a, b) => a.startTime.localeCompare(b.startTime))
+
                                 return (
                                     <div
                                         key={i}
                                         className={`
-                      border-r border-gray-800 last:border-r-0 p-2
+                      border-r border-gray-800 last:border-r-0 p-2 space-y-2
                       ${today ? 'bg-primary-900/10' : 'bg-gray-900'}
-                      hover:bg-gray-800 cursor-pointer transition-colors
                     `}
                                     >
-                                        {/* Future: Events will go here */}
+                                        {/* Events */}
+                                        {daySchedules.map((schedule) => (
+                                            <div
+                                                key={schedule.id}
+                                                className="p-2 rounded-lg bg-blue-600/20 border border-blue-600/30 text-xs text-blue-200"
+                                            >
+                                                <div className="font-semibold text-sm mb-0.5">{schedule.teamName}</div>
+                                                <div className="flex items-center gap-1 opacity-75 mb-1">
+                                                    <Clock className="w-3 h-3" />
+                                                    {schedule.startTime} – {schedule.endTime}
+                                                </div>
+                                                <div className="opacity-60 bg-black/20 rounded px-1.5 py-0.5 inline-block">
+                                                    {schedule.preferredSpace}
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 )
                             })}

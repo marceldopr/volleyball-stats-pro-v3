@@ -9,8 +9,12 @@ import { useSeasonStore } from '@/stores/seasonStore'
 import { isValidWeekRange } from '@/utils/weekUtils'
 import { MOCK_SPACES, Space } from '@/types/spacesTypes'
 import { SpaceModal } from '@/components/settings/SpaceModal'
-import { MOCK_SCHEDULES, TrainingSchedule } from '@/types/trainingScheduleTypes'
+import { TrainingSchedule } from '@/types/trainingScheduleTypes'
 import { ScheduleModal } from '@/components/settings/ScheduleModal'
+import { useTrainingStore } from '@/stores/trainingStore'
+import { teamService, TeamDB } from '@/services/teamService'
+import { seasonService } from '@/services/seasonService'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 
 type SectionId = 'club' | 'temporada' | 'espacios' | 'horarios' | 'calendario' | 'usuarios' | 'notificaciones'
 
@@ -47,10 +51,13 @@ export function SettingsPage() {
   const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false)
   const [editingSpace, setEditingSpace] = useState<Space | undefined>(undefined)
 
-  // Training Schedules Config State (mock)
-  const [schedules, setSchedules] = useState<TrainingSchedule[]>(MOCK_SCHEDULES)
+  // Training Schedules Config State (from Store)
+  const { schedules, addSchedule, updateSchedule, toggleScheduleActive } = useTrainingStore()
+  const [teamsForSchedules, setTeamsForSchedules] = useState<TeamDB[]>([])
+  const [loadingTeams, setLoadingTeams] = useState(false)
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState<TrainingSchedule | undefined>(undefined)
+  const [preselectedTeam, setPreselectedTeam] = useState<{ id: string, name: string } | undefined>(undefined)
 
   // Calendar preferences (mock, read-only for now)
   const highlightSeason = true
@@ -63,6 +70,29 @@ export function SettingsPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDT, profile?.club_id])
+
+  // Load teams for Schedules section
+  const loadTeamsForSchedules = async () => {
+    if (!profile?.club_id) return
+    setLoadingTeams(true)
+    try {
+      // Get current season first
+      const season = await seasonService.getCurrentSeasonByClub(profile.club_id)
+      if (season) {
+        const teamsData = await teamService.getTeamsByClubAndSeason(profile.club_id, season.id)
+        setTeamsForSchedules(teamsData)
+        console.log('Teams loaded for schedules:', teamsData.length)
+      } else {
+        console.log('No active season found')
+        setTeamsForSchedules([])
+      }
+    } catch (error) {
+      console.error('Error loading teams for schedules:', error)
+      setTeamsForSchedules([])
+    } finally {
+      setLoadingTeams(false)
+    }
+  }
 
   const loadClubData = async () => {
     if (!profile?.club_id) return
@@ -460,32 +490,42 @@ export function SettingsPage() {
         )
 
       case 'horarios':
+        // Lazy load teams if they haven't been loaded yet and we are in this section
+        if (teamsForSchedules.length === 0 && !loadingTeams && isDT && profile?.club_id) {
+          loadTeamsForSchedules()
+        }
+
         const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+
+        console.log('Render Horarios:', { teamsCount: teamsForSchedules.length, schedulesCount: schedules.length, loadingTeams })
+
+        // Merge teams with their schedules
+        // We assume 1 schedule per team for now (taking the first active one, or just the first one found)
+        const teamRows = teamsForSchedules.map(team => {
+          const schedule = schedules.find(s => s.teamId === team.id)
+          return {
+            id: team.id,
+            name: getTeamDisplayName(team),
+            schedule
+          }
+        })
+
         return (
           <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-white mb-2">Horarios de entrenamiento</h1>
-                <p className="text-gray-400">Define los horarios base de entrenamiento de cada equipo</p>
+                <p className="text-gray-400">Planificación semanal para cada equipo</p>
               </div>
-              <Button
-                variant="primary"
-                size="md"
-                onClick={() => {
-                  setEditingSchedule(undefined)
-                  setIsScheduleModalOpen(true)
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  <span>Añadir horario</span>
-                </div>
-              </Button>
             </div>
 
             {/* List */}
-            {schedules.length > 0 ? (
+            {loadingTeams ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" />
+              </div>
+            ) : teamRows.length > 0 ? (
               <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
                 <table className="w-full text-left">
                   <thead className="bg-gray-900/50 text-gray-400 text-xs uppercase font-medium">
@@ -500,75 +540,101 @@ export function SettingsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-700">
-                    {schedules.map((schedule) => (
-                      <tr key={schedule.id} className="hover:bg-gray-700/50 transition-colors">
-                        <td className="px-6 py-4 font-medium text-white">
-                          {schedule.teamName}
-                        </td>
-                        <td className="px-6 py-4 text-gray-300">
-                          {schedule.days.map(d => dayNames[d]).join(' · ')}
-                        </td>
-                        <td className="px-6 py-4 text-gray-300">
-                          {schedule.startTime}–{schedule.endTime}
-                        </td>
-                        <td className="px-6 py-4 text-gray-300">
-                          {schedule.preferredSpace}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-700 text-gray-300">
-                            {schedule.period === 'season' ? 'Temp. actual' : 'Personalizado'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <button
-                            onClick={() => {
-                              const updated = schedules.map(s =>
-                                s.id === schedule.id ? { ...s, isActive: !s.isActive } : s
-                              )
-                              setSchedules(updated)
-                              toast.success(`Horario ${schedule.isActive ? 'desactivado' : 'activado'}`)
-                            }}
-                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${schedule.isActive ? 'bg-primary-500' : 'bg-gray-600'
-                              }`}
-                          >
-                            <span
-                              className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${schedule.isActive ? 'translate-x-5' : 'translate-x-1'
-                                }`}
-                            />
-                          </button>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={() => {
-                              setEditingSchedule(schedule)
-                              setIsScheduleModalOpen(true)
-                            }}
-                            className="text-primary-500 hover:text-primary-400 transition-colors"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {teamRows.map((row) => {
+                      const hasSchedule = !!row.schedule
+                      const schedule = row.schedule
+
+                      return (
+                        <tr key={row.id} className="hover:bg-gray-700/50 transition-colors">
+                          <td className="px-6 py-4 font-medium text-white">
+                            {row.name}
+                          </td>
+
+                          {hasSchedule && schedule ? (
+                            <>
+                              <td className="px-6 py-4 text-gray-300">
+                                {schedule.days.map(d => dayNames[d]).join(' · ')}
+                              </td>
+                              <td className="px-6 py-4 text-gray-300">
+                                {schedule.startTime}–{schedule.endTime}
+                              </td>
+                              <td className="px-6 py-4 text-gray-300">
+                                {schedule.preferredSpace}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-700 text-gray-300">
+                                  {schedule.period === 'season' ? 'Temp. actual' : 'Personalizado'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <button
+                                  onClick={() => {
+                                    toggleScheduleActive(schedule.id)
+                                    toast.success(`Horario ${schedule.isActive ? 'desactivado' : 'activado'}`)
+                                  }}
+                                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${schedule.isActive ? 'bg-primary-500' : 'bg-gray-600'
+                                    }`}
+                                >
+                                  <span
+                                    className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${schedule.isActive ? 'translate-x-5' : 'translate-x-1'
+                                      }`}
+                                  />
+                                </button>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <button
+                                  onClick={() => {
+                                    setEditingSchedule(schedule)
+                                    setPreselectedTeam(undefined)
+                                    setIsScheduleModalOpen(true)
+                                  }}
+                                  className="text-primary-500 hover:text-primary-400 transition-colors"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-6 py-4 text-gray-500">—</td>
+                              <td className="px-6 py-4 text-gray-500">—</td>
+                              <td className="px-6 py-4 text-gray-500">—</td>
+                              <td className="px-6 py-4">
+                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                  Sin asignación
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                {/* No toggle for unassigned */}
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingSchedule(undefined)
+                                    setPreselectedTeam({ id: row.id, name: row.name })
+                                    setIsScheduleModalOpen(true)
+                                  }}
+                                  className="text-xs"
+                                >
+                                  Asignar horario
+                                </Button>
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
             ) : (
               <div className="bg-gray-800 rounded-xl border border-gray-700 p-12 text-center">
-                <div className="bg-gray-900 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Clock className="w-8 h-8 text-gray-600" />
-                </div>
-                <h3 className="text-xl font-medium text-white mb-2">No hay horarios definidos</h3>
-                <p className="text-gray-400 mb-6 max-w-sm mx-auto">
-                  Crea el primer horario para definir cuándo entrena cada equipo y generar la planificación.
+                <h3 className="text-xl font-medium text-white mb-2">No hay equipos</h3>
+                <p className="text-gray-400">
+                  Crea equipos en la sección "Club" para poder asignarles horarios.
                 </p>
-                <Button
-                  variant="primary"
-                  size="md"
-                  onClick={() => setIsScheduleModalOpen(true)}
-                >
-                  Crear primer horario
-                </Button>
               </div>
             )}
 
@@ -576,14 +642,11 @@ export function SettingsPage() {
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 flex gap-3">
               <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-blue-400">
-                <p className="font-medium mb-1">Generación automática próximamente</p>
+                <p className="font-medium mb-1">Visualización centralizada</p>
                 <p className="text-blue-300/80">
-                  Estos horarios no crean entrenamientos todavía. En próximas actualizaciones, podrás generar todos los eventos del calendario con un solo clic.
+                  Ahora puedes ver y gestionar la planificación de todos tus equipos desde esta única pantalla.
                 </p>
               </div>
-              <span className="ml-auto text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded self-start">
-                Pronto
-              </span>
             </div>
           </div>
         )
@@ -870,21 +933,21 @@ export function SettingsPage() {
         onClose={() => {
           setIsScheduleModalOpen(false)
           setEditingSchedule(undefined)
+          setPreselectedTeam(undefined)
         }}
         schedule={editingSchedule}
+        preselectedTeam={preselectedTeam}
         onSave={(scheduleData) => {
           if (editingSchedule) {
             // Edit existing
-            const updated = schedules.map(s =>
-              s.id === editingSchedule.id ? { ...s, ...scheduleData } : s
-            )
-            setSchedules(updated)
-            toast.success('Horario actualizado (mock)')
+            updateSchedule(editingSchedule.id, scheduleData)
+            toast.success('Horario actualizado')
           } else {
             // Add new
             const newSchedule: TrainingSchedule = {
               id: Date.now().toString(),
-              teamName: scheduleData.teamName!,
+              teamId: preselectedTeam?.id || 'unknown',
+              teamName: preselectedTeam?.name || scheduleData.teamName || 'Equipo',
               days: scheduleData.days || [],
               startTime: scheduleData.startTime || '18:00',
               endTime: scheduleData.endTime || '19:30',
@@ -893,8 +956,8 @@ export function SettingsPage() {
               period: scheduleData.period || 'season',
               isActive: scheduleData.isActive ?? true
             }
-            setSchedules([...schedules, newSchedule])
-            toast.success('Horario creado (mock)')
+            addSchedule(newSchedule)
+            toast.success('Horario creado')
           }
         }}
       />

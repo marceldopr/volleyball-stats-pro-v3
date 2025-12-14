@@ -1,5 +1,6 @@
 export interface TrainingSchedule {
     id: string
+    teamId: string
     teamName: string
     days: number[] // 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
     startTime: string // "HH:mm" format
@@ -16,6 +17,7 @@ export interface TrainingSchedule {
 export const MOCK_SCHEDULES: TrainingSchedule[] = [
     {
         id: '1',
+        teamId: 'mock-team-1',
         teamName: 'Cadete F',
         days: [0, 2], // Lun, Mié
         startTime: '18:00',
@@ -27,6 +29,7 @@ export const MOCK_SCHEDULES: TrainingSchedule[] = [
     },
     {
         id: '2',
+        teamId: 'mock-team-2',
         teamName: 'Junior F',
         days: [1, 3], // Mar, Jue
         startTime: '20:00',
@@ -38,6 +41,7 @@ export const MOCK_SCHEDULES: TrainingSchedule[] = [
     },
     {
         id: '3',
+        teamId: 'mock-team-3',
         teamName: 'Senior M',
         days: [0, 2, 4], // Lun, Mié, Vie
         startTime: '21:00',

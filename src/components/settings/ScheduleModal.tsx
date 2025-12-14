@@ -7,6 +7,7 @@ interface ScheduleModalProps {
     isOpen: boolean
     onClose: () => void
     schedule?: TrainingSchedule
+    preselectedTeam?: { id: string, name: string }
     onSave?: (schedule: Partial<TrainingSchedule>) => void
 }
 
@@ -14,8 +15,8 @@ const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const MOCK_TEAMS = ['Cadete F', 'Cadete M', 'Junior F', 'Junior M', 'Senior F', 'Senior M']
 const MOCK_SPACES = ['Pista 1', 'Pista 2', 'Pista 3', 'Gimnasio', 'Patio exterior']
 
-export function ScheduleModal({ isOpen, onClose, schedule, onSave }: ScheduleModalProps) {
-    const [teamName, setTeamName] = useState(schedule?.teamName || '')
+export function ScheduleModal({ isOpen, onClose, schedule, preselectedTeam, onSave }: ScheduleModalProps) {
+    const [teamName, setTeamName] = useState(schedule?.teamName || preselectedTeam?.name || '')
     const [selectedDays, setSelectedDays] = useState<number[]>(schedule?.days || [])
     const [startTime, setStartTime] = useState(schedule?.startTime || '18:00')
     const [endTime, setEndTime] = useState(schedule?.endTime || '19:30')
@@ -24,7 +25,7 @@ export function ScheduleModal({ isOpen, onClose, schedule, onSave }: ScheduleMod
     const [period, setPeriod] = useState<'season' | 'custom'>(schedule?.period || 'season')
     const [isActive, setIsActive] = useState(schedule?.isActive ?? true)
 
-    // Update form state when schedule prop changes
+    // Update form state when schedule or preselectedTeam prop changes
     useEffect(() => {
         if (schedule) {
             setTeamName(schedule.teamName || '')
@@ -35,8 +36,18 @@ export function ScheduleModal({ isOpen, onClose, schedule, onSave }: ScheduleMod
             setAlternativeSpaces(schedule.alternativeSpaces || [])
             setPeriod(schedule.period || 'season')
             setIsActive(schedule.isActive ?? true)
+        } else if (preselectedTeam) {
+            // New schedule for specific team
+            setTeamName(preselectedTeam.name)
+            setSelectedDays([])
+            setStartTime('18:00')
+            setEndTime('19:30')
+            setPreferredSpace('')
+            setAlternativeSpaces([])
+            setPeriod('season')
+            setIsActive(true)
         } else {
-            // Reset form for new schedule
+            // Reset form for new schedule (generic)
             setTeamName('')
             setSelectedDays([])
             setStartTime('18:00')
@@ -46,7 +57,7 @@ export function ScheduleModal({ isOpen, onClose, schedule, onSave }: ScheduleMod
             setPeriod('season')
             setIsActive(true)
         }
-    }, [schedule])
+    }, [schedule, preselectedTeam])
 
     if (!isOpen) return null
 
@@ -69,7 +80,7 @@ export function ScheduleModal({ isOpen, onClose, schedule, onSave }: ScheduleMod
     const handleSave = () => {
         if (onSave) {
             onSave({
-                teamName,
+                teamName, // Will be correct from state
                 days: selectedDays,
                 startTime,
                 endTime,
@@ -90,7 +101,7 @@ export function ScheduleModal({ isOpen, onClose, schedule, onSave }: ScheduleMod
                     <div className="flex items-center gap-2">
                         <Clock className="w-5 h-5 text-primary-500" />
                         <h2 className="text-xl font-semibold text-white">
-                            {schedule ? 'Editar horario' : 'Añadir horario'}
+                            {schedule ? 'Editar horario' : (preselectedTeam ? `Asignar horario a ${preselectedTeam.name}` : 'Añadir horario')}
                         </h2>
                     </div>
                     <button
@@ -108,16 +119,25 @@ export function ScheduleModal({ isOpen, onClose, schedule, onSave }: ScheduleMod
                         <label className="block text-sm font-medium text-gray-300 mb-2">
                             Equipo *
                         </label>
-                        <select
-                            value={teamName}
-                            onChange={(e) => setTeamName(e.target.value)}
-                            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-                        >
-                            <option value="">Selecciona un equipo</option>
-                            {MOCK_TEAMS.map((team) => (
-                                <option key={team} value={team}>{team}</option>
-                            ))}
-                        </select>
+                        {preselectedTeam || schedule ? (
+                            <input
+                                type="text"
+                                value={teamName}
+                                disabled
+                                className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-4 py-2 text-gray-400 cursor-not-allowed"
+                            />
+                        ) : (
+                            <select
+                                value={teamName}
+                                onChange={(e) => setTeamName(e.target.value)}
+                                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+                            >
+                                <option value="">Selecciona un equipo</option>
+                                {MOCK_TEAMS.map((team) => (
+                                    <option key={team} value={team}>{team}</option>
+                                ))}
+                            </select>
+                        )}
                     </div>
 
                     {/* Days */}
@@ -132,8 +152,8 @@ export function ScheduleModal({ isOpen, onClose, schedule, onSave }: ScheduleMod
                                     type="button"
                                     onClick={() => handleDayToggle(index)}
                                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${selectedDays.includes(index)
-                                            ? 'bg-primary-600 text-white'
-                                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                        ? 'bg-primary-600 text-white'
+                                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                                         }`}
                                 >
                                     {day}
@@ -197,8 +217,8 @@ export function ScheduleModal({ isOpen, onClose, schedule, onSave }: ScheduleMod
                                     type="button"
                                     onClick={() => handleAlternativeSpaceToggle(space)}
                                     className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${alternativeSpaces.includes(space)
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                                         }`}
                                 >
                                     {space}
