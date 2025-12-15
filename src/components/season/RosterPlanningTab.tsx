@@ -244,7 +244,7 @@ export function RosterPlanningTab({
         toast.success(`${player.first_name} asignada a ${getTeamDisplayName(team)}${newStatus === 'exception' ? ' (excepción)' : ''}`)
     }
 
-    // Confirm continuity
+    // Confirm continuity or proposal
     const confirmContinuity = (player: PlayerWithAssignment) => {
         if (!player.proposedTeam) return
 
@@ -255,16 +255,16 @@ export function RosterPlanningTab({
             status: 'assigned'
         })
         setPlayerAssignments(updated)
-        toast.success(`Continuidad confirmada: ${player.first_name}`)
+        toast.success(`Asignación confirmada: ${player.first_name}`)
     }
 
     // Confirm all valid continuities
     const confirmAllContinuities = async () => {
         const toConfirm = Array.from(playerAssignments.values())
-            .filter(p => p.status === 'pending_confirmation' && p.proposedTeam)
+            .filter(p => (p.status === 'pending_confirmation' || p.status === 'needs_review') && p.proposedTeam)
 
         if (toConfirm.length === 0) {
-            toast.info('No hay continuidades pendientes de confirmar')
+            toast.info('No hay propuestas pendientes de confirmar')
             return
         }
 
@@ -277,7 +277,7 @@ export function RosterPlanningTab({
             })
         }
         setPlayerAssignments(updated)
-        toast.success(`${toConfirm.length} continuidades confirmadas`)
+        toast.success(`${toConfirm.length} propuestas confirmadas`)
     }
 
     // Remove assignment
@@ -347,9 +347,9 @@ export function RosterPlanningTab({
                         variant="primary"
                         icon={CheckCircle2}
                         onClick={confirmAllContinuities}
-                        disabled={stats.pendingConfirmation === 0}
+                        disabled={stats.pendingConfirmation === 0 && stats.needsReview === 0}
                     >
-                        Confirmar todas ({stats.pendingConfirmation})
+                        Confirmar todas ({stats.pendingConfirmation + stats.needsReview})
                     </Button>
                 </div>
 
@@ -470,7 +470,7 @@ export function RosterPlanningTab({
                                 </td>
                                 <td className="px-4 py-3 text-right">
                                     <div className="flex items-center justify-end gap-2">
-                                        {player.status === 'pending_confirmation' && player.proposedTeam && (
+                                        {(player.status === 'pending_confirmation' || player.status === 'needs_review') && player.proposedTeam && (
                                             <Button
                                                 variant="primary"
                                                 size="sm"
@@ -566,10 +566,10 @@ export function RosterPlanningTab({
                                         onClick={() => assignToTeam(selectedPlayer, team)}
                                         disabled={blocked}
                                         className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors ${blocked
-                                                ? 'bg-gray-900/50 border-red-500/30 cursor-not-allowed opacity-60'
-                                                : isRecommended
-                                                    ? 'bg-green-500/10 border-green-500/30 hover:border-green-500/50'
-                                                    : 'bg-gray-900 border-gray-700 hover:border-gray-600'
+                                            ? 'bg-gray-900/50 border-red-500/30 cursor-not-allowed opacity-60'
+                                            : isRecommended
+                                                ? 'bg-green-500/10 border-green-500/30 hover:border-green-500/50'
+                                                : 'bg-gray-900 border-gray-700 hover:border-gray-600'
                                             }`}
                                     >
                                         <div className="flex items-center gap-3">

@@ -132,5 +132,64 @@ export const playerService = {
             .eq('id', id)
 
         if (error) throw error
+    },
+
+    getPlayersWithTeam: async (clubId: string, seasonId: string | null): Promise<(PlayerDB & { team?: { id: string, name: string, category: string, gender: string } })[]> => {
+        // 1. Get all players
+        const { data: players, error: playersError } = await supabase
+            .from('club_players')
+            .select('*')
+            .eq('club_id', clubId)
+            .order('first_name', { ascending: true })
+
+        if (playersError) throw playersError
+
+        if (!seasonId || players.length === 0) {
+            return players
+        }
+
+        try {
+            // 2. Get assignments for the active season
+            const { data: assignments, error: assignmentsError } = await supabase
+                .from('player_team_season')
+                .select(`
+                    player_id,
+                    teams (
+                        id,
+                        custom_name,
+                        category,
+                        gender
+                    )
+                `)
+                .eq('season_id', seasonId)
+
+            if (assignmentsError) {
+                console.error('Error fetching team assignments:', assignmentsError)
+                return players // Return players without team info if this fails
+            }
+
+            // 3. Map assignments to players
+            const assignmentMap = new Map()
+            assignments?.forEach((a: any) => {
+                if (a.teams) {
+                    // Normalize the team object to have a 'name' property
+                    const team = a.teams
+                    const displayName = team.custom_name || `${team.category} ${team.gender === 'female' ? 'Femenino' : team.gender === 'male' ? 'Masculino' : 'Mixto'}`
+
+                    assignmentMap.set(a.player_id, {
+                        ...team,
+                        name: displayName
+                    })
+                }
+            })
+
+            return players.map(p => ({
+                ...p,
+                team: assignmentMap.get(p.id)
+            }))
+        } catch (error) {
+            console.error('Unexpected error fetching assignments:', error)
+            return players // Fallback: return players even if assignments fail
+        }
     }
 }

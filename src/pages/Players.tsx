@@ -16,7 +16,7 @@ export function Players() {
     const navigate = useNavigate()
     const { profile } = useAuthStore()
     const { isCoach, assignedTeamIds, loading: roleLoading } = useCurrentUserRole()
-    const [players, setPlayers] = useState<PlayerDB[]>([])
+    const [players, setPlayers] = useState<(PlayerDB & { team?: { name: string, category: string } })[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [positionFilter, setPositionFilter] = useState('all')
@@ -63,7 +63,8 @@ export function Players() {
                     }
                 }
             } else {
-                const data = await playerService.getPlayersByClub(profile.club_id)
+                const activeSeason = await seasonService.getCurrentSeasonByClub(profile.club_id)
+                const data = await playerService.getPlayersWithTeam(profile.club_id, activeSeason?.id || null)
                 setPlayers(data)
             }
         } catch (error) {
@@ -292,6 +293,9 @@ export function Players() {
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             Posición
                                         </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Equipo
+                                        </th>
                                         <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                             Estado
                                         </th>
@@ -321,6 +325,15 @@ export function Players() {
                                                     }`}>
                                                     {POSITION_NAMES[player.main_position as keyof typeof POSITION_NAMES] || player.main_position}
                                                 </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {player.team ? (
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                                                        {player.team.name}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-400 text-xs italic">Sin equipo</span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
                                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${player.is_active
