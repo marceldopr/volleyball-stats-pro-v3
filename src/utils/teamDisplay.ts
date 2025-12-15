@@ -1,19 +1,31 @@
 /**
  * Get the display name for a team without the club name.
- * Format: "Category Identifier Gender"
+ * 
+ * Format: {Category} {Suffix} {Gender}
+ * 
+ * Suffix priority:
+ * 1. custom_name (if set) - e.g., "A", "Taronja", "2"
+ * 2. identifier name/code from DB - e.g., "A", "Taronja"
+ * 3. (none)
  * 
  * Examples:
- * - "Cadet Verd Masculí"
- * - "Sènior Taronja Femení"
- * - "Infantil B Masculí"
+ * - custom_name "Taronja": "Cadete Taronja Femenino"
+ * - identifier "A" (letter): "Cadete A Femenino"
+ * - identifier "Taronja" (color): "Cadete Taronja Femenino"
+ * - no suffix: "Cadete Femenino"
  * 
- * @param team - The team object
+ * @param team - The team object with optional embedded identifier
  * @returns The formatted display name
  */
 export function getTeamDisplayName(team: {
     category_stage?: string
     custom_name?: string | null
     gender?: string
+    identifier?: {
+        name: string
+        type: 'letter' | 'color'
+        code: string | null
+    } | null
 }): string {
     const genderMap: Record<string, string> = {
         'male': 'Masculino',
@@ -22,9 +34,23 @@ export function getTeamDisplayName(team: {
     }
     const genderDisplay = team.gender ? (genderMap[team.gender] || team.gender) : undefined
 
+    // Determine suffix: custom_name has priority, then identifier
+    let suffix: string | undefined = undefined
+
+    if (team.custom_name && team.custom_name.trim()) {
+        suffix = team.custom_name.trim()
+    } else if (team.identifier) {
+        // For letters: use code if available, otherwise name
+        // For colors: use name
+        suffix = team.identifier.type === 'letter' && team.identifier.code
+            ? team.identifier.code
+            : team.identifier.name
+    }
+
+    // Always include category_stage first
     return [
         team.category_stage,
-        team.custom_name, // The 'label' or identifier (e.g. "A", "Verde")
+        suffix,
         genderDisplay
     ]
         .filter(Boolean)
@@ -33,7 +59,13 @@ export function getTeamDisplayName(team: {
 
 /**
  * Get the short display name for a team (without gender).
- * Format: "Category Identifier"
+ * 
+ * Format: {Category} {Suffix}
+ * 
+ * Suffix priority:
+ * 1. custom_name (if set)
+ * 2. identifier name/code
+ * 3. (none)
  * 
  * @param team - The team object
  * @returns The formatted short display name
@@ -41,11 +73,29 @@ export function getTeamDisplayName(team: {
 export function getTeamShortDisplayName(team: {
     category_stage?: string
     custom_name?: string | null
+    identifier?: {
+        name: string
+        type: 'letter' | 'color'
+        code: string | null
+    } | null
 }): string {
+    // Determine suffix: custom_name has priority, then identifier
+    let suffix: string | undefined = undefined
+
+    if (team.custom_name && team.custom_name.trim()) {
+        suffix = team.custom_name.trim()
+    } else if (team.identifier) {
+        suffix = team.identifier.type === 'letter' && team.identifier.code
+            ? team.identifier.code
+            : team.identifier.name
+    }
+
+    // Always include category_stage first
     return [
         team.category_stage,
-        team.custom_name
+        suffix
     ]
         .filter(Boolean)
         .join(' ')
 }
+

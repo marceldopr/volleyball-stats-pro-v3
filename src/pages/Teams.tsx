@@ -7,6 +7,7 @@ import { teamService, TeamDB } from '@/services/teamService'
 import { Button } from '@/components/ui/Button'
 
 import { TeamRosterManager } from '@/components/teams/TeamRosterManager'
+import { TeamIdentifierDot } from '@/components/teams/TeamIdentifierDot'
 import { useRoleScope } from '@/hooks/useRoleScope'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { toast } from 'sonner'
@@ -581,8 +582,9 @@ export function Teams() {
                         onClick={() => navigate(`/teams/${team.id}?tab=home`)}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {getTeamDisplayName(team)}
+                          <div className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white">
+                            <TeamIdentifierDot identifier={team.identifier} size="sm" />
+                            <span className="truncate">{getTeamDisplayName(team)}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
