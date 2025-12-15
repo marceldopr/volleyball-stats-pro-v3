@@ -49,7 +49,8 @@ export function NextSeasonPage() {
                     playerService.getPlayersByClub(profile.club_id)
                 ])
                 setTeams(teamsData)
-                setPlayers(playersData)
+                // Filter out inactive players (those who left the club)
+                setPlayers(playersData.filter(p => p.is_active))
             } catch (error) {
                 console.error('Error loading data:', error)
                 toast.error('Error al cargar datos')

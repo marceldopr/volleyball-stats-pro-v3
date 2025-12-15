@@ -30,6 +30,7 @@ import { toast } from 'sonner'
 interface PlayerWithAssignment extends PlayerDB {
     expectedCategory: CategoryResult
     previousTeam: TeamDB | null
+    previousTeamName: string | null
     previousTeamCategory: string | null
     proposedTeam: TeamDB | null
     assignedTeam: TeamDB | null
@@ -112,12 +113,23 @@ export function RosterPlanningTab({
                     // Previous team info
                     let previousTeam: TeamDB | null = null
                     let previousTeamCategory: string | null = null
+                    let previousTeamName: string | null = null
+
                     if (prevAssignment?.team) {
                         previousTeam = teams.find(t =>
                             t.category_stage === prevAssignment.team.category_stage &&
                             t.gender === prevAssignment.team.gender
                         ) || null
+
+                        // Normalize identifier if array (supabase join quirk)
+                        const rawTeam = prevAssignment.team as any
+                        const teamForDisplay = {
+                            ...rawTeam,
+                            identifier: Array.isArray(rawTeam.identifier) ? rawTeam.identifier[0] : rawTeam.identifier
+                        }
+
                         previousTeamCategory = prevAssignment.team.category_stage
+                        previousTeamName = getTeamDisplayName(teamForDisplay)
                     }
 
                     // Determine proposed team and status
@@ -156,6 +168,7 @@ export function RosterPlanningTab({
                         expectedCategory,
                         previousTeam,
                         previousTeamCategory,
+                        previousTeamName,
                         proposedTeam,
                         assignedTeam,
                         status,
@@ -448,8 +461,8 @@ export function RosterPlanningTab({
                                     )}
                                 </td>
                                 <td className="px-4 py-3">
-                                    {player.previousTeam ? (
-                                        <span className="text-gray-300">{player.previousTeamCategory}</span>
+                                    {player.previousTeamName ? (
+                                        <span className="text-gray-300">{player.previousTeamName}</span>
                                     ) : (
                                         <span className="text-gray-500 italic">—</span>
                                     )}
@@ -546,7 +559,7 @@ export function RosterPlanningTab({
                                 {selectedPlayer.previousTeam && (
                                     <>
                                         <span className="text-gray-500">Equipo anterior:</span>
-                                        <span className="text-gray-300">{selectedPlayer.previousTeamCategory}</span>
+                                        <span className="text-gray-300">{selectedPlayer.previousTeamName}</span>
                                     </>
                                 )}
                             </div>

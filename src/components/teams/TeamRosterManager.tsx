@@ -68,6 +68,8 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
     const [selectedPhase, setSelectedPhase] = useState<'start' | 'mid' | 'end'>('start')
     const [selectedEvaluation, setSelectedEvaluation] = useState<PlayerEvaluationDB | null>(null)
 
+    const [assignedPlayerIds, setAssignedPlayerIds] = useState<Set<string>>(new Set())
+
     useEffect(() => {
         loadRoster()
     }, [team.id, season.id])
@@ -76,16 +78,21 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
         if (!profile?.club_id) return
         setLoading(true)
         try {
-            // 1. Get roster links
+            // 1. Get roster links for THIS team
             const rosterData = await playerTeamSeasonService.getRosterByTeamAndSeason(team.id, season.id)
 
-            // 2. Get all players to map names (optimization: could fetch only needed IDs, but for now fetch all active)
+            // 2. Get ALL assignments for the season (to exclude players already in other teams)
+            const allAssignments = await playerTeamSeasonService.getPlayerAssignmentsBySeasonWithTeams(season.id)
+            const otherTeamAssignments = allAssignments.filter(a => a.team_id !== team.id)
+            setAssignedPlayerIds(new Set(otherTeamAssignments.map(a => a.player_id)))
+
+            // 3. Get all players to map names
             const allPlayers = await playerService.getPlayersByClub(profile.club_id)
 
-            // 3. Get all evaluations for this team/season
+            // 4. Get all evaluations for this team/season
             const evaluations = await playerEvaluationService.getEvaluationsByTeamSeason(team.id, season.id)
 
-            // 4. Merge data
+            // 5. Merge data
             const fullRoster = rosterData.map(item => {
                 const player = allPlayers.find(p => p.id === item.player_id)
                 const playerEvals = evaluations.filter(e => e.player_id === item.player_id)
@@ -294,7 +301,9 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
 
     // Filter available players
     const filteredAvailablePlayers = availablePlayers
-        .filter(p => !roster.some(r => r.player_id === p.id))
+        .filter(p => p.is_active) // Only active players
+        .filter(p => !roster.some(r => r.player_id === p.id)) // Not in *this* team
+        .filter(p => !assignedPlayerIds.has(p.id)) // Not in *other* teams
         .filter(p =>
             p.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             p.last_name.toLowerCase().includes(searchTerm.toLowerCase())
