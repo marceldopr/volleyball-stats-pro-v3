@@ -6,7 +6,6 @@ import { clubService } from '@/services/clubService'
 import { Button } from '@/components/ui/Button'
 import { toast } from 'sonner'
 import { useSeasonStore } from '@/stores/seasonStore'
-import { isValidWeekRange } from '@/utils/weekUtils'
 import { Space } from '@/types/spacesTypes'
 import { SpaceModal } from '@/components/settings/SpaceModal'
 import { useSpacesStore } from '@/stores/spacesStore'
@@ -42,15 +41,17 @@ export function SettingsPage() {
   const [savingClub, setSavingClub] = useState(false)
 
   // Season Config State
-  const { startWeek, endWeek, setSeasonRange, clearSeasonRange } = useSeasonStore()
-  const [localStartWeek, setLocalStartWeek] = useState(startWeek || '')
-  const [localEndWeek, setLocalEndWeek] = useState(endWeek || '')
-  const [seasonError, setSeasonError] = useState('')
+  const { setSeasonRange, seasons, activeSeasonId, selectedSeasonId, setSelectedSeasonId, loadSeasons } = useSeasonStore()
 
   // Spaces Config State (from Store)
   const { spaces, addSpace, updateSpace, toggleSpaceActive } = useSpacesStore()
   const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false)
   const [editingSpace, setEditingSpace] = useState<Space | undefined>(undefined)
+
+  // Season editing state
+  const [editingSeasonId, setEditingSeasonId] = useState<string | null>(null)
+  const [editSeasonStart, setEditSeasonStart] = useState('')
+  const [editSeasonEnd, setEditSeasonEnd] = useState('')
 
   // Training Schedules Config State (from Store)
   const { schedules, addSchedule, updateSchedule, toggleScheduleActive } = useTrainingStore()
@@ -64,10 +65,11 @@ export function SettingsPage() {
   const highlightSeason = true
 
 
-  // Load club data
+  // Load club data and seasons
   useEffect(() => {
     if (isDT && profile?.club_id) {
       loadClubData()
+      loadSeasons(profile.club_id)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDT, profile?.club_id])
@@ -142,16 +144,6 @@ export function SettingsPage() {
     { id: 'usuarios', name: 'Usuarios y permisos', icon: <UsersIcon className="w-5 h-5" />, badge: 'Pronto' },
     { id: 'notificaciones', name: 'Notificaciones', icon: <Bell className="w-5 h-5" />, badge: 'Pronto' }
   ]
-
-  // Format week date helpers
-  const formatWeekDate = (weekId: string, type: 'start' | 'end') => {
-    if (!weekId) return ''
-    const [year, week] = weekId.split('-W')
-    const simple = new Date(parseInt(year), 0, 1 + (parseInt(week) - 1) * 7)
-    const dayOffset = type === 'start' ? 1 - simple.getDay() : 7 - simple.getDay()
-    simple.setDate(simple.getDate() + dayOffset)
-    return simple.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })
-  }
 
   // Render active section content
   const renderContent = () => {
@@ -239,7 +231,7 @@ export function SettingsPage() {
                     Temporada activa
                   </label>
                   <div className="bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-gray-400">
-                    {startWeek && endWeek ? `${startWeek} a ${endWeek}` : 'No configurada'}
+                    {seasons.find(s => s.id === activeSeasonId)?.name || 'No configurada'}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">Configura en la sección Temporada</p>
                 </div>
@@ -262,113 +254,185 @@ export function SettingsPage() {
         )
 
       case 'temporada':
+        // Helper to format date as DD/MM/YY
+        // Get active season name
+        const activeSeason = seasons.find(s => s.status === 'active')
+
+        // Status badge colors
+        const getStatusBadge = (status: string) => {
+          switch (status) {
+            case 'active': return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-500/20 text-green-400 border border-green-500/30">Activa</span>
+            case 'draft': return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">Borrador</span>
+            case 'archived': return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-500/20 text-gray-400 border border-gray-500/30">Archivada</span>
+            default: return null
+          }
+        }
+
         return (
           <div className="space-y-6">
             <div>
-              <h1 className="text-3xl font-bold text-white mb-2">Temporada</h1>
-              <p className="text-gray-400">Define el rango de la temporada deportiva</p>
+              <h1 className="text-3xl font-bold text-white mb-2">Gestión de Temporadas</h1>
+              <p className="text-gray-400">
+                {activeSeason
+                  ? <span>Temporada activa: <strong className="text-white">{activeSeason.name}</strong></span>
+                  : 'No hay temporada activa'}
+              </p>
             </div>
 
-            <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 max-w-2xl">
-              <div className="space-y-6">
-                {/* Week Range Inputs */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
-                      Semana de inicio
-                    </label>
-                    <input
-                      type="week"
-                      value={localStartWeek}
-                      onChange={(e) => {
-                        setLocalStartWeek(e.target.value)
-                        setSeasonError('')
-                      }}
-                      className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-                    />
-                    {localStartWeek && (
-                      <p className="text-xs text-gray-400 mt-1">
-                        Lunes: {formatWeekDate(localStartWeek, 'start')}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
-                      Semana de fin
-                    </label>
-                    <input
-                      type="week"
-                      value={localEndWeek}
-                      onChange={(e) => {
-                        setLocalEndWeek(e.target.value)
-                        setSeasonError('')
-                      }}
-                      className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-                    />
-                    {localEndWeek && (
-                      <p className="text-xs text-gray-400 mt-1">
-                        Domingo: {formatWeekDate(localEndWeek, 'end')}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Validation Error */}
-                {seasonError && (
-                  <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                    <p className="text-sm text-red-400">{seasonError}</p>
-                  </div>
-                )}
-
-                {/* Current Season Info */}
-                {(startWeek || endWeek) && (
-                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
-                    <p className="text-sm text-blue-400">
-                      {startWeek && endWeek
-                        ? `Temporada actual: ${startWeek} a ${endWeek}`
-                        : 'Configuración incompleta'}
-                    </p>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex gap-3 pt-4">
-                  <Button
-                    variant="primary"
-                    size="md"
-                    icon={Save}
-                    onClick={() => {
-                      if (!localStartWeek || !localEndWeek) {
-                        setSeasonError('Debes seleccionar ambas semanas')
-                        return
-                      }
-                      if (!isValidWeekRange(localStartWeek, localEndWeek)) {
-                        setSeasonError('La semana final no puede ser anterior a la semana inicial')
-                        return
-                      }
-                      setSeasonRange(localStartWeek, localEndWeek)
-                      setSeasonError('')
-                      toast.success('Temporada configurada correctamente')
-                    }}
-                    disabled={!localStartWeek || !localEndWeek}
-                  >
-                    Guardar Temporada
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="md"
-                    onClick={() => {
-                      setLocalStartWeek('')
-                      setLocalEndWeek('')
-                      clearSeasonRange()
-                      setSeasonError('')
-                      toast.success('Temporada restablecida')
-                    }}
-                  >
-                    Restablecer
-                  </Button>
-                </div>
+            {/* Seasons List */}
+            <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-white">Todas las temporadas</h2>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    const name = prompt('Nombre de la nueva temporada (ej: 2026/27):')
+                    if (name && profile?.club_id) {
+                      seasonService.createDraftSeason(profile.club_id, name)
+                        .then(() => {
+                          loadSeasons(profile.club_id)
+                          toast.success('Temporada creada como borrador')
+                        })
+                        .catch(() => toast.error('Error al crear temporada'))
+                    }
+                  }}
+                >
+                  + Nueva temporada
+                </Button>
               </div>
+
+              {seasons.length === 0 ? (
+                <div className="px-6 py-8 text-center text-gray-400">
+                  No hay temporadas configuradas para este club.
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left text-xs uppercase tracking-wider text-gray-400 border-b border-gray-700">
+                      <th className="px-6 py-3">Nombre</th>
+                      <th className="px-6 py-3">Inicio</th>
+                      <th className="px-6 py-3">Fin</th>
+                      <th className="px-6 py-3">Estado</th>
+                      <th className="px-6 py-3 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-700">
+                    {seasons.map(season => (
+                      <tr key={season.id} className="hover:bg-gray-700/50">
+                        <td className="px-6 py-4 font-medium text-white">{season.name}</td>
+                        <td className="px-6 py-4 text-gray-300">
+                          {editingSeasonId === season.id ? (
+                            <input
+                              type="week"
+                              value={editSeasonStart}
+                              onChange={(e) => setEditSeasonStart(e.target.value)}
+                              className="bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white text-sm"
+                            />
+                          ) : (
+                            season.start_date || '—'
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-gray-300">
+                          {editingSeasonId === season.id ? (
+                            <input
+                              type="week"
+                              value={editSeasonEnd}
+                              onChange={(e) => setEditSeasonEnd(e.target.value)}
+                              className="bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white text-sm"
+                            />
+                          ) : (
+                            season.end_date || '—'
+                          )}
+                        </td>
+                        <td className="px-6 py-4">{getStatusBadge(season.status)}</td>
+                        <td className="px-6 py-4 text-right space-x-2">
+                          {editingSeasonId === season.id ? (
+                            <>
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => {
+                                  if (!editSeasonStart || !editSeasonEnd) {
+                                    toast.error('Ambas semanas son requeridas')
+                                    return
+                                  }
+                                  seasonService.updateSeason(season.id, {
+                                    start_date: editSeasonStart,
+                                    end_date: editSeasonEnd
+                                  })
+                                    .then(() => {
+                                      loadSeasons(profile!.club_id)
+                                      // Also update the calendar highlighting range
+                                      setSeasonRange(editSeasonStart, editSeasonEnd)
+                                      setEditingSeasonId(null)
+                                      toast.success('Semanas actualizadas')
+                                    })
+                                    .catch(() => toast.error('Error al guardar'))
+                                }}
+                              >
+                                Guardar
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => setEditingSeasonId(null)}
+                              >
+                                Cancelar
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              {/* Edit button for ALL seasons */}
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingSeasonId(season.id)
+                                  setEditSeasonStart(season.start_date || '')
+                                  setEditSeasonEnd(season.end_date || '')
+                                }}
+                              >
+                                Editar
+                              </Button>
+                              {season.status === 'draft' && (
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={() => {
+                                    if (!season.start_date || !season.end_date) {
+                                      toast.error('Define semanas de inicio y fin antes de activar')
+                                      return
+                                    }
+                                    if (confirm(`¿Activar "${season.name}"? La temporada actual será archivada.`)) {
+                                      seasonService.setActiveSeason(profile!.club_id!, season.id)
+                                        .then(() => {
+                                          loadSeasons(profile!.club_id)
+                                          // Update calendar highlighting to new active season
+                                          setSeasonRange(season.start_date!, season.end_date!)
+                                          toast.success(`Temporada "${season.name}" activada`)
+                                        })
+                                        .catch((err) => toast.error(err.message || 'Error al activar'))
+                                    }
+                                  }}
+                                >
+                                  Activar
+                                </Button>
+                              )}
+                              {season.status === 'active' && (
+                                <span className="text-xs text-green-400 font-medium ml-2">En uso</span>
+                              )}
+                              {season.status === 'archived' && (
+                                <span className="text-xs text-gray-500 ml-2">Archivada</span>
+                              )}
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         )
@@ -495,18 +559,26 @@ export function SettingsPage() {
 
         const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
-        console.log('Render Horarios:', { teamsCount: teamsForSchedules.length, schedulesCount: schedules.length, loadingTeams })
+        // Filter schedules by selected season
+        const currentSeasonId = selectedSeasonId || activeSeasonId
+        const filteredSchedules = currentSeasonId
+          ? schedules.filter(s => s.seasonId === currentSeasonId)
+          : schedules
 
-        // Merge teams with their schedules
-        // We assume 1 schedule per team for now (taking the first active one, or just the first one found)
+        console.log('Render Horarios:', { teamsCount: teamsForSchedules.length, schedulesCount: filteredSchedules.length, selectedSeasonId, loadingTeams })
+
+        // Merge teams with their schedules (for this season)
         const teamRows = teamsForSchedules.map(team => {
-          const schedule = schedules.find(s => s.teamId === team.id)
+          const schedule = filteredSchedules.find(s => s.teamId === team.id)
           return {
             id: team.id,
             name: getTeamDisplayName(team),
             schedule
           }
         })
+
+        // Get selectable seasons (active + drafts)
+        const selectableSeasons = seasons.filter(s => s.status === 'active' || s.status === 'draft')
 
         return (
           <div className="space-y-6">
@@ -515,6 +587,34 @@ export function SettingsPage() {
               <div>
                 <h1 className="text-3xl font-bold text-white mb-2">Horarios de entrenamiento</h1>
                 <p className="text-gray-400">Planificación semanal para cada equipo</p>
+              </div>
+              <div className="flex items-center gap-3">
+                {/* Season Selector */}
+                <select
+                  value={selectedSeasonId || activeSeasonId || ''}
+                  onChange={(e) => setSelectedSeasonId(e.target.value || null)}
+                  className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+                >
+                  {selectableSeasons.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} {s.status === 'active' ? '(activa)' : '(borrador)'}
+                    </option>
+                  ))}
+                </select>
+                {/* Clone button for draft seasons */}
+                {selectedSeasonId && selectedSeasonId !== activeSeasonId && activeSeasonId && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      const { cloneSchedulesToSeason } = useTrainingStore.getState()
+                      cloneSchedulesToSeason(activeSeasonId, selectedSeasonId)
+                      toast.success('Horarios clonados desde temporada activa')
+                    }}
+                  >
+                    Clonar desde activa
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -942,6 +1042,7 @@ export function SettingsPage() {
             // Add new
             const newSchedule: TrainingSchedule = {
               id: Date.now().toString(),
+              seasonId: selectedSeasonId || activeSeasonId || 'unknown-season',
               teamId: preselectedTeam?.id || 'unknown',
               teamName: preselectedTeam?.name || scheduleData.teamName || 'Equipo',
               days: scheduleData.days || [],

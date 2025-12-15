@@ -225,7 +225,8 @@ export function Teams() {
       const newSeason = await seasonService.createSeason({
         club_id: profile.club_id,
         ...seasonFormData,
-        is_current: true
+        is_current: true,
+        status: 'active'
       })
       setCurrentSeason(newSeason)
       setShowSeasonModal(false)

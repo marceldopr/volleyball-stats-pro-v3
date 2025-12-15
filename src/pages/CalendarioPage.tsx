@@ -10,14 +10,23 @@ type ViewMode = 'month' | 'week'
 export function CalendarioPage() {
     const [viewMode, setViewMode] = useState<ViewMode>('month')
     const [currentDate, setCurrentDate] = useState(new Date())
-    const { startWeek, endWeek } = useSeasonStore()
+    const { startWeek, endWeek, seasons, activeSeasonId, selectedSeasonId, setSelectedSeasonId } = useSeasonStore()
     const { schedules } = useTrainingStore()
+
+    // Get selectable seasons (active + drafts)
+    const selectableSeasons = seasons.filter(s => s.status === 'active' || s.status === 'draft')
+    const currentSeasonId = selectedSeasonId || activeSeasonId
+
+    // Filter schedules by selected season
+    const filteredSchedules = currentSeasonId
+        ? schedules.filter(s => s.seasonId === currentSeasonId)
+        : schedules
 
     // Helper to check if a schedule matches a specific date (sorted by time)
     const getSchedulesForDate = (date: Date): TrainingSchedule[] => {
         const dayOfWeek = (date.getDay() + 6) % 7 // Convert Sunday=0 to Monday=0, Sunday=6
         // Filter active schedules that match the day of week, then sort by start time
-        return schedules
+        return filteredSchedules
             .filter(s => s.isActive && s.days.includes(dayOfWeek))
             .sort((a, b) => a.startTime.localeCompare(b.startTime))
     }
@@ -185,6 +194,21 @@ export function CalendarioPage() {
                                 Semana
                             </button>
                         </div>
+
+                        {/* Season Selector */}
+                        {selectableSeasons.length > 0 && (
+                            <select
+                                value={currentSeasonId || ''}
+                                onChange={(e) => setSelectedSeasonId(e.target.value || null)}
+                                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+                            >
+                                {selectableSeasons.map(s => (
+                                    <option key={s.id} value={s.id}>
+                                        {s.name} {s.status === 'active' ? '(activa)' : '(borrador)'}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
 
                         {/* Navigation */}
                         <div className="flex items-center gap-4">

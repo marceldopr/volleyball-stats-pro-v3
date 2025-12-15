@@ -93,6 +93,7 @@ export function Sidebar() {
         items: [
           { name: 'Dashboard Club', href: '/club/dashboard', icon: BarChart3 },
           { name: 'Salud & Disponibilidad', href: '/salud-disponibilidad', icon: Activity },
+          { name: 'Próxima Temporada', href: '/next-season', icon: Calendar },
           { name: 'Planificación', href: '/reports/team-plans', icon: FileText },
           { name: 'Informes', href: '/reports/players', icon: BarChart3 }
         ]

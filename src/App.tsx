@@ -34,6 +34,7 @@ import { RoleGuard } from '@/components/routing/RoleGuard'
 import { Home } from './pages/Home'
 import { CalendarioPage } from './pages/CalendarioPage'
 import { SaludDisponibilidadPage } from './pages/SaludDisponibilidadPage'
+import { NextSeasonPage } from './pages/NextSeasonPage'
 
 function App() {
   const { isDarkMode } = useThemeStore()
@@ -191,6 +192,11 @@ function App() {
                     <Route path="/exports" element={
                       <RoleGuard allowedForDT>
                         <Exports />
+                      </RoleGuard>
+                    } />
+                    <Route path="/next-season" element={
+                      <RoleGuard allowedForDT>
+                        <NextSeasonPage />
                       </RoleGuard>
                     } />
 
