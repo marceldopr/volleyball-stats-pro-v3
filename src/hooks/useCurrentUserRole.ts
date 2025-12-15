@@ -23,7 +23,8 @@ export function useCurrentUserRole(): UseCurrentUserRoleReturn {
     const { profile } = useAuthStore()
 
     const [assignedTeamIds, setAssignedTeamIds] = useState<string[]>([])
-    const [loading, setLoading] = useState(false)
+    // Start loading as true until we determine if we need to fetch teams
+    const [loading, setLoading] = useState(true)
 
     const role = profile?.role || null
     const isDT = role === 'dt'
@@ -32,12 +33,13 @@ export function useCurrentUserRole(): UseCurrentUserRoleReturn {
 
     useEffect(() => {
         const fetchAssignedTeams = async () => {
-            // console.log('[useCurrentUserRole] Starting fetch:', { isCoach, profileId: profile?.id, clubId: profile?.club_id })
+            // console.log('[useCurrentUserRole] Starting fetch:', { isCoach, profileId: profile?.id, clubId: profile?.club_id, loading })
 
-            // Only fetch assignments for coaches
+            // Only fetch assignments for coaches - for non-coaches, finish loading immediately
             if (!isCoach || !profile?.id || !profile?.club_id) {
                 // console.log('[useCurrentUserRole] Skipping fetch - not coach or missing data')
                 setAssignedTeamIds([])
+                setLoading(false)
                 return
             }
 

@@ -305,41 +305,97 @@ export const teamStatsService = {
      */
     async getNextEvent(teamId: string): Promise<TeamHomeSummary['nextEvent']> {
         try {
-            // Get next match
+            const now = new Date().toISOString()
+
+            // 1. Get next match
             const { data: nextMatch } = await supabase
                 .from('matches')
                 .select('match_date, opponent_name, location, home_away')
                 .eq('team_id', teamId)
-
                 .in('status', ['planned', 'in_progress'])
-                .gte('match_date', new Date().toISOString())
+                .gte('match_date', now)
                 .order('match_date', { ascending: true })
                 .limit(1)
                 .single()
 
-            if (nextMatch) {
-                const matchDate = new Date(nextMatch.match_date)
-                const dateStr = matchDate.toLocaleDateString('es-ES', {
-                    weekday: 'long',
-                    day: 'numeric',
-                    month: 'long'
-                })
-                const timeStr = matchDate.toLocaleTimeString('es-ES', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                })
-                const location = nextMatch.location || 'Por definir'
+            // 2. Get next training
+            const { data: nextTraining } = await supabase
+                .from('trainings')
+                .select('date, start_time, end_time, location')
+                .eq('team_id', teamId)
+                .gte('date', now)
+                .order('date', { ascending: true })
+                .limit(1)
+                .single()
 
+            let nextEvent = null
+
+            // Helper to format date/time
+            const formatEventDate = (date: Date) => {
                 return {
-                    type: 'match',
-                    label: `Partido vs ${nextMatch.opponent_name} - ${dateStr} ${timeStr} · ${location}`,
-                    date: nextMatch.match_date
+                    dateStr: date.toLocaleDateString('es-ES', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long'
+                    }),
+                    timeStr: date.toLocaleTimeString('es-ES', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })
                 }
             }
 
-            // TODO: Check for next training when training system is implemented
+            // Compare and select the earliest event
+            let selectedEvent: 'match' | 'training' | null = null
 
-            return null
+            if (nextMatch && nextTraining) {
+                const matchDate = new Date(nextMatch.match_date)
+                const trainingDate = new Date(nextTraining.date)
+                // If training has time, combine it
+                if (nextTraining.start_time) {
+                    const [hours, minutes] = nextTraining.start_time.split(':')
+                    trainingDate.setHours(parseInt(hours), parseInt(minutes))
+                }
+
+                selectedEvent = matchDate < trainingDate ? 'match' : 'training'
+            } else if (nextMatch) {
+                selectedEvent = 'match'
+            } else if (nextTraining) {
+                selectedEvent = 'training'
+            }
+
+            // Format the selected event
+            if (selectedEvent === 'match' && nextMatch) {
+                const matchDate = new Date(nextMatch.match_date)
+                const { dateStr, timeStr } = formatEventDate(matchDate)
+                const location = nextMatch.location || 'Por definir'
+
+                nextEvent = {
+                    type: 'match' as const,
+                    label: `Partido vs ${nextMatch.opponent_name} - ${dateStr} ${timeStr} · ${location}`,
+                    date: nextMatch.match_date
+                }
+            } else if (selectedEvent === 'training' && nextTraining) {
+                // Construct training date with time if available
+                const trainingDate = new Date(nextTraining.date)
+                if (nextTraining.start_time) {
+                    const [hours, minutes] = nextTraining.start_time.split(':')
+                    trainingDate.setHours(parseInt(hours), parseInt(minutes))
+                }
+
+                const { dateStr } = formatEventDate(trainingDate)
+                const location = nextTraining.location || 'Pista entrenamiento'
+                const timeDisplay = nextTraining.start_time ? ` ${nextTraining.start_time}` : ''
+
+                nextEvent = {
+                    type: 'training' as const,
+                    label: `Entrenamiento - ${dateStr}${timeDisplay} · ${location}`,
+                    date: trainingDate.toISOString()
+                }
+            }
+
+            return nextEvent
+
         } catch (error) {
             console.error('Error fetching next event:', error)
             return null

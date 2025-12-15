@@ -1,4 +1,4 @@
-import { Navigate, useLocation } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 
@@ -8,8 +8,7 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
     const { session, profile, loading } = useAuthStore()
-    const { isCoach, loading: roleLoading } = useCurrentUserRole()
-    const location = useLocation()
+    const { loading: roleLoading } = useCurrentUserRole()
 
     if (loading || roleLoading) {
         return (
@@ -26,10 +25,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
         return <Navigate to="/login" replace />
     }
 
-    // Redirect coaches to /teams if they're on the root path
-    if (isCoach && location.pathname === '/') {
-        return <Navigate to="/teams" replace />
-    }
+    // Redirect block removed here
 
     return <>{children}</>
 }

@@ -16,6 +16,7 @@ import { teamService, TeamDB } from '@/services/teamService';
 import { teamStatsService, TeamHomeSummary } from '@/services/teamStatsService';
 import { clubStatsService, ClubOverviewSummary } from '@/services/clubStatsService';
 import { getTeamDisplayName } from '@/utils/teamDisplay';
+import { TeamIdentifierDot } from '@/components/teams/TeamIdentifierDot';
 import { formatWinLossDisplay } from '@/utils/formatters';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -28,7 +29,7 @@ type HomeTab = 'club' | string; // 'club' or teamId
 export function Home() {
     const navigate = useNavigate()
     const { profile } = useAuthStore()
-    const { isDT, isCoach, assignedTeamIds } = useRoleScope()
+    const { isDT, isCoach, assignedTeamIds, loading: roleLoading } = useRoleScope()
 
     const [teams, setTeams] = useState<TeamDB[]>([])
     const [activeTab, setActiveTab] = useState<HomeTab | null>(null)
@@ -41,10 +42,11 @@ export function Home() {
     const [loadingClubSummary, setLoadingClubSummary] = useState(false)
     const [isTrainingModalOpen, setIsTrainingModalOpen] = useState(false)
 
-    // Load teams and set initial tab
+    // Load teams and set initial tab - wait for role data to be ready
     useEffect(() => {
         async function loadTeams() {
-            if (!profile?.club_id) return
+            // Wait until role loading is complete before fetching
+            if (roleLoading || !profile?.club_id) return
 
             try {
                 setLoading(true)
@@ -76,7 +78,7 @@ export function Home() {
         }
 
         loadTeams()
-    }, [profile?.club_id, isDT, isCoach, assignedTeamIds])
+    }, [profile?.club_id, isDT, isCoach, assignedTeamIds, roleLoading])
 
     // Load team summary when activeTab is a team ID
     useEffect(() => {
@@ -206,12 +208,13 @@ export function Home() {
                                 key={team.id}
                                 onClick={() => setActiveTab(team.id)}
                                 className={cn(
-                                    "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap",
+                                    "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap flex items-center gap-1.5",
                                     activeTab === team.id
                                         ? "bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 border-b-2 border-primary-500"
                                         : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50"
                                 )}
                             >
+                                <TeamIdentifierDot identifier={team.identifier} size="sm" />
                                 {getTeamDisplayName(team)}
                             </button>
                         ))}

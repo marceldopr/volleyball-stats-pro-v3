@@ -26,7 +26,7 @@ interface EnrichedTeam extends TeamDB {
 
 export function Teams() {
   const { profile } = useAuthStore()
-  const { isCoach, isDT, assignedTeamIds } = useRoleScope()
+  const { isCoach, isDT, assignedTeamIds, loading: roleLoading } = useRoleScope()
   const navigate = useNavigate()
 
   // State
@@ -62,12 +62,12 @@ export function Teams() {
   })
   const [creatingSeason, setCreatingSeason] = useState(false)
 
-  // Load initial data
+  // Load initial data - wait for role loading to complete
   useEffect(() => {
-    if (profile?.club_id) {
+    if (!roleLoading && profile?.club_id) {
       loadData()
     }
-  }, [profile?.club_id, isCoach, isDT, assignedTeamIds])
+  }, [profile?.club_id, isCoach, isDT, assignedTeamIds, roleLoading])
 
   const loadTeams = async (clubId: string, seasonId: string) => {
     try {

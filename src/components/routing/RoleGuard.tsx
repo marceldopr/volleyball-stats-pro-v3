@@ -8,15 +8,23 @@ type RoleGuardProps = {
 };
 
 export function RoleGuard({ allowedForDT, allowedForCoach, children }: RoleGuardProps) {
-    const { isDT, isCoach } = useRoleScope();
+    const { isDT, isCoach, loading } = useRoleScope();
+
+    // Wait for role to be determined before checking permissions
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-96">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+            </div>
+        );
+    }
 
     const isAllowed =
         (allowedForDT && isDT) ||
         (allowedForCoach && isCoach);
 
     if (!isAllowed) {
-        // You might want to redirect to a specific "unauthorized" page or just home
-        // For now, redirecting to root which handles redirects based on role usually
+        // Redirect to home if not authorized
         return <Navigate to="/" replace />;
     }
 
