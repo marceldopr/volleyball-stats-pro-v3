@@ -1,5 +1,6 @@
 import { Building2, Calendar, MapPin, Bell, Users as UsersIcon, Clock, Save, Edit, StickyNote, ChevronRight, AlertCircle } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 import { clubService } from '@/services/clubService'
@@ -15,8 +16,10 @@ import { useTrainingStore } from '@/stores/trainingStore'
 import { teamService, TeamDB } from '@/services/teamService'
 import { seasonService } from '@/services/seasonService'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
+import { CategoriesSection } from '@/components/settings/CategoriesSection'
+import { Layers } from 'lucide-react'
 
-type SectionId = 'club' | 'temporada' | 'espacios' | 'horarios' | 'calendario' | 'usuarios' | 'notificaciones'
+type SectionId = 'club' | 'categorias' | 'temporada' | 'espacios' | 'horarios' | 'calendario' | 'usuarios' | 'notificaciones'
 
 interface Section {
   id: SectionId
@@ -28,9 +31,18 @@ interface Section {
 export function SettingsPage() {
   const { profile } = useAuthStore()
   const { isDT } = useCurrentUserRole()
+  const [searchParams] = useSearchParams()
 
   // Navigation state
   const [activeSection, setActiveSection] = useState<SectionId>('club')
+
+  // Read section from URL on mount
+  useEffect(() => {
+    const sectionParam = searchParams.get('section')
+    if (sectionParam && ['club', 'categorias', 'temporada', 'espacios', 'horarios', 'calendario', 'usuarios', 'notificaciones'].includes(sectionParam)) {
+      setActiveSection(sectionParam as SectionId)
+    }
+  }, [searchParams])
 
   // Club Config State
   const [clubName, setClubName] = useState('')
@@ -137,6 +149,7 @@ export function SettingsPage() {
   // Sidebar sections
   const sections: Section[] = [
     { id: 'club', name: 'Club', icon: <Building2 className="w-5 h-5" /> },
+    { id: 'categorias', name: 'Categorías', icon: <Layers className="w-5 h-5" /> },
     { id: 'temporada', name: 'Temporada', icon: <Clock className="w-5 h-5" /> },
     { id: 'espacios', name: 'Espacios', icon: <MapPin className="w-5 h-5" /> },
     { id: 'horarios', name: 'Horarios de entrenamiento', icon: <Clock className="w-5 h-5" /> },
@@ -252,6 +265,11 @@ export function SettingsPage() {
             )}
           </div>
         )
+
+      case 'categorias':
+        return profile?.club_id ? (
+          <CategoriesSection clubId={profile.club_id} />
+        ) : null
 
       case 'temporada':
         // Helper to format date as DD/MM/YY

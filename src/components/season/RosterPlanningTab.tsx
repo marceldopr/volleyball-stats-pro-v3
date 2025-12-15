@@ -6,6 +6,7 @@
  * - Hard block: Cannot assign to lower category
  * - Soft warning: Can assign to higher category with override
  * - Bulk confirmation for valid continuities
+ * - DB-based category calculation (source of truth from club_categories)
  */
 
 import { useState, useEffect, useMemo } from 'react'
@@ -14,22 +15,22 @@ import { Button } from '@/components/ui/Button'
 import { TeamDB } from '@/services/teamService'
 import { PlayerDB } from '@/services/playerService'
 import { playerTeamSeasonService, PlayerTeamSeasonDB } from '@/services/playerTeamSeasonService'
+import { categoryService, CategoryDB } from '@/services/categoryService'
 import {
-    validateAssignment,
-    getRecommendedCategory,
-    getCategoryAgeDescription,
-    getCategoryIndex,
+    getExpectedCategoryFromDB,
+    validateAssignmentFromDB,
+    getCategoryIndexFromDB,
     AssignmentStatus,
-    CategoryStage
+    CategoryResult
 } from '@/utils/categoryUtils'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { toast } from 'sonner'
 
 // Extended player info with assignment data
 interface PlayerWithAssignment extends PlayerDB {
-    recommendedCategory: CategoryStage
+    expectedCategory: CategoryResult
     previousTeam: TeamDB | null
-    previousTeamCategory: CategoryStage | null
+    previousTeamCategory: string | null
     proposedTeam: TeamDB | null
     assignedTeam: TeamDB | null
     status: AssignmentStatus
@@ -37,11 +38,12 @@ interface PlayerWithAssignment extends PlayerDB {
 }
 
 interface RosterPlanningTabProps {
-    teams: TeamDB[]                    // Teams for next season
-    players: PlayerDB[]                // All players in club
-    previousSeasonId: string | null    // ID of active/previous season
-    nextSeasonId: string               // ID of draft season
-    seasonStartDate: string            // Start date of next season
+    teams: TeamDB[]
+    players: PlayerDB[]
+    previousSeasonId: string | null
+    nextSeasonId: string
+    seasonStartDate: string
+    clubId: string
 }
 
 type FilterType = 'all' | 'pending_confirmation' | 'pending' | 'needs_review' | 'exception' | 'assigned'
@@ -51,7 +53,8 @@ export function RosterPlanningTab({
     players,
     previousSeasonId,
     nextSeasonId,
-    seasonStartDate
+    seasonStartDate,
+    clubId
 }: RosterPlanningTabProps) {
     const [playerAssignments, setPlayerAssignments] = useState<Map<string, PlayerWithAssignment>>(new Map())
     const [selectedPlayer, setSelectedPlayer] = useState<PlayerWithAssignment | null>(null)
@@ -65,49 +68,56 @@ export function RosterPlanningTab({
     const [filterStatus, setFilterStatus] = useState<FilterType>('all')
     const [filterCategory, setFilterCategory] = useState<string>('all')
     const [loading, setLoading] = useState(true)
+    const [categories, setCategories] = useState<CategoryDB[]>([])
 
-    // Load previous season assignments and build initial state
+    // Load categories and assignments
     useEffect(() => {
-        async function loadAssignments() {
+        async function loadData() {
+            if (!clubId) return
             setLoading(true)
             try {
+                // Load categories from DB (source of truth)
+                const cats = await categoryService.getCategoriesByClub(clubId)
+                setCategories(cats)
+
                 // Get previous season assignments if available
                 let previousAssignments: (PlayerTeamSeasonDB & { team?: any })[] = []
                 if (previousSeasonId) {
                     previousAssignments = await playerTeamSeasonService.getPlayerAssignmentsBySeasonWithTeams(previousSeasonId)
                 }
-
-                // Build map of previous assignments by player_id
-                const prevAssignmentMap = new Map(
-                    previousAssignments.map(a => [a.player_id, a])
-                )
+                const prevAssignmentMap = new Map(previousAssignments.map(a => [a.player_id, a]))
 
                 // Get next season assignments if any exist
                 let nextAssignments: (PlayerTeamSeasonDB & { team?: any })[] = []
                 if (nextSeasonId) {
                     nextAssignments = await playerTeamSeasonService.getPlayerAssignmentsBySeasonWithTeams(nextSeasonId)
                 }
-                const nextAssignmentMap = new Map(
-                    nextAssignments.map(a => [a.player_id, a])
-                )
+                const nextAssignmentMap = new Map(nextAssignments.map(a => [a.player_id, a]))
 
                 // Build player assignments state
                 const assignmentsMap = new Map<string, PlayerWithAssignment>()
 
                 for (const player of players) {
-                    const recommendedCategory = getRecommendedCategory(player.birth_date, seasonStartDate)
+                    // Calculate expected category from DB (source of truth)
+                    const expectedCategory = getExpectedCategoryFromDB(
+                        player.birth_date,
+                        seasonStartDate,
+                        player.gender,
+                        cats
+                    )
+
                     const prevAssignment = prevAssignmentMap.get(player.id)
                     const nextAssignment = nextAssignmentMap.get(player.id)
 
-                    // Find previous team in current season's teams (match by category_stage + gender)
+                    // Previous team info
                     let previousTeam: TeamDB | null = null
-                    let previousTeamCategory: CategoryStage | null = null
+                    let previousTeamCategory: string | null = null
                     if (prevAssignment?.team) {
                         previousTeam = teams.find(t =>
                             t.category_stage === prevAssignment.team.category_stage &&
                             t.gender === prevAssignment.team.gender
                         ) || null
-                        previousTeamCategory = prevAssignment.team.category_stage as CategoryStage
+                        previousTeamCategory = prevAssignment.team.category_stage
                     }
 
                     // Determine proposed team and status
@@ -116,47 +126,35 @@ export function RosterPlanningTab({
                     let status: AssignmentStatus = 'pending'
 
                     if (nextAssignment) {
-                        // Already has assignment in next season
                         assignedTeam = teams.find(t => t.id === nextAssignment.team_id) || null
                         status = (nextAssignment.status as AssignmentStatus) || 'assigned'
-                    } else if (previousTeam && previousTeamCategory) {
-                        // Has previous team - check if continuity is valid
-                        const prevCategoryIndex = getCategoryIndex(previousTeamCategory)
-                        const recCategoryIndex = getCategoryIndex(recommendedCategory)
+                    } else if (previousTeam && previousTeamCategory && expectedCategory.found) {
+                        // Check if continuity is valid using DB categories
+                        const prevCategoryIndex = getCategoryIndexFromDB(previousTeamCategory, cats.filter(c => c.gender === player.gender))
+                        const expectedIndex = getCategoryIndexFromDB(expectedCategory.name, cats.filter(c => c.gender === player.gender))
 
-                        if (prevCategoryIndex >= recCategoryIndex) {
-                            // Valid continuity (same or higher category)
+                        if (prevCategoryIndex >= expectedIndex) {
                             proposedTeam = previousTeam
                             status = 'pending_confirmation'
                         } else {
-                            // Previous team is now too low - needs review
                             status = 'needs_review'
-                            // Suggest a team in the recommended category
                             proposedTeam = teams.find(t =>
-                                t.category_stage === recommendedCategory &&
+                                t.category_stage === expectedCategory.name &&
                                 t.gender === player.gender
                             ) || null
                         }
                     } else {
-                        // New player or no previous assignment
                         status = 'pending'
-                        // Suggest team by age
                         proposedTeam = teams.find(t =>
-                            t.category_stage === recommendedCategory &&
+                            t.category_stage === expectedCategory.name &&
                             t.gender === player.gender
                         ) || null
                     }
 
                     assignmentsMap.set(player.id, {
                         ...player,
-                        recommendedCategory,
-                        previousTeam: prevAssignment?.team ? {
-                            ...prevAssignment.team,
-                            id: prevAssignment.team.id,
-                            club_id: '',
-                            season_id: previousSeasonId || '',
-                            category: prevAssignment.team.category_stage,
-                        } as TeamDB : null,
+                        expectedCategory,
+                        previousTeam,
                         previousTeamCategory,
                         proposedTeam,
                         assignedTeam,
@@ -167,17 +165,17 @@ export function RosterPlanningTab({
 
                 setPlayerAssignments(assignmentsMap)
             } catch (error) {
-                console.error('Error loading assignments:', error)
-                toast.error('Error al cargar asignaciones')
+                console.error('Error loading data:', error)
+                toast.error('Error al cargar datos')
             } finally {
                 setLoading(false)
             }
         }
 
-        if (players.length > 0) {
-            loadAssignments()
+        if (players.length > 0 && clubId) {
+            loadData()
         }
-    }, [players, teams, previousSeasonId, nextSeasonId, seasonStartDate])
+    }, [players, teams, previousSeasonId, nextSeasonId, seasonStartDate, clubId])
 
     // Filter players
     const filteredPlayers = useMemo(() => {
@@ -186,7 +184,7 @@ export function RosterPlanningTab({
                 `${player.first_name} ${player.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
             const matchesStatus = filterStatus === 'all' || player.status === filterStatus
             const matchesCategory = filterCategory === 'all' ||
-                player.recommendedCategory === filterCategory
+                player.expectedCategory.name === filterCategory
             return matchesSearch && matchesStatus && matchesCategory
         })
     }, [playerAssignments, searchQuery, filterStatus, filterCategory])
@@ -206,13 +204,19 @@ export function RosterPlanningTab({
 
     // Get unique categories
     const availableCategories = useMemo(() => {
-        const categories = new Set(Array.from(playerAssignments.values()).map(p => p.recommendedCategory))
-        return Array.from(categories).sort()
+        const cats = new Set(Array.from(playerAssignments.values()).map(p => p.expectedCategory.name))
+        return Array.from(cats).filter(c => c !== 'Sin categoría definida').sort()
     }, [playerAssignments])
 
     // Assign player to team
     const assignToTeam = (player: PlayerWithAssignment, team: TeamDB, withOverride = false) => {
-        const validation = validateAssignment(player.birth_date, seasonStartDate, team.category_stage)
+        const validation = validateAssignmentFromDB(
+            player.birth_date,
+            player.gender,
+            seasonStartDate,
+            team.category_stage,
+            categories
+        )
 
         if (validation.type === 'blocked') {
             toast.error(validation.message)
@@ -224,7 +228,6 @@ export function RosterPlanningTab({
             return
         }
 
-        // Update local state
         const newStatus: AssignmentStatus = validation.type === 'warning' ? 'exception' : 'assigned'
         const updated = new Map(playerAssignments)
         updated.set(player.id, {
@@ -293,7 +296,13 @@ export function RosterPlanningTab({
 
     // Check if team is valid for player
     const isTeamBlocked = (player: PlayerWithAssignment, team: TeamDB): boolean => {
-        const validation = validateAssignment(player.birth_date, seasonStartDate, team.category_stage)
+        const validation = validateAssignmentFromDB(
+            player.birth_date,
+            player.gender,
+            seasonStartDate,
+            team.category_stage,
+            categories
+        )
         return validation.type === 'blocked'
     }
 
@@ -429,8 +438,14 @@ export function RosterPlanningTab({
                                     <p className="text-xs text-gray-500">{player.gender === 'female' ? 'F' : 'M'}</p>
                                 </td>
                                 <td className="px-4 py-3">
-                                    <span className="text-primary-400 font-medium">{player.recommendedCategory}</span>
-                                    <p className="text-xs text-gray-500">{getCategoryAgeDescription(player.recommendedCategory)}</p>
+                                    {player.expectedCategory.found ? (
+                                        <>
+                                            <span className="text-primary-400 font-medium">{player.expectedCategory.name}</span>
+                                            <p className="text-xs text-gray-500">{player.expectedCategory.ageRange}</p>
+                                        </>
+                                    ) : (
+                                        <span className="text-red-400 text-sm">{player.expectedCategory.name}</span>
+                                    )}
                                 </td>
                                 <td className="px-4 py-3">
                                     {player.previousTeam ? (
@@ -522,7 +537,12 @@ export function RosterPlanningTab({
                         <div className="bg-gray-900 rounded-lg p-4 mb-4">
                             <div className="grid grid-cols-2 gap-2 text-sm">
                                 <span className="text-gray-500">Categoría esperada:</span>
-                                <span className="text-primary-400 font-medium">{selectedPlayer.recommendedCategory}</span>
+                                <span className="text-primary-400 font-medium">
+                                    {selectedPlayer.expectedCategory.name}
+                                    {selectedPlayer.expectedCategory.ageRange && (
+                                        <span className="text-gray-500 ml-1">({selectedPlayer.expectedCategory.ageRange})</span>
+                                    )}
+                                </span>
                                 {selectedPlayer.previousTeam && (
                                     <>
                                         <span className="text-gray-500">Equipo anterior:</span>
@@ -533,12 +553,12 @@ export function RosterPlanningTab({
                         </div>
 
                         <div className="space-y-2">
-                            {teams.map(team => {
+                            {teams.filter(t => t.gender === selectedPlayer.gender).map(team => {
                                 const blocked = isTeamBlocked(selectedPlayer, team)
-                                const isRecommended = team.category_stage === selectedPlayer.recommendedCategory &&
-                                    team.gender === selectedPlayer.gender
-                                const isWarning = !blocked && !isRecommended &&
-                                    getCategoryIndex(team.category_stage) > getCategoryIndex(selectedPlayer.recommendedCategory)
+                                const isRecommended = team.category_stage === selectedPlayer.expectedCategory.name
+                                const expectedIndex = getCategoryIndexFromDB(selectedPlayer.expectedCategory.name, categories.filter(c => c.gender === selectedPlayer.gender))
+                                const teamIndex = getCategoryIndexFromDB(team.category_stage, categories.filter(c => c.gender === selectedPlayer.gender))
+                                const isWarning = !blocked && !isRecommended && teamIndex > expectedIndex
 
                                 return (
                                     <button
@@ -546,10 +566,10 @@ export function RosterPlanningTab({
                                         onClick={() => assignToTeam(selectedPlayer, team)}
                                         disabled={blocked}
                                         className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors ${blocked
-                                            ? 'bg-gray-900/50 border-red-500/30 cursor-not-allowed opacity-60'
-                                            : isRecommended
-                                                ? 'bg-green-500/10 border-green-500/30 hover:border-green-500/50'
-                                                : 'bg-gray-900 border-gray-700 hover:border-gray-600'
+                                                ? 'bg-gray-900/50 border-red-500/30 cursor-not-allowed opacity-60'
+                                                : isRecommended
+                                                    ? 'bg-green-500/10 border-green-500/30 hover:border-green-500/50'
+                                                    : 'bg-gray-900 border-gray-700 hover:border-gray-600'
                                             }`}
                                     >
                                         <div className="flex items-center gap-3">

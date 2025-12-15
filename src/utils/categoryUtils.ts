@@ -204,3 +204,151 @@ export function isCategoryBelow(category: CategoryStage | string, reference: Cat
 export function isCategoryAbove(category: CategoryStage | string, reference: CategoryStage | string): boolean {
     return getCategoryIndex(category) > getCategoryIndex(reference)
 }
+
+// ============================================================================
+// DB-BASED CATEGORY FUNCTIONS
+// These use categories from club_categories table (source of truth)
+// ============================================================================
+
+import type { CategoryDB } from '@/services/categoryService'
+
+/**
+ * Result of category calculation from DB
+ */
+export interface CategoryResult {
+    found: boolean
+    category: CategoryDB | null
+    name: string
+    ageRange: string
+}
+
+/**
+ * Calculate the expected category for a player based on DB categories
+ * This is the source of truth - no hardcoded age ranges
+ */
+export function getExpectedCategoryFromDB(
+    birthDate: string,
+    seasonStartDate: string,
+    gender: 'female' | 'male',
+    categories: CategoryDB[]
+): CategoryResult {
+    // Parse season start date
+    let referenceDate: Date
+    if (seasonStartDate.includes('-W')) {
+        const [year, weekStr] = seasonStartDate.split('-W')
+        const weekNum = parseInt(weekStr, 10)
+        const jan1 = new Date(parseInt(year, 10), 0, 1)
+        const daysToAdd = (weekNum - 1) * 7 + (1 - jan1.getDay())
+        referenceDate = new Date(jan1.getTime() + daysToAdd * 24 * 60 * 60 * 1000)
+    } else {
+        referenceDate = new Date(seasonStartDate)
+    }
+
+    const age = calculateAgeAtDate(birthDate, referenceDate)
+
+    // Filter categories by gender and sort by sort_order
+    const genderCategories = categories
+        .filter(c => c.gender === gender && c.is_active)
+        .sort((a, b) => a.sort_order - b.sort_order)
+
+    // Find matching category by age
+    for (const cat of genderCategories) {
+        const minAge = cat.min_age ?? 0
+        const maxAge = cat.max_age ?? 99
+
+        if (age >= minAge && age <= maxAge) {
+            return {
+                found: true,
+                category: cat,
+                name: cat.name,
+                ageRange: maxAge >= 99 ? `${minAge}+ años` : `${minAge}-${maxAge} años`
+            }
+        }
+    }
+
+    // If no match found, return highest category (oldest) as fallback
+    if (genderCategories.length > 0) {
+        const highest = genderCategories[genderCategories.length - 1]
+        return {
+            found: true,
+            category: highest,
+            name: highest.name,
+            ageRange: highest.max_age === null || highest.max_age >= 99
+                ? `${highest.min_age ?? 0}+ años`
+                : `${highest.min_age ?? 0}-${highest.max_age} años`
+        }
+    }
+
+    return {
+        found: false,
+        category: null,
+        name: 'Sin categoría definida',
+        ageRange: ''
+    }
+}
+
+/**
+ * Get category index from DB categories (for comparison)
+ */
+export function getCategoryIndexFromDB(categoryName: string, categories: CategoryDB[]): number {
+    const sorted = [...categories].sort((a, b) => a.sort_order - b.sort_order)
+    return sorted.findIndex(c => c.name === categoryName)
+}
+
+/**
+ * Validate assignment using DB categories
+ */
+export function validateAssignmentFromDB(
+    playerBirthDate: string,
+    playerGender: 'female' | 'male',
+    seasonStartDate: string,
+    targetCategoryName: string,
+    categories: CategoryDB[]
+): AssignmentValidation {
+    const expected = getExpectedCategoryFromDB(playerBirthDate, seasonStartDate, playerGender, categories)
+
+    if (!expected.found || !expected.category) {
+        return {
+            valid: false,
+            type: 'blocked',
+            message: 'No hay categoría definida para esta jugadora'
+        }
+    }
+
+    const genderCategories = categories
+        .filter(c => c.gender === playerGender && c.is_active)
+        .sort((a, b) => a.sort_order - b.sort_order)
+
+    const expectedIndex = genderCategories.findIndex(c => c.name === expected.name)
+    const targetIndex = genderCategories.findIndex(c => c.name === targetCategoryName)
+
+    if (targetIndex === -1) {
+        return {
+            valid: false,
+            type: 'blocked',
+            message: 'Categoría de equipo no válida'
+        }
+    }
+
+    // Same category - OK
+    if (targetIndex === expectedIndex) {
+        return { valid: true, type: 'ok' }
+    }
+
+    // Higher category (player is younger) - WARNING
+    if (targetIndex > expectedIndex) {
+        return {
+            valid: true,
+            type: 'warning',
+            message: `Esta jugadora es de categoría ${expected.name}. Estás asignándola a ${targetCategoryName} (categoría superior).`
+        }
+    }
+
+    // Lower category (player is older) - BLOCKED
+    return {
+        valid: false,
+        type: 'blocked',
+        message: `No se puede asignar a ${targetCategoryName}. La jugadora es de categoría ${expected.name} (superior por edad).`
+    }
+}
+

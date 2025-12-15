@@ -162,6 +162,7 @@ export function Sidebar() {
         collapsible: true,
         items: [
           { name: 'Ajustes del club', href: '/settings', icon: Settings },
+          { name: 'Categorías', href: '/settings?section=categorias', icon: Settings },
           { name: 'Temporadas', href: '/settings?section=temporada', icon: Calendar },
           { name: 'Espacios', href: '/settings?section=espacios', icon: MapPin },
           { name: 'Horarios de entrenamiento', href: '/settings?section=horarios', icon: Clock }

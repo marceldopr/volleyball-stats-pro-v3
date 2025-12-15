@@ -124,6 +124,7 @@ export function NextSeasonPage() {
                         previousSeasonId={activeSeason?.id || null}
                         nextSeasonId={draftSeason.id}
                         seasonStartDate={draftSeason.start_date || ''}
+                        clubId={profile?.club_id || ''}
                     />
                 )
 
