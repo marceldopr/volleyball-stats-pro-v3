@@ -9,6 +9,7 @@ export interface PlayerTeamSeasonDB {
     season_id: string
     jersey_number: string | null
     role: string | null
+    position: string | null // Season-specific position specific
     expected_category: string | null
     current_category: string | null
     status: string | null
@@ -86,6 +87,7 @@ export const playerTeamSeasonService = {
         season_id: string
         jersey_number?: string
         role?: string
+        position?: string
         expected_category?: string
         current_category?: string
         status?: string

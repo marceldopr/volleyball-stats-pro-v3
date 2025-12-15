@@ -42,22 +42,22 @@ export function getCategoryStageFromBirthDate(
     const birth = new Date(birthDate);
 
     // Calculate age
-    let age = referenceDate.getFullYear() - birth.getFullYear();
-    const m = referenceDate.getMonth() - birth.getMonth();
+    // Calculate age based on year difference only (Federation style)
+    const age = referenceDate.getFullYear() - birth.getFullYear();
 
-    // Adjust age if birthday hasn't occurred yet relative to reference date
-    if (m < 0 || (m === 0 && referenceDate.getDate() < birth.getDate())) {
-        age--;
-    }
+    // Removed month/day check as requested by user logic
+    // if (m < 0 || (m === 0 && referenceDate.getDate() < birth.getDate())) {
+    //     age--;
+    // }
 
-    if (age <= 8) return 'Benjamín';
-    if (age <= 10) return 'Alevín';
-    if (age <= 12) return 'Infantil';
-    if (age <= 14) return 'Cadete';
-    if (age <= 16) return 'Juvenil';
-    if (age <= 18) return 'Júnior';
+    if (age <= 9) return 'Benjamín'; // 8-9
+    if (age <= 11) return 'Alevín'; // 10-11
+    if (age <= 13) return 'Infantil'; // 12-13
+    if (age <= 15) return 'Cadete'; // 14-15
+    if (age <= 17) return 'Juvenil'; // 16-17
+    if (age <= 19) return 'Júnior'; // 18-19
 
-    return 'Sénior';
+    return 'Sénior'; // 20+
 }
 
 /**

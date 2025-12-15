@@ -46,20 +46,21 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
     const [showAddModal, setShowAddModal] = useState(false)
     const [availablePlayers, setAvailablePlayers] = useState<PlayerDB[]>([])
     const [searchTerm, setSearchTerm] = useState('')
-    const [selectedPlayerId, setSelectedPlayerId] = useState<string>('')
+    const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set())
     const [showIncompatible, setShowIncompatible] = useState(false)
-    const [addFormData, setAddFormData] = useState({
-        jersey_number: '',
-        role: 'starter',
-        status: 'active',
-        notes: ''
-    })
+    const [strictCategoryMatch, setStrictCategoryMatch] = useState(true)
+    // Removed addFormData as per request (adding with defaults)
     const [adding, setAdding] = useState(false)
 
     // Inline Jersey Edit State
     const [editingJerseyId, setEditingJerseyId] = useState<string | null>(null)
     const [editingJerseyValue, setEditingJerseyValue] = useState('')
     const [savingJersey, setSavingJersey] = useState(false)
+
+    // Inline Position Edit State
+    const [editingPositionId, setEditingPositionId] = useState<string | null>(null)
+    const [editingPositionValue, setEditingPositionValue] = useState('')
+    const [savingPosition, setSavingPosition] = useState(false)
 
     // Evaluation Modal State
     const [evaluationModalOpen, setEvaluationModalOpen] = useState(false)
@@ -150,31 +151,44 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
         )
     }
 
-    const handleAddPlayer = async (e: React.FormEvent) => {
-        e.preventDefault()
-        if (!selectedPlayerId) return
-
-        // Check for duplicate jersey number
-        if (addFormData.jersey_number && isJerseyDuplicate(addFormData.jersey_number)) {
-            toast.error(`El dorsal ${addFormData.jersey_number} ya está asignado en este equipo`)
-            return
+    const togglePlayerSelection = (playerId: string) => {
+        const newSelected = new Set(selectedPlayerIds)
+        if (newSelected.has(playerId)) {
+            newSelected.delete(playerId)
+        } else {
+            newSelected.add(playerId)
         }
+        setSelectedPlayerIds(newSelected)
+    }
+
+    const handleAddPlayers = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (selectedPlayerIds.size === 0) return
 
         setAdding(true)
         try {
-            await playerTeamSeasonService.addPlayerToTeamSeason({
-                player_id: selectedPlayerId,
-                team_id: team.id,
-                season_id: season.id,
-                ...addFormData
-            })
-            toast.success('Jugadora añadida al equipo')
+            const promises = Array.from(selectedPlayerIds).map(playerId =>
+                playerTeamSeasonService.addPlayerToTeamSeason({
+                    player_id: playerId,
+                    team_id: team.id,
+                    season_id: season.id,
+                    jersey_number: undefined,
+                    role: 'starter', // Default internal role
+                    position: undefined,
+                    status: 'active',
+                    notes: ''
+                })
+            )
+
+            await Promise.all(promises)
+
+            toast.success(`${selectedPlayerIds.size} jugadoras añadidas al equipo`)
             setShowAddModal(false)
-            setAddFormData({ jersey_number: '', role: 'starter', status: 'active', notes: '' })
-            setSelectedPlayerId('')
+            setSelectedPlayerIds(new Set())
             loadRoster()
         } catch (error) {
-            toast.error('Error al añadir jugadora')
+            toast.error('Error al añadir jugadoras')
+            console.error(error)
         } finally {
             setAdding(false)
         }
@@ -216,6 +230,37 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
         }
     }
 
+    // Handle inline position edit
+    const handleStartEditPosition = (item: RosterItem) => {
+        setEditingPositionId(item.id)
+        setEditingPositionValue(item.position || '')
+    }
+
+    const handleCancelEditPosition = () => {
+        setEditingPositionId(null)
+        setEditingPositionValue('')
+    }
+
+    const handleSavePosition = async () => {
+        if (!editingPositionId) return
+
+        setSavingPosition(true)
+        try {
+            await playerTeamSeasonService.updatePlayerInTeamSeason(editingPositionId, {
+                position: editingPositionValue || null
+            })
+            toast.success('Posición actualizada')
+            setEditingPositionId(null)
+            setEditingPositionValue('')
+            loadRoster()
+        } catch (error) {
+            toast.error('Error al actualizar posición')
+            console.error(error)
+        } finally {
+            setSavingPosition(false)
+        }
+    }
+
     const handleRemovePlayer = async (id: string) => {
         if (!window.confirm('¿Estás seguro de quitar a esta jugadora del equipo?')) return
 
@@ -254,11 +299,37 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
             p.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             p.last_name.toLowerCase().includes(searchTerm.toLowerCase())
         )
-        .map(p => ({
-            ...p,
-            compatibility: checkCompatibility(p)
-        }))
-        .filter(p => showIncompatible || p.compatibility.compatible)
+        .map(p => {
+            // Calculate compatibility & category match
+            let isStrictMatch = false
+            const compatibility = checkCompatibility(p)
+
+            if (p.birth_date && season.reference_date) {
+                const playerStage = getCategoryStageFromBirthDate(p.birth_date, new Date(season.reference_date))
+                isStrictMatch = playerStage === team.category_stage
+            } else {
+                // Fallback if no dates: Check compatibility only
+                isStrictMatch = compatibility.compatible // or false strict? Let's say false unless known.
+            }
+
+            return {
+                ...p,
+                compatibility,
+                isStrictMatch
+            }
+        })
+        .filter(p => {
+            // Priority 1: Incompatible View
+            if (showIncompatible) return true // Show everything
+
+            // Priority 2: Compatibility Check (Must be compatible)
+            if (!p.compatibility.compatible) return false
+
+            // Priority 3: Strict Match Check
+            if (strictCategoryMatch) return p.isStrictMatch
+
+            return true
+        })
 
     return (
         <div className="bg-gray-800 rounded-xl shadow-sm border border-gray-700 overflow-hidden min-h-[500px] flex flex-col">
@@ -368,12 +439,55 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                             {item.player ? `${item.player.first_name} ${item.player.last_name}` : 'Jugadora desconocida'}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            {item.player ? (
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${item.player.main_position === 'L' ? 'bg-yellow-900/30 text-yellow-200 border border-yellow-700/30' : 'bg-blue-900/30 text-blue-200 border border-blue-700/30'
-                                                    }`}>
-                                                    {POSITION_NAMES[item.player.main_position as keyof typeof POSITION_NAMES]}
-                                                </span>
-                                            ) : '-'}
+                                            {editingPositionId === item.id ? (
+                                                <div className="flex items-center gap-2">
+                                                    <select
+                                                        value={editingPositionValue}
+                                                        onChange={(e) => setEditingPositionValue(e.target.value)}
+                                                        className="w-32 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                                        autoFocus
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') handleSavePosition()
+                                                            if (e.key === 'Escape') handleCancelEditPosition()
+                                                        }}
+                                                    >
+                                                        <option value="">Sin asignar</option>
+                                                        {Object.entries(POSITION_NAMES).map(([key, label]) => (
+                                                            <option key={key} value={key}>{label}</option>
+                                                        ))}
+                                                    </select>
+                                                    <button
+                                                        onClick={handleSavePosition}
+                                                        disabled={savingPosition}
+                                                        className="text-green-400 hover:text-green-300 disabled:opacity-50"
+                                                    >
+                                                        ✓
+                                                    </button>
+                                                    <button
+                                                        onClick={handleCancelEditPosition}
+                                                        className="text-gray-400 hover:text-gray-300"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    onClick={() => !isReadOnly && handleStartEditPosition(item)}
+                                                    className={`cursor-pointer group flex items-center gap-2 ${!isReadOnly ? 'hover:bg-gray-700/50 rounded px-2 py-1 -ml-2' : ''}`}
+                                                >
+                                                    {item.position ? (
+                                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${item.position === 'L' ? 'bg-yellow-900/30 text-yellow-200 border border-yellow-700/30' : 'bg-blue-900/30 text-blue-200 border border-blue-700/30'
+                                                            }`}>
+                                                            {POSITION_NAMES[item.position as keyof typeof POSITION_NAMES]}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-gray-500 text-xs italic">Sin asignar</span>
+                                                    )}
+                                                    {!isReadOnly && (
+                                                        <span className="text-gray-500 opacity-0 group-hover:opacity-100 text-xs">✎</span>
+                                                    )}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${item.status === 'active' ? 'bg-green-900/30 text-green-200 border border-green-700/30' : 'bg-red-900/30 text-red-200 border border-red-700/30'
@@ -434,18 +548,31 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                             </button>
                         </div>
 
-                        <form onSubmit={handleAddPlayer} className="p-6 space-y-4">
+                        <form onSubmit={handleAddPlayers} className="p-6 space-y-4">
                             <div>
                                 <div className="flex justify-between items-center mb-1">
-                                    <label className="block text-sm font-medium text-gray-300">Buscar Jugadora</label>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowIncompatible(!showIncompatible)}
-                                        className={`text-xs flex items-center gap-1 ${showIncompatible ? 'text-orange-400' : 'text-gray-500'}`}
-                                    >
-                                        <Filter className="w-3 h-3" />
-                                        {showIncompatible ? 'Ocultar incompatibles' : 'Mostrar incompatibles'}
-                                    </button>
+                                    <label className="block text-sm font-medium text-gray-300">
+                                        Selecciona Jugadoras ({selectedPlayerIds.size})
+                                    </label>
+                                    <div className="flex items-center gap-3">
+                                        <label className="flex items-center gap-1.5 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={strictCategoryMatch}
+                                                onChange={(e) => setStrictCategoryMatch(e.target.checked)}
+                                                className="rounded border-gray-600 bg-gray-700 text-primary-500 focus:ring-offset-gray-900"
+                                            />
+                                            <span className="text-xs text-gray-400">Solo {team.category_stage}</span>
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowIncompatible(!showIncompatible)}
+                                            className={`text-xs flex items-center gap-1 ${showIncompatible ? 'text-orange-400' : 'text-gray-500'}`}
+                                        >
+                                            <Filter className="w-3 h-3" />
+                                            {showIncompatible ? 'Ocultar incompatibles' : 'Mostrar incompatibles'}
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -457,7 +584,7 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                         className="w-full bg-gray-900 border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-2"
                                     />
                                 </div>
-                                <div className="max-h-60 overflow-y-auto border border-gray-700 rounded-md bg-gray-900/50">
+                                <div className="max-h-[300px] overflow-y-auto border border-gray-700 rounded-md bg-gray-900/50">
                                     {filteredAvailablePlayers.length === 0 ? (
                                         <div className="p-4 text-center text-sm text-gray-500">
                                             Sin jugadoras disponibles para este equipo
@@ -467,16 +594,28 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                             {filteredAvailablePlayers.map(p => (
                                                 <div
                                                     key={p.id}
-                                                    onClick={() => p.compatibility.compatible && setSelectedPlayerId(p.id)}
-                                                    className={`p-3 flex items-center justify-between cursor-pointer transition-colors ${selectedPlayerId === p.id ? 'bg-orange-900/20 border-l-4 border-orange-500' : 'hover:bg-gray-700/50'
+                                                    onClick={() => p.compatibility.compatible && togglePlayerSelection(p.id)}
+                                                    className={`p-3 flex items-center justify-between cursor-pointer transition-colors ${selectedPlayerIds.has(p.id)
+                                                        ? 'bg-primary-900/40 border-l-4 border-primary-500'
+                                                        : 'hover:bg-gray-700/50'
                                                         } ${!p.compatibility.compatible ? 'opacity-60 cursor-not-allowed bg-gray-900' : ''}`}
                                                 >
-                                                    <div>
-                                                        <div className="font-medium text-sm text-gray-200">
-                                                            {p.first_name} {p.last_name}
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${selectedPlayerIds.has(p.id)
+                                                            ? 'bg-primary-500 border-primary-500'
+                                                            : 'border-gray-500'
+                                                            }`}>
+                                                            {selectedPlayerIds.has(p.id) && (
+                                                                <span className="text-white text-xs">✓</span>
+                                                            )}
                                                         </div>
-                                                        <div className="text-xs text-gray-500">
-                                                            {p.main_position} • {p.gender === 'female' ? 'Fem' : 'Masc'} • {p.birth_date ? new Date(p.birth_date).getFullYear() : 'Sin fecha'}
+                                                        <div>
+                                                            <div className="font-medium text-sm text-gray-200">
+                                                                {p.first_name} {p.last_name}
+                                                            </div>
+                                                            <div className="text-xs text-gray-500">
+                                                                {p.main_position} • {p.gender === 'female' ? 'Fem' : 'Masc'} • {p.birth_date ? new Date(p.birth_date).getFullYear() : 'Sin fecha'}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     {!p.compatibility.compatible && (
@@ -492,37 +631,6 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-1">Dorsal</label>
-                                    <input
-                                        type="text"
-                                        value={addFormData.jersey_number}
-                                        onChange={(e) => setAddFormData({ ...addFormData, jersey_number: e.target.value })}
-                                        className={`w-full bg-gray-900 border rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${addFormData.jersey_number && isJerseyDuplicate(addFormData.jersey_number)
-                                                ? 'border-red-500'
-                                                : 'border-gray-700'
-                                            }`}
-                                        placeholder="#"
-                                    />
-                                    {addFormData.jersey_number && isJerseyDuplicate(addFormData.jersey_number) && (
-                                        <p className="text-xs text-red-400 mt-1">Este dorsal ya está asignado</p>
-                                    )}
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-1">Estado</label>
-                                    <select
-                                        value={addFormData.status}
-                                        onChange={(e) => setAddFormData({ ...addFormData, status: e.target.value })}
-                                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                                    >
-                                        <option value="active">Activa</option>
-                                        <option value="injured">Lesionada</option>
-                                        <option value="inactive">Inactiva</option>
-                                    </select>
-                                </div>
-                            </div>
-
                             <div className="flex justify-end gap-3 pt-4 border-t border-gray-700 mt-4">
                                 <button
                                     type="button"
@@ -535,9 +643,9 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                 <button
                                     type="submit"
                                     className="bg-primary-500 hover:bg-primary-600 text-white font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    disabled={adding || !selectedPlayerId}
+                                    disabled={adding || selectedPlayerIds.size === 0}
                                 >
-                                    {adding ? 'Añadiendo...' : 'Añadir'}
+                                    {adding ? 'Añadiendo...' : `Añadir (${selectedPlayerIds.size})`}
                                 </button>
                             </div>
                         </form>

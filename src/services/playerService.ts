@@ -54,6 +54,78 @@ export const playerService = {
     },
 
     deletePlayer: async (id: string): Promise<void> => {
+        // First try standard delete
+        const { error } = await supabase
+            .from('club_players')
+            .delete()
+            .eq('id', id)
+
+        if (error) {
+            // If foreign key violation, we might need a force delete
+            if (error.code === '23503') {
+                console.error('Foreign key violation. Use forceDeletePlayer instead.')
+                throw new Error('REFERENCED_DATA')
+            }
+            throw error
+        }
+    },
+
+    forceDeletePlayer: async (id: string): Promise<void> => {
+        // 1. Delete reports
+        const { error: reportsError } = await supabase
+            .from('reports')
+            .delete()
+            .eq('player_id', id)
+
+        if (reportsError) console.error('Error deleting reports:', reportsError)
+
+        // 2. Delete team assignments (player_team_season)
+        const { error: teamError } = await supabase
+            .from('player_team_season')
+            .delete()
+            .eq('player_id', id)
+
+        if (teamError) console.error('Error deleting team assignments:', teamError)
+
+        // 3. Delete match stats
+        const { error: statsError } = await supabase
+            .from('match_player_set_stats')
+            .delete()
+            .eq('player_id', id)
+
+        if (statsError) console.error('Error deleting match stats:', statsError)
+
+        // 4. Delete training attendance
+        const { error: attendanceError } = await supabase
+            .from('training_attendance')
+            .delete()
+            .eq('player_id', id)
+
+        if (attendanceError) console.error('Error deleting attendance:', attendanceError)
+
+        // 5. Delete player evaluation scores (Flux B) - inferred table name
+        const { error: scoresError } = await supabase
+            .from('player_evaluation_scores')
+            .delete()
+            .eq('player_id', id)
+
+        if (scoresError) {
+            // Ignore if table doesn't exist or other error, just log
+            console.log('Error deleting evaluation scores (might not exist):', scoresError)
+        }
+
+        // 6. Delete player evaluations (Flux B) - inferred table name
+        const { error: evalError } = await supabase
+            .from('player_evaluations')
+            .delete()
+            .eq('player_id', id)
+
+        if (evalError) {
+            // Ignore if table doesn't exist
+            console.log('Error deleting evaluations (might not exist):', evalError)
+        }
+
+        // finally delete player
         const { error } = await supabase
             .from('club_players')
             .delete()

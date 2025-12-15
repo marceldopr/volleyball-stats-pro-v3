@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Edit, X, Loader2, Eye } from 'lucide-react'
+import { Plus, Search, Edit, X, Loader2, Eye, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { playerService, PlayerDB } from '@/services/playerService'
@@ -9,6 +9,8 @@ import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 import { Button } from '@/components/ui/Button'
 import { toast } from 'sonner'
 import { POSITION_NAMES } from '@/constants'
+import { PlayerImportWizard } from '@/components/players/PlayerImportWizard'
+import { Upload } from 'lucide-react'
 
 export function Players() {
     const navigate = useNavigate()
@@ -22,6 +24,7 @@ export function Players() {
 
     // Modal state
     const [showModal, setShowModal] = useState(false)
+    const [showImportModal, setShowImportModal] = useState(false)
     const [editingPlayer, setEditingPlayer] = useState<PlayerDB | null>(null)
     const [formData, setFormData] = useState({
         first_name: '',
@@ -67,6 +70,32 @@ export function Players() {
             toast.error('Error al cargar jugadoras')
         } finally {
             setLoading(false)
+        }
+    }
+
+    const handleDeletePlayer = async (id: string) => {
+        if (!window.confirm('¿Estás seguro de que quieres eliminar a esta jugadora? Esta acción no se puede deshacer.')) return
+
+        try {
+            await playerService.deletePlayer(id)
+            toast.success('Jugadora eliminada correctamente')
+            loadPlayers()
+        } catch (error: any) {
+            if (error.message === 'REFERENCED_DATA') {
+                if (window.confirm('⚠️ Esta jugadora tiene datos asociados (reportes, estadísticas, asignaciones).\n\n¿Quieres BORRAR TODO su historial permanentemente?')) {
+                    try {
+                        await playerService.forceDeletePlayer(id)
+                        toast.success('Jugadora y todos sus datos eliminados')
+                        loadPlayers()
+                    } catch (forceError) {
+                        console.error(forceError)
+                        toast.error('Error al forzar eliminación')
+                    }
+                }
+            } else {
+                console.error(error)
+                toast.error('Error al eliminar jugadora')
+            }
         }
     }
 
@@ -175,14 +204,27 @@ export function Players() {
                             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Gestión global de jugadoras del club</p>
                         </div>
                         {!isCoach && (
-                            <Button
-                                variant="primary"
-                                size="md"
-                                icon={Plus}
-                                onClick={() => handleOpenModal()}
-                            >
-                                Nueva Jugadora
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="secondary"
+                                    size="md"
+                                    icon={Upload}
+                                    onClick={() => setShowImportModal(true)}
+                                >
+                                    Importar
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    size="md"
+                                    icon={Plus}
+                                    onClick={() => {
+                                        setEditingPlayer(null)
+                                        handleOpenModal()
+                                    }}
+                                >
+                                    Nueva Jugadora
+                                </Button>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -310,6 +352,16 @@ export function Players() {
                                                         onClick={() => handleOpenModal(player)}
                                                         title="Editar"
                                                         className="p-2 hover:text-orange-900 dark:hover:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                                                    >
+                                                        {''}
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        icon={Trash2}
+                                                        onClick={() => handleDeletePlayer(player.id)}
+                                                        title="Eliminar"
+                                                        className="p-2 hover:text-red-900 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
                                                     >
                                                         {''}
                                                     </Button>
@@ -490,6 +542,17 @@ export function Players() {
                         </form>
                     </div>
                 </div>
+            )}
+            {/* Import Wizard Modal */}
+            {showImportModal && (
+                <PlayerImportWizard
+                    onClose={() => setShowImportModal(false)}
+                    onComplete={() => {
+                        setShowImportModal(false)
+                        loadPlayers()
+                    }}
+                    existingPlayers={players}
+                />
             )}
         </div>
     )
