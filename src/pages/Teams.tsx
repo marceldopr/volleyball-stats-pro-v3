@@ -859,7 +859,10 @@ export function Teams() {
               <TeamRosterManager
                 team={managingRosterTeam}
                 season={currentSeason}
-                onClose={() => setManagingRosterTeam(null)}
+                onClose={() => {
+                  setManagingRosterTeam(null)
+                  loadData()
+                }}
               />
             </div>
           </div>

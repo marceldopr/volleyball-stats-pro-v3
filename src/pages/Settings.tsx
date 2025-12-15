@@ -65,6 +65,7 @@ export function SettingsPage() {
   const [editSeasonStart, setEditSeasonStart] = useState('')
   const [editSeasonEnd, setEditSeasonEnd] = useState('')
 
+
   // Training Schedules Config State (from Store)
   const { schedules, addSchedule, updateSchedule, toggleScheduleActive } = useTrainingStore()
   const [teamsForSchedules, setTeamsForSchedules] = useState<TeamDB[]>([])
@@ -329,8 +330,9 @@ export function SettingsPage() {
                   <thead>
                     <tr className="text-left text-xs uppercase tracking-wider text-gray-400 border-b border-gray-700">
                       <th className="px-6 py-3">Nombre</th>
-                      <th className="px-6 py-3">Inicio</th>
-                      <th className="px-6 py-3">Fin</th>
+                      <th className="px-6 py-3">Inicio (Semana)</th>
+
+                      <th className="px-6 py-3">Fin (Semana)</th>
                       <th className="px-6 py-3">Estado</th>
                       <th className="px-6 py-3 text-right">Acciones</th>
                     </tr>
@@ -351,6 +353,7 @@ export function SettingsPage() {
                             season.start_date || '—'
                           )}
                         </td>
+
                         <td className="px-6 py-4 text-gray-300">
                           {editingSeasonId === season.id ? (
                             <input
@@ -363,6 +366,7 @@ export function SettingsPage() {
                             season.end_date || '—'
                           )}
                         </td>
+
                         <td className="px-6 py-4">{getStatusBadge(season.status)}</td>
                         <td className="px-6 py-4 text-right space-x-2">
                           {editingSeasonId === season.id ? (
@@ -452,7 +456,7 @@ export function SettingsPage() {
                 </table>
               )}
             </div>
-          </div>
+          </div >
         )
 
       case 'espacios':

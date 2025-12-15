@@ -63,17 +63,14 @@ export function getCategoryIndex(stage: CategoryStage | string): number {
 
 /**
  * Calculate player's age at a specific date
+ * Uses "Sport Age" logic (Year of Reference - Year of Birth)
+ * This ensures all players born in the same year are in the same cohort
  */
 export function calculateAgeAtDate(birthDate: string, referenceDate: Date): number {
     const birth = new Date(birthDate)
-    let age = referenceDate.getFullYear() - birth.getFullYear()
-    const monthDiff = referenceDate.getMonth() - birth.getMonth()
-
-    if (monthDiff < 0 || (monthDiff === 0 && referenceDate.getDate() < birth.getDate())) {
-        age--
-    }
-
-    return age
+    // Standard sport age: reference year - birth year
+    // Everyone born in 2008 is the same "sport age" regardless of day/month
+    return referenceDate.getFullYear() - birth.getFullYear()
 }
 
 /**
@@ -220,31 +217,23 @@ export interface CategoryResult {
     category: CategoryDB | null
     name: string
     ageRange: string
+    computedAge?: number
+    reason?: 'too_young' | 'too_old' | 'gap'
 }
 
 /**
  * Calculate the expected category for a player based on DB categories
+ * Uses only birth year and season start year (no dates)
  * This is the source of truth - no hardcoded age ranges
  */
 export function getExpectedCategoryFromDB(
-    birthDate: string,
-    seasonStartDate: string,
+    birthYear: number,
+    seasonStartYear: number,
     gender: 'female' | 'male',
     categories: CategoryDB[]
 ): CategoryResult {
-    // Parse season start date
-    let referenceDate: Date
-    if (seasonStartDate.includes('-W')) {
-        const [year, weekStr] = seasonStartDate.split('-W')
-        const weekNum = parseInt(weekStr, 10)
-        const jan1 = new Date(parseInt(year, 10), 0, 1)
-        const daysToAdd = (weekNum - 1) * 7 + (1 - jan1.getDay())
-        referenceDate = new Date(jan1.getTime() + daysToAdd * 24 * 60 * 60 * 1000)
-    } else {
-        referenceDate = new Date(seasonStartDate)
-    }
-
-    const age = calculateAgeAtDate(birthDate, referenceDate)
+    // Calculate age key (standard volleyball federation rule)
+    const age = seasonStartYear - birthYear
 
     // Filter categories by gender and sort by sort_order
     const genderCategories = categories
@@ -261,21 +250,30 @@ export function getExpectedCategoryFromDB(
                 found: true,
                 category: cat,
                 name: cat.name,
-                ageRange: maxAge >= 99 ? `${minAge}+ años` : `${minAge}-${maxAge} años`
+                ageRange: maxAge >= 99 ? `${minAge}+ años` : `${minAge}-${maxAge} años`,
+                computedAge: age
             }
         }
     }
 
-    // If no match found, return highest category (oldest) as fallback
+    // If no match found, calculate reason
     if (genderCategories.length > 0) {
-        const highest = genderCategories[genderCategories.length - 1]
+        const youngest = genderCategories[0]
+        const oldest = genderCategories[genderCategories.length - 1]
+        const minAge = youngest.min_age ?? 0
+        const maxAge = oldest.max_age ?? 99
+
+        let reason: 'too_young' | 'too_old' | 'gap' = 'gap'
+        if (age < minAge) reason = 'too_young'
+        else if (age > maxAge) reason = 'too_old'
+
         return {
-            found: true,
-            category: highest,
-            name: highest.name,
-            ageRange: highest.max_age === null || highest.max_age >= 99
-                ? `${highest.min_age ?? 0}+ años`
-                : `${highest.min_age ?? 0}-${highest.max_age} años`
+            found: false,
+            category: null,
+            name: 'Sin categoría definida',
+            ageRange: '',
+            computedAge: age,
+            reason
         }
     }
 
@@ -283,7 +281,9 @@ export function getExpectedCategoryFromDB(
         found: false,
         category: null,
         name: 'Sin categoría definida',
-        ageRange: ''
+        ageRange: '',
+        computedAge: age,
+        reason: 'gap'
     }
 }
 
@@ -299,13 +299,13 @@ export function getCategoryIndexFromDB(categoryName: string, categories: Categor
  * Validate assignment using DB categories
  */
 export function validateAssignmentFromDB(
-    playerBirthDate: string,
+    birthYear: number,
     playerGender: 'female' | 'male',
-    seasonStartDate: string,
+    seasonStartYear: number,
     targetCategoryName: string,
     categories: CategoryDB[]
 ): AssignmentValidation {
-    const expected = getExpectedCategoryFromDB(playerBirthDate, seasonStartDate, playerGender, categories)
+    const expected = getExpectedCategoryFromDB(birthYear, seasonStartYear, playerGender, categories)
 
     if (!expected.found || !expected.category) {
         return {

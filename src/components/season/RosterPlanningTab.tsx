@@ -44,6 +44,7 @@ interface RosterPlanningTabProps {
     previousSeasonId: string | null
     nextSeasonId: string
     seasonStartDate: string
+    seasonName: string  // e.g. "2026/2027"
     clubId: string
 }
 
@@ -55,8 +56,14 @@ export function RosterPlanningTab({
     previousSeasonId,
     nextSeasonId,
     seasonStartDate,
+    seasonName,
     clubId
 }: RosterPlanningTabProps) {
+    // Extract season start year from season name (e.g. "2026/2027" -> 2026)
+    const seasonStartYear = useMemo(() => {
+        const match = seasonName.match(/^(\d{4})\//)
+        return match ? parseInt(match[1], 10) : new Date().getFullYear()
+    }, [seasonName])
     const [playerAssignments, setPlayerAssignments] = useState<Map<string, PlayerWithAssignment>>(new Map())
     const [selectedPlayer, setSelectedPlayer] = useState<PlayerWithAssignment | null>(null)
     const [showAssignmentModal, setShowAssignmentModal] = useState(false)
@@ -100,9 +107,10 @@ export function RosterPlanningTab({
 
                 for (const player of players) {
                     // Calculate expected category from DB (source of truth)
+                    const birthYear = new Date(player.birth_date).getFullYear()
                     const expectedCategory = getExpectedCategoryFromDB(
-                        player.birth_date,
-                        seasonStartDate,
+                        birthYear,
+                        seasonStartYear,
                         player.gender,
                         cats
                     )
@@ -188,7 +196,7 @@ export function RosterPlanningTab({
         if (players.length > 0 && clubId) {
             loadData()
         }
-    }, [players, teams, previousSeasonId, nextSeasonId, seasonStartDate, clubId])
+    }, [players, teams, previousSeasonId, nextSeasonId, seasonStartDate, seasonName, clubId])
 
     // Filter players
     const filteredPlayers = useMemo(() => {
@@ -223,10 +231,11 @@ export function RosterPlanningTab({
 
     // Assign player to team
     const assignToTeam = (player: PlayerWithAssignment, team: TeamDB, withOverride = false) => {
+        const birthYear = new Date(player.birth_date).getFullYear()
         const validation = validateAssignmentFromDB(
-            player.birth_date,
+            birthYear,
             player.gender,
-            seasonStartDate,
+            seasonStartYear,
             team.category_stage,
             categories
         )
@@ -309,10 +318,11 @@ export function RosterPlanningTab({
 
     // Check if team is valid for player
     const isTeamBlocked = (player: PlayerWithAssignment, team: TeamDB): boolean => {
+        const birthYear = new Date(player.birth_date).getFullYear()
         const validation = validateAssignmentFromDB(
-            player.birth_date,
+            birthYear,
             player.gender,
-            seasonStartDate,
+            seasonStartYear,
             team.category_stage,
             categories
         )
@@ -457,7 +467,10 @@ export function RosterPlanningTab({
                                             <p className="text-xs text-gray-500">{player.expectedCategory.ageRange}</p>
                                         </>
                                     ) : (
-                                        <span className="text-red-400 text-sm">{player.expectedCategory.name}</span>
+                                        <div className="flex flex-col">
+                                            <span className="text-red-400 text-sm font-medium">Edad {player.expectedCategory.computedAge}: sin categoría</span>
+                                            <span className="text-red-500/70 text-xs">({player.expectedCategory.reason}). Revisa Configuración → Categorías.</span>
+                                        </div>
                                     )}
                                 </td>
                                 <td className="px-4 py-3">
