@@ -105,6 +105,8 @@ export function RosterPlanningTab({
                 // Build player assignments state
                 const assignmentsMap = new Map<string, PlayerWithAssignment>()
 
+
+
                 for (const player of players) {
                     // Calculate expected category from DB (source of truth)
                     const birthYear = new Date(player.birth_date).getFullYear()
@@ -446,6 +448,7 @@ export function RosterPlanningTab({
                     <thead>
                         <tr className="border-b border-gray-700">
                             <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Jugadora</th>
+                            <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Edad</th>
                             <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Cat. Esperada</th>
                             <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Eq. Anterior</th>
                             <th className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">Propuesta</th>
@@ -459,6 +462,9 @@ export function RosterPlanningTab({
                                 <td className="px-4 py-3">
                                     <p className="text-white font-medium">{player.first_name} {player.last_name}</p>
                                     <p className="text-xs text-gray-500">{player.gender === 'female' ? 'F' : 'M'}</p>
+                                </td>
+                                <td className="px-4 py-3 text-gray-300">
+                                    {player.expectedCategory.computedAge}
                                 </td>
                                 <td className="px-4 py-3">
                                     {player.expectedCategory.found ? (
