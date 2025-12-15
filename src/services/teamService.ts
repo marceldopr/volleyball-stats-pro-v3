@@ -13,6 +13,7 @@ export interface TeamDB {
     competition_level: string | null
     head_coach_id: string | null
     assistant_coach_id: string | null
+    identifier_id: string | null  // Reference to club_identifiers
     notes: string | null
     created_at: string
     updated_at: string
@@ -24,7 +25,7 @@ export const teamService = {
     getTeamsByClub: async (clubId: string): Promise<TeamDB[]> => {
         const { data, error } = await supabase
             .from('teams')
-            .select('id, club_id, season_id, custom_name, category, category_stage, division_name, team_suffix, gender, competition_level, head_coach_id, assistant_coach_id, notes, created_at, updated_at')
+            .select('id, club_id, season_id, custom_name, category, category_stage, division_name, team_suffix, gender, competition_level, head_coach_id, assistant_coach_id, identifier_id, notes, created_at, updated_at')
             .eq('club_id', clubId)
             .order('custom_name', { ascending: true, nullsFirst: false })
 
@@ -36,7 +37,7 @@ export const teamService = {
     getTeamsByClubAndSeason: async (clubId: string, seasonId: string): Promise<TeamDB[]> => {
         const { data, error } = await supabase
             .from('teams')
-            .select('id, club_id, season_id, custom_name, category, category_stage, division_name, team_suffix, gender, competition_level, head_coach_id, assistant_coach_id, notes, created_at, updated_at, player_team_season(id)')
+            .select('id, club_id, season_id, custom_name, category, category_stage, division_name, team_suffix, gender, competition_level, head_coach_id, assistant_coach_id, identifier_id, notes, created_at, updated_at, player_team_season(id)')
             .eq('club_id', clubId)
             .eq('season_id', seasonId)
             .order('custom_name', { ascending: true, nullsFirst: false })
@@ -54,7 +55,7 @@ export const teamService = {
 
         const { data, error } = await supabase
             .from('teams')
-            .select('id, club_id, season_id, custom_name, category, category_stage, division_name, team_suffix, gender, competition_level, head_coach_id, assistant_coach_id, notes, created_at, updated_at')
+            .select('id, club_id, season_id, custom_name, category, category_stage, division_name, team_suffix, gender, competition_level, head_coach_id, assistant_coach_id, identifier_id, notes, created_at, updated_at')
             .in('id', teamIds)
             .order('custom_name', { ascending: true, nullsFirst: false })
 
@@ -108,7 +109,7 @@ export const teamService = {
 
     // Fetch a single team by its ID
     getTeamById: async (teamId: string): Promise<TeamDB | null> => {
-        const { data, error } = await supabase.from('teams').select('id, club_id, season_id, custom_name, category, category_stage, division_name, team_suffix, gender, competition_level, head_coach_id, assistant_coach_id, notes, created_at, updated_at').eq('id', teamId).single()
+        const { data, error } = await supabase.from('teams').select('id, club_id, season_id, custom_name, category, category_stage, division_name, team_suffix, gender, competition_level, head_coach_id, assistant_coach_id, identifier_id, notes, created_at, updated_at').eq('id', teamId).single()
         if (error) {
             if (error.code === 'PGRST116') return null // No rows found
             console.error('Error fetching team by ID:', error)

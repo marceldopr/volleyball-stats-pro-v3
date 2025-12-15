@@ -16,7 +16,7 @@ import { useTrainingStore } from '@/stores/trainingStore'
 import { teamService, TeamDB } from '@/services/teamService'
 import { seasonService } from '@/services/seasonService'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
-import { CategoriesSection } from '@/components/settings/CategoriesSection'
+import { SportStructureSection } from '@/components/settings/SportStructureSection'
 import { Layers } from 'lucide-react'
 
 type SectionId = 'club' | 'categorias' | 'temporada' | 'espacios' | 'horarios' | 'calendario' | 'usuarios' | 'notificaciones'
@@ -268,7 +268,7 @@ export function SettingsPage() {
 
       case 'categorias':
         return profile?.club_id ? (
-          <CategoriesSection clubId={profile.club_id} />
+          <SportStructureSection clubId={profile.club_id} />
         ) : null
 
       case 'temporada':

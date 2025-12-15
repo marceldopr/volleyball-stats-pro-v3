@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 import { CoachTeamCard } from '@/components/teams/CoachTeamCard'
 import { coachAssignmentService } from '@/services/coachAssignmentService'
 import { teamStatsService } from '@/services/teamStatsService'
+import { identifierService, IdentifierDB } from '@/services/identifierService'
 
 interface EnrichedTeam extends TeamDB {
   coach_name?: string | null
@@ -43,9 +44,12 @@ export function Teams() {
     category_stage: 'Sénior',
     gender: 'female',
     competition_level: '',
-    notes: ''
+    notes: '',
+    identifier_id: '' as string
   })
   const [submitting, setSubmitting] = useState(false)
+  const [identifiers, setIdentifiers] = useState<IdentifierDB[]>([])
+  const [useIdentifier, setUseIdentifier] = useState(false)
 
   // Season state
   const [showSeasonModal, setShowSeasonModal] = useState(false)
@@ -134,26 +138,41 @@ export function Teams() {
     }
   }
 
-  const handleOpenModal = (team?: TeamDB) => {
+  const handleOpenModal = async (team?: TeamDB) => {
+    // Load identifiers when opening modal
+    if (profile?.club_id) {
+      try {
+        const ids = await identifierService.getActiveIdentifiers(profile.club_id)
+        setIdentifiers(ids)
+      } catch (e) {
+        console.error('Error loading identifiers:', e)
+      }
+    }
+
     if (team) {
       setEditingTeam(team)
+      const hasIdentifier = !!team.identifier_id
+      setUseIdentifier(hasIdentifier)
       setFormData({
         name: team.custom_name || '',
         category: team.category,
         category_stage: team.category_stage || 'Sénior',
         gender: team.gender,
         competition_level: team.competition_level || '',
-        notes: team.notes || ''
+        notes: team.notes || '',
+        identifier_id: team.identifier_id || ''
       })
     } else {
       setEditingTeam(null)
+      setUseIdentifier(false)
       setFormData({
         name: '',
         category: '',
         category_stage: 'Sénior',
         gender: 'female',
         competition_level: '',
-        notes: ''
+        notes: '',
+        identifier_id: ''
       })
     }
     setShowModal(true)
@@ -175,7 +194,7 @@ export function Teams() {
     try {
       if (editingTeam) {
         await teamService.updateTeam(editingTeam.id, {
-          custom_name: formData.name,
+          custom_name: useIdentifier ? null : formData.name,
           gender: formData.gender as any,
           category_stage: formData.category_stage as any,
           category: formData.category_stage,
@@ -184,14 +203,15 @@ export function Teams() {
           competition_level: formData.competition_level,
           notes: formData.notes,
           head_coach_id: null,
-          assistant_coach_id: null
+          assistant_coach_id: null,
+          identifier_id: useIdentifier && formData.identifier_id ? formData.identifier_id : null
         })
         toast.success('Equipo actualizado')
       } else {
         await teamService.createTeam({
           club_id: profile.club_id,
           season_id: currentSeason.id,
-          custom_name: formData.name,
+          custom_name: useIdentifier ? null : formData.name,
           gender: formData.gender as any,
           category_stage: formData.category_stage as any,
           category: formData.category_stage,
@@ -200,7 +220,8 @@ export function Teams() {
           head_coach_id: null,
           assistant_coach_id: null,
           competition_level: formData.competition_level,
-          notes: formData.notes
+          notes: formData.notes,
+          identifier_id: useIdentifier && formData.identifier_id ? formData.identifier_id : null
         })
         toast.success('Equipo creado')
       }
@@ -726,19 +747,60 @@ export function Teams() {
                 </div>
               </div>
 
+              {/* Identifier Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Identificador del Equipo (Opcional)
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={e => setFormData({ ...formData, name: e.target.value })}
-                    className="input w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
-                    placeholder="Ej: A, Taronja, Negro, SF..."
-                  />
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Usar Identificador de Línea
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setUseIdentifier(!useIdentifier)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${useIdentifier ? 'bg-primary-600' : 'bg-gray-600'
+                      }`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${useIdentifier ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
+                  </button>
                 </div>
+
+                {useIdentifier && (
+                  <div className="space-y-3">
+                    <select
+                      value={formData.identifier_id}
+                      onChange={e => setFormData({ ...formData, identifier_id: e.target.value })}
+                      className="input w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
+                    >
+                      <option value="">Seleccionar identificador</option>
+                      {identifiers.map(id => (
+                        <option key={id.id} value={id.id}>
+                          {id.name} {id.type === 'letter' ? `(${id.code || id.name.charAt(0)})` : ''}
+                        </option>
+                      ))}
+                    </select>
+
+                    {identifiers.length === 0 && (
+                      <p className="text-xs text-gray-500">
+                        No hay identificadores. Créalos en Configuración → Estructura Deportiva.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {!useIdentifier && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Nombre personalizado (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={e => setFormData({ ...formData, name: e.target.value })}
+                      className="input w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
+                      placeholder="Ej: A, Negro, SF..."
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
