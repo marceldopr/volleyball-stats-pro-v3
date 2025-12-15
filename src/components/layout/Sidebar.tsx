@@ -5,7 +5,6 @@ import {
   Trophy,
   BarChart3,
   Settings,
-  Info,
   Menu,
   X,
   LogOut,
@@ -14,9 +13,12 @@ import {
   ChevronDown,
   ChevronRight,
   Calendar,
-  Activity
+  Activity,
+  Clock,
+  MapPin,
+  CalendarClock
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '@/stores/authStore'
 import { useRoleScope } from '@/hooks/useRoleScope'
@@ -27,24 +29,30 @@ interface NavItem {
   name: string
   href?: string
   icon: any
-  placeholder?: boolean
   children?: NavItem[]
 }
 
 interface NavSection {
-  title?: string
-  items: NavItem[]
+  id: string
+  title: string
+  icon?: any
+  collapsible: boolean
+  items?: NavItem[]
+  href?: string // For standalone links like CALENDARIO
 }
 
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false)
   const [isClubMenuOpen, setIsClubMenuOpen] = useState(false)
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['Configuración']))
   const [clubName, setClubName] = useState<string>('')
   const location = useLocation()
   const navigate = useNavigate()
   const { profile, logout } = useAuthStore()
-  const { isDT, isCoach, role } = useRoleScope()
+  const { isDT, role } = useRoleScope()
+
+  // Collapsible sections state - default: all collapsed except standalones
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => new Set())
+  const [expandedSubmenus, setExpandedSubmenus] = useState<Set<string>>(() => new Set())
 
   // Fetch club name
   useEffect(() => {
@@ -63,64 +71,137 @@ export function Sidebar() {
     fetchClub()
   }, [profile?.club_id])
 
-  // Navigation structure based on role
-  const navigation: NavSection[] = []
+  // Navigation structure for DT
+  const navigation: NavSection[] = useMemo(() => {
+    if (!isDT) {
+      // Coach navigation (simplified)
+      return [
+        {
+          id: 'inicio',
+          title: 'Inicio',
+          icon: Home,
+          collapsible: false,
+          href: '/'
+        },
+        {
+          id: 'calendario',
+          title: 'Calendario',
+          icon: Calendar,
+          collapsible: false,
+          href: '/calendario'
+        },
+        {
+          id: 'mi-gestion',
+          title: 'MI GESTIÓN',
+          collapsible: true,
+          items: [
+            { name: 'Mis Equipos', href: '/teams', icon: Users },
+            { name: 'Partidos', href: '/matches', icon: Trophy },
+            { name: 'Informes', href: '/reports/players', icon: BarChart3 }
+          ]
+        }
+      ]
+    }
 
-  if (isDT) {
-    navigation.push(
+    // DT navigation (full)
+    return [
       {
-        items: [
-          { name: 'Inicio', href: '/', icon: Home }
-        ]
+        id: 'inicio',
+        title: 'Inicio',
+        icon: Home,
+        collapsible: false,
+        href: '/'
       },
       {
-        items: [
-          { name: 'Calendario', href: '/calendario', icon: Calendar }
-        ]
+        id: 'calendario',
+        title: 'Calendario',
+        icon: Calendar,
+        collapsible: false,
+        href: '/calendario'
       },
       {
+        id: 'club',
         title: 'CLUB',
+        collapsible: true,
         items: [
           { name: 'Equipos', href: '/teams', icon: Users },
           { name: 'Jugadores', href: '/players', icon: Users },
           { name: 'Entrenadores', href: '/coach-assignments', icon: UserCog },
-          { name: 'Partidos', href: '/matches', icon: Trophy },
-          { name: 'Estadísticas', href: '/stats', icon: BarChart3 }
+          { name: 'Partidos', href: '/matches', icon: Trophy }
         ]
       },
       {
+        id: 'estadisticas',
+        title: 'ESTADÍSTICAS',
+        collapsible: true,
+        items: [
+          { name: 'Equipos', href: '/stats', icon: BarChart3 },
+          { name: 'Jugadores', href: '/reports/players', icon: Users }
+        ]
+      },
+      {
+        id: 'gestion',
         title: 'GESTIÓN',
+        collapsible: true,
         items: [
-          { name: 'Dashboard Club', href: '/club/dashboard', icon: BarChart3 },
-          { name: 'Salud & Disponibilidad', href: '/salud-disponibilidad', icon: Activity },
-          { name: 'Próxima Temporada', href: '/next-season', icon: Calendar },
-          { name: 'Planificación', href: '/reports/team-plans', icon: FileText },
-          { name: 'Informes', href: '/reports/players', icon: BarChart3 }
-        ]
-      }
-    )
-  } else if (isCoach) {
-    navigation.push(
-      {
-        items: [
-          { name: 'Inicio', href: '/', icon: Home }
+          {
+            name: 'Planificación',
+            icon: FileText,
+            children: [
+              { name: 'Temporada activa', href: '/reports/team-plans', icon: FileText },
+              { name: 'Próxima temporada', href: '/next-season', icon: CalendarClock }
+            ]
+          },
+          { name: 'Salud y disponibilidad', href: '/salud-disponibilidad', icon: Activity },
+          { name: 'Informes', href: '/club/dashboard', icon: BarChart3 }
         ]
       },
       {
-        title: 'MI GESTIÓN',
+        id: 'configuracion',
+        title: 'CONFIGURACIÓN',
+        collapsible: true,
         items: [
-          { name: 'Mis Equipos', href: '/teams', icon: Users },
-          { name: 'Partidos', href: '/matches', icon: Trophy },
-          { name: 'Informes', href: '/reports/players', icon: BarChart3 }
-        ]
-      },
-      {
-        items: [
-          { name: 'Sobre la app', href: '/about', icon: Info }
+          { name: 'Ajustes del club', href: '/settings', icon: Settings },
+          { name: 'Temporadas', href: '/settings?section=temporada', icon: Calendar },
+          { name: 'Espacios', href: '/settings?section=espacios', icon: MapPin },
+          { name: 'Horarios de entrenamiento', href: '/settings?section=horarios', icon: Clock }
         ]
       }
-    )
-  }
+    ]
+  }, [isDT])
+
+  // Auto-expand section when navigating to a route inside it
+  useEffect(() => {
+    const path = location.pathname
+
+    navigation.forEach(section => {
+      if (section.collapsible && section.items) {
+        const hasActiveItem = section.items.some(item => {
+          if (item.href && path.startsWith(item.href.split('?')[0])) return true
+          if (item.children) {
+            return item.children.some(child => child.href && path.startsWith(child.href.split('?')[0]))
+          }
+          return false
+        })
+
+        if (hasActiveItem) {
+          setExpandedSections(prev => new Set([...prev, section.id]))
+
+          // Also expand submenu if needed
+          section.items.forEach(item => {
+            if (item.children) {
+              const hasActiveChild = item.children.some(child =>
+                child.href && path.startsWith(child.href.split('?')[0])
+              )
+              if (hasActiveChild) {
+                setExpandedSubmenus(prev => new Set([...prev, item.name]))
+              }
+            }
+          })
+        }
+      }
+    })
+  }, [location.pathname, navigation])
 
   const displayName = profile?.full_name || 'Usuario'
 
@@ -130,24 +211,28 @@ export function Sidebar() {
   if (roleStr === 'coach' || roleStr === 'entrenador') roleLabel = 'Entrenador'
   if (roleStr === 'admin') roleLabel = 'Administrador'
 
-  const navigationSections = navigation
-
-  const toggleSection = (title: string) => {
-    const newExpanded = new Set(expandedSections)
-    if (newExpanded.has(title)) {
-      newExpanded.delete(title)
-    } else {
-      newExpanded.add(title)
-    }
-    setExpandedSections(newExpanded)
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(sectionId)) {
+        newSet.delete(sectionId)
+      } else {
+        newSet.add(sectionId)
+      }
+      return newSet
+    })
   }
 
-  const handleItemClick = (item: NavItem) => {
-    if (item.placeholder) {
-      // Show placeholder message
-      return
-    }
-    setIsOpen(false)
+  const toggleSubmenu = (itemName: string) => {
+    setExpandedSubmenus(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(itemName)) {
+        newSet.delete(itemName)
+      } else {
+        newSet.add(itemName)
+      }
+      return newSet
+    })
   }
 
   const handleLogout = async () => {
@@ -155,72 +240,131 @@ export function Sidebar() {
     navigate('/login', { replace: true })
   }
 
-  const renderNavItem = (item: NavItem, isChild = false) => {
-    const isActive = item.href && location.pathname === item.href
+  const isItemActive = (href?: string) => {
+    if (!href) return false
+    const [path, query] = href.split('?')
+    if (location.pathname !== path && !location.pathname.startsWith(path + '/')) return false
+    if (query && !location.search.includes(query)) return false
+    return location.pathname === path || location.pathname.startsWith(path + '/')
+  }
 
-    if (item.placeholder) {
-      return (
-        <div
-          className={clsx(
-            "flex items-center gap-3 rounded-lg text-gray-500 cursor-not-allowed opacity-60",
-            isChild ? "py-2 pl-12 pr-4" : "py-2.5 px-4"
-          )}
-          title="Próximamente"
-        >
-          <item.icon className="w-4 h-4 flex-shrink-0" />
-          <span className="text-sm">{item.name}</span>
-          <span className="ml-auto text-xs bg-gray-800 px-2 py-0.5 rounded">Pronto</span>
-        </div>
-      )
-    }
+  const renderNavItem = (item: NavItem, depth = 0) => {
+    const isActive = isItemActive(item.href)
+    const hasChildren = item.children && item.children.length > 0
+    const isSubmenuExpanded = hasChildren && expandedSubmenus.has(item.name)
 
-    if (item.children) {
-      const isExpanded = expandedSections.has(item.name)
+    if (hasChildren) {
       return (
-        <div>
+        <div key={item.name}>
           <button
-            onClick={() => toggleSection(item.name)}
-            className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors w-full text-left"
-          >
-            <item.icon className="w-5 h-5 flex-shrink-0" />
-            <span className="text-sm font-medium">{item.name}</span>
-            {isExpanded ? (
-              <ChevronDown className="w-4 h-4 ml-auto" />
-            ) : (
-              <ChevronRight className="w-4 h-4 ml-auto" />
+            onClick={() => toggleSubmenu(item.name)}
+            className={clsx(
+              'flex items-center gap-3 w-full rounded-lg text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-200',
+              depth === 0 ? 'py-2 px-3' : 'py-1.5 px-3 ml-4'
             )}
+          >
+            <item.icon className="w-4 h-4 flex-shrink-0 text-gray-400" />
+            <span className="text-sm flex-1 text-left">{item.name}</span>
+            <ChevronRight
+              className={clsx(
+                'w-4 h-4 transition-transform duration-200',
+                isSubmenuExpanded && 'rotate-90'
+              )}
+            />
           </button>
-          {isExpanded && (
-            <div className="mt-1 space-y-1">
-              {item.children.map((child) => (
-                <div key={child.name}>{renderNavItem(child, true)}</div>
-              ))}
+          <div
+            className={clsx(
+              'overflow-hidden transition-all duration-200',
+              isSubmenuExpanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'
+            )}
+          >
+            <div className="mt-1 space-y-0.5 ml-4 border-l border-gray-700 pl-2">
+              {item.children!.map(child => renderNavItem(child, depth + 1))}
             </div>
-          )}
+          </div>
         </div>
       )
     }
 
     return (
       <Link
+        key={item.name}
         to={item.href!}
+        onClick={() => setIsOpen(false)}
         className={clsx(
-          'flex items-center gap-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white transition-colors',
-          isChild ? 'py-2 pl-12 pr-4' : 'py-2.5 px-4',
-          isActive && 'bg-gray-700/50 font-semibold text-primary-400 border-l-4 border-primary-500'
+          'flex items-center gap-3 rounded-lg transition-all duration-200',
+          depth === 0 ? 'py-2 px-3' : 'py-1.5 px-3',
+          depth > 0 && 'ml-4',
+          isActive
+            ? 'bg-primary-600/20 text-primary-400 font-medium'
+            : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
         )}
-        onClick={() => handleItemClick(item)}
       >
-        <item.icon className="w-4 h-4 flex-shrink-0" />
-        <span className="font-medium">{item.name}</span>
+        <item.icon className={clsx('w-4 h-4 flex-shrink-0', isActive ? 'text-primary-400' : 'text-gray-400')} />
+        <span className="text-sm">{item.name}</span>
       </Link>
+    )
+  }
+
+  const renderSection = (section: NavSection) => {
+    const isExpanded = expandedSections.has(section.id)
+
+    // Non-collapsible standalone link (INICIO, CALENDARIO)
+    if (!section.collapsible && section.href) {
+      const isActive = isItemActive(section.href)
+      return (
+        <Link
+          key={section.id}
+          to={section.href}
+          onClick={() => setIsOpen(false)}
+          className={clsx(
+            'flex items-center gap-3 py-2.5 px-3 rounded-lg transition-all duration-200',
+            isActive
+              ? 'bg-primary-600/20 text-primary-400 font-medium'
+              : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
+          )}
+        >
+          {section.icon && <section.icon className={clsx('w-5 h-5', isActive ? 'text-primary-400' : 'text-gray-400')} />}
+          <span className="font-medium">{section.title}</span>
+        </Link>
+      )
+    }
+
+    // Collapsible section
+    return (
+      <div key={section.id}>
+        <button
+          onClick={() => toggleSection(section.id)}
+          className="flex items-center justify-between w-full py-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-300 transition-colors duration-200"
+        >
+          <span>{section.title}</span>
+          <ChevronDown
+            className={clsx(
+              'w-4 h-4 transition-transform duration-200',
+              !isExpanded && '-rotate-90'
+            )}
+          />
+        </button>
+        <div
+          className={clsx(
+            'overflow-hidden transition-all duration-200',
+            isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+          )}
+        >
+          <ul className="space-y-0.5 mt-1">
+            {section.items?.map(item => (
+              <li key={item.name}>{renderNavItem(item)}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
     )
   }
 
   return (
     <>
       {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-14 left-4 z-50">
+      <div className="lg:hidden fixed top-4 left-4 z-50">
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="p-2.5 rounded-lg bg-gray-900 shadow-lg text-white hover:bg-gray-800 transition-colors"
@@ -244,33 +388,15 @@ export function Sidebar() {
           <p className="text-gray-400 text-xs mt-1">Pro Analytics</p>
         </div>
 
-
-
         {/* Navigation */}
-        <nav className="mt-6 px-3 flex-1 overflow-y-auto">
-          <div className="space-y-6 pb-6">
-            {navigationSections.map((section, idx) => (
-              <div key={idx}>
-                {section.title && (
-                  <h3 className="px-4 text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3 mt-1">
-                    {section.title}
-                  </h3>
-                )}
-                <ul className="space-y-1">
-                  {section.items.map((item) => (
-                    <li key={item.name}>
-                      {renderNavItem(item)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+        <nav className="mt-4 px-3 flex-1 overflow-y-auto">
+          <div className="space-y-2 pb-4">
+            {navigation.map(section => renderSection(section))}
           </div>
         </nav>
 
         {/* Footer */}
         <div className="p-4 border-t border-gray-800 bg-gray-900 flex-shrink-0">
-          {/* Club Menu Dropdown */}
           {profile && (
             <div>
               <button
@@ -292,26 +418,13 @@ export function Sidebar() {
 
                 <span className="inline-flex items-center justify-center w-7 h-7 rounded-full border border-gray-600 text-gray-200 flex-shrink-0">
                   <ChevronDown
-                    className={`w-4 h-4 transition-transform duration-200 ${isClubMenuOpen ? 'rotate-180' : ''
-                      }`}
+                    className={`w-4 h-4 transition-transform duration-200 ${isClubMenuOpen ? 'rotate-180' : ''}`}
                   />
                 </span>
               </button>
 
               {isClubMenuOpen && (
                 <div className="mt-2 space-y-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigate('/settings')
-                      setIsClubMenuOpen(false)
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
-                  >
-                    <Settings className="w-4 h-4" />
-                    <span>Configuración</span>
-                  </button>
-
                   <button
                     type="button"
                     onClick={handleLogout}
