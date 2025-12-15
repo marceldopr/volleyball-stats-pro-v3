@@ -162,5 +162,44 @@ export const playerTeamSeasonService = {
             console.error('Error removing player from team:', error)
             throw error
         }
+    },
+
+    // Get all player assignments for a club in a specific season (with team info)
+    getPlayerAssignmentsBySeasonWithTeams: async (seasonId: string): Promise<(PlayerTeamSeasonDB & { team?: { id: string, category_stage: string, gender: string, custom_name: string | null } })[]> => {
+        const { data, error } = await supabase
+            .from('player_team_season')
+            .select(`
+                *,
+                team:teams (id, category_stage, gender, custom_name),
+                player:club_players (*)
+            `)
+            .eq('season_id', seasonId)
+
+        if (error) {
+            console.error('Error fetching player assignments:', error)
+            throw error
+        }
+
+        return data || []
+    },
+
+    // Bulk upsert player assignments for a season
+    bulkUpsertAssignments: async (assignments: Array<{
+        player_id: string
+        team_id: string
+        season_id: string
+        status?: string
+        notes?: string
+    }>): Promise<void> => {
+        if (assignments.length === 0) return
+
+        const { error } = await supabase
+            .from('player_team_season')
+            .upsert(assignments, { onConflict: 'player_id,season_id' })
+
+        if (error) {
+            console.error('Error bulk upserting assignments:', error)
+            throw error
+        }
     }
 }

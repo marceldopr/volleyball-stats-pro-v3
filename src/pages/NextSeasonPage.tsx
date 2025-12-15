@@ -3,12 +3,14 @@ import { Calendar, Users, UserCog, Clock, ChevronRight, AlertCircle, Play, X, Ch
 import { useSeasonStore } from '@/stores/seasonStore'
 import { useAuthStore } from '@/stores/authStore'
 import { teamService, TeamDB } from '@/services/teamService'
+import { playerService, PlayerDB } from '@/services/playerService'
 import { seasonService } from '@/services/seasonService'
 import { Button } from '@/components/ui/Button'
 import { toast } from 'sonner'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { useTrainingStore } from '@/stores/trainingStore'
 import { useNavigate } from 'react-router-dom'
+import { RosterPlanningTab } from '@/components/season/RosterPlanningTab'
 
 type TabId = 'estructura' | 'plantillas' | 'entrenadores' | 'horarios'
 
@@ -26,6 +28,7 @@ export function NextSeasonPage() {
 
     const [activeTab, setActiveTab] = useState<TabId>('estructura')
     const [teams, setTeams] = useState<TeamDB[]>([])
+    const [players, setPlayers] = useState<PlayerDB[]>([])
     const [loading, setLoading] = useState(true)
     const [showActivateModal, setShowActivateModal] = useState(false)
     const [activating, setActivating] = useState(false)
@@ -41,8 +44,12 @@ export function NextSeasonPage() {
             setLoading(true)
             try {
                 await loadSeasons(profile.club_id)
-                const teamsData = await teamService.getTeamsByClub(profile.club_id)
+                const [teamsData, playersData] = await Promise.all([
+                    teamService.getTeamsByClub(profile.club_id),
+                    playerService.getPlayersByClub(profile.club_id)
+                ])
                 setTeams(teamsData)
+                setPlayers(playersData)
             } catch (error) {
                 console.error('Error loading data:', error)
                 toast.error('Error al cargar datos')
@@ -111,30 +118,13 @@ export function NextSeasonPage() {
 
             case 'plantillas':
                 return (
-                    <div className="space-y-6">
-                        <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
-                            <h3 className="text-lg font-semibold text-white mb-4">Planificación de plantillas</h3>
-                            <p className="text-gray-400 mb-6">
-                                Asigna jugadores a equipos para la próxima temporada. Los cambios se aplicarán cuando actives la nueva temporada.
-                            </p>
-
-                            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                                <p className="text-sm text-blue-400">
-                                    <strong>Próximamente:</strong> Sistema de asignación drag-and-drop para mover jugadores entre equipos,
-                                    con estados "propuesto", "confirmado" y "rechazado".
-                                </p>
-                            </div>
-
-                            <div className="mt-6 space-y-4">
-                                {teams.map(team => (
-                                    <div key={team.id} className="border border-gray-700 rounded-lg p-4">
-                                        <h4 className="font-medium text-white mb-2">{getTeamDisplayName(team)}</h4>
-                                        <p className="text-sm text-gray-500">Asignación de jugadores disponible próximamente</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
+                    <RosterPlanningTab
+                        teams={teams}
+                        players={players}
+                        previousSeasonId={activeSeason?.id || null}
+                        nextSeasonId={draftSeason.id}
+                        seasonStartDate={draftSeason.start_date || ''}
+                    />
                 )
 
             case 'entrenadores':
