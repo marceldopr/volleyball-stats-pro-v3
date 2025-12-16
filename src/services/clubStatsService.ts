@@ -360,12 +360,16 @@ export const clubStatsService = {
                 const startDate = new Date()
                 startDate.setDate(startDate.getDate() - 30)
 
-                const { data: catTrainings } = await supabase
+                const { data: catTrainings, error: trainingsError } = await supabase
                     .from('trainings')
                     .select('id, team_id')
                     .in('team_id', teamIds)
                     .gte('date', startDate.toISOString())
                     .lte('date', new Date().toISOString())
+
+                if (trainingsError) {
+                    console.warn('[ClubStats] Could not fetch trainings for category:', trainingsError.message)
+                }
 
                 let categoryAttendance: number | null = null
                 const teamDetailMap = new Map<string, TeamCategoryDetail>()
@@ -458,12 +462,16 @@ export const clubStatsService = {
                 // Calculate unregistered trainings (last 7 days) per team
                 const startDate7 = new Date()
                 startDate7.setDate(startDate7.getDate() - 7)
-                const { data: recentTrainings } = await supabase
+                const { data: recentTrainings, error: recentError } = await supabase
                     .from('trainings')
                     .select('id, team_id, date')
                     .in('team_id', teamIds)
                     .gte('date', startDate7.toISOString())
                     .lte('date', new Date().toISOString())
+
+                if (recentError) {
+                    console.warn('[ClubStats] Could not fetch recent trainings:', recentError.message)
+                }
 
                 if (recentTrainings) {
                     const trainingIds = recentTrainings.map(t => t.id)
@@ -488,11 +496,15 @@ export const clubStatsService = {
                 }
 
                 // Calculate inactivity days per team
-                const { data: allTeamTrainings } = await supabase
+                const { data: allTeamTrainings, error: activityError } = await supabase
                     .from('trainings')
                     .select('team_id, date, training_attendance!inner(id)')
                     .in('team_id', teamIds)
                     .order('date', { ascending: false })
+
+                if (activityError) {
+                    console.warn('[ClubStats] Could not fetch team activity:', activityError.message)
+                }
 
                 const teamLastActivity = new Map<string, Date>()
                 allTeamTrainings?.forEach(t => {
