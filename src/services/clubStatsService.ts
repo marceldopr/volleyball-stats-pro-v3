@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabaseClient'
 import { CategoryStage } from '@/utils/categoryStage'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 
 
 export interface TeamCategoryDetail {
@@ -278,19 +279,27 @@ export const clubStatsService = {
      */
     async getCategoriesSummary(clubId: string, seasonId?: string): Promise<CategorySummary[]> {
         try {
-            // Get all teams with their category
+            // Get all teams with their category and identifier (same as teamService)
             let teamsQuery = supabase
                 .from('teams')
-                .select('id, category_stage, custom_name, gender')
+                .select('id, category_stage, custom_name, gender, identifier_id, identifier:club_identifiers(id, name, type, code, color_hex)')
                 .eq('club_id', clubId)
 
             if (seasonId) {
                 teamsQuery = teamsQuery.eq('season_id', seasonId)
             }
 
-            const { data: teams, error: teamsError } = await teamsQuery
+            const { data: teamsRaw, error: teamsError } = await teamsQuery
 
-            if (teamsError || !teams) return []
+            if (teamsError || !teamsRaw) return []
+
+            // Normalize identifier (may be array from Supabase)
+            const teams = teamsRaw.map((t: any) => {
+                if (t.identifier && Array.isArray(t.identifier)) {
+                    t.identifier = t.identifier[0] || null
+                }
+                return t
+            })
 
             // Group teams by category to build categoriesMap
             // Only show categories that have teams
@@ -333,7 +342,7 @@ export const clubStatsService = {
                     const sets = getSetsFromMatch(match)
                     if (sets.ourSets !== null && sets.theirSets !== null) {
                         if (sets.ourSets > sets.theirSets) wins++
-                        else if (sets.theirSets > sets.ourSets) losses++
+                        else if (sets.theirSets > sets.theirSets) losses++
                     }
                 })
 
@@ -369,35 +378,21 @@ export const clubStatsService = {
                     let fullName = 'Equipo'
 
                     if (t) {
-                        // Build name from available fields: custom_name + gender
-                        const genderMap: Record<string, string> = {
-                            'male': 'Masculino',
-                            'female': 'Femenino',
-                            'mixed': 'Mixto'
-                        }
-                        const genderDisplay = t.gender ? (genderMap[t.gender] || t.gender) : undefined
+                        // Use the same utility as tabs to get full team name
+                        fullName = getTeamDisplayName(t)
 
-                        // Full name: custom_name or gender
-                        const parts = []
-                        if (t.custom_name && t.custom_name.trim()) {
-                            parts.push(t.custom_name.trim())
-                        }
-                        if (genderDisplay) {
-                            parts.push(genderDisplay)
-                        }
-                        fullName = parts.length > 0 ? parts.join(' ') : 'Equipo'
-
-                        // Short name: remove category prefix if present
+                        // For shortName: remove category prefix to save space in cards
+                        // E.g., "Cadete Taronja Femenino" -> "Taronja Femenino"
                         shortName = fullName
                         if (t.category_stage) {
                             const catPrefix = t.category_stage.toLowerCase()
-                            const nameLower = shortName.toLowerCase()
+                            const nameLower = fullName.toLowerCase()
                             if (nameLower.startsWith(catPrefix)) {
-                                shortName = shortName.substring(t.category_stage.length).trim()
+                                shortName = fullName.substring(t.category_stage.length).trim()
                             }
                         }
 
-                        // Fallback if empty
+                        // Fallback if removal results in empty string
                         if (!shortName || shortName.trim() === '') {
                             shortName = fullName
                         }
@@ -640,7 +635,8 @@ export const clubStatsService = {
                         const totalExpected = teamsCount * 3 // 3 evaluations per team (start, mid, end)
                         // Count unique team-phase pairs
                         const uniqueReports = new Set(
-                            evaluations?.map(e => `${e.team_id}-${e.phase}`) || []
+                            evaluations?.map(e => `${e.team_id
+                                } - ${e.phase}`) || []
                         )
                         const completed = uniqueReports.size
                         reportsCompletion = totalExpected > 0 ? Math.round((completed / totalExpected) * 100) : 0
@@ -749,7 +745,7 @@ export const clubStatsService = {
                         if (teamsLowAttendance > 0) {
                             alerts.push({
                                 id: 'low-attendance',
-                                message: `${teamsLowAttendance} equipos con asistencia < 80%`,
+                                message: `${teamsLowAttendance} equipos con asistencia < 80 % `,
                                 level: 'danger',
                                 targetType: 'team'
                             })
@@ -862,7 +858,7 @@ export const clubStatsService = {
             if (unbalancedTeams > 0) {
                 alerts.push({
                     id: 'unbalanced-teams',
-                    message: `${unbalancedTeams} equipos con plantilla insuficiente (<9 jugadoras)`,
+                    message: `${unbalancedTeams} equipos con plantilla insuficiente(<9 jugadoras)`,
                     level: 'danger',
                     targetType: 'team'
                 })
