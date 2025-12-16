@@ -128,7 +128,8 @@ export function RosterPlanningTab({
                     if (prevAssignment?.team) {
                         previousTeam = teams.find(t =>
                             t.category_stage === prevAssignment.team.category_stage &&
-                            t.gender === prevAssignment.team.gender
+                            t.gender === prevAssignment.team.gender &&
+                            t.identifier_id === prevAssignment.team.identifier_id
                         ) || null
 
                         // Normalize identifier if array (supabase join quirk)

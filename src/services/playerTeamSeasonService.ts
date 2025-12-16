@@ -167,7 +167,7 @@ export const playerTeamSeasonService = {
     },
 
     // Get all player assignments for a club in a specific season (with team info)
-    getPlayerAssignmentsBySeasonWithTeams: async (seasonId: string): Promise<(PlayerTeamSeasonDB & { team?: { id: string, category_stage: string, gender: string, custom_name: string | null, identifier?: { name: string, type: 'letter' | 'color', code: string | null } | null } })[]> => {
+    getPlayerAssignmentsBySeasonWithTeams: async (seasonId: string): Promise<(PlayerTeamSeasonDB & { team?: { id: string, category_stage: string, gender: string, custom_name: string | null, identifier_id: string | null, identifier?: { name: string, type: 'letter' | 'color', code: string | null } | null } })[]> => {
         const { data, error } = await supabase
             .from('player_team_season')
             .select(`
@@ -177,6 +177,7 @@ export const playerTeamSeasonService = {
                     category_stage, 
                     gender, 
                     custom_name,
+                    identifier_id,
                     identifier:club_identifiers (
                         name,
                         type,
