@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
-import { CategoryStage, STAGE_ORDER } from '@/utils/categoryStage'
+import { CategoryStage } from '@/utils/categoryStage'
 
 
 export interface TeamCategoryDetail {
@@ -10,6 +10,9 @@ export interface TeamCategoryDetail {
     rosterSize: number
     injuryCount: number
     lastActivityDays: number | null
+    globalStatus: 'high' | 'medium' | 'low' // Red/Orange/Green indicator
+    unregisteredTrainingsCount: number
+    inactivityDays: number
 }
 
 export interface CategorySummary {
@@ -290,11 +293,8 @@ export const clubStatsService = {
             if (teamsError || !teams) return []
 
             // Group teams by category to build categoriesMap
-            // Initialize with ALL stages to ensure they all appear
+            // Only show categories that have teams
             const categoriesMap = new Map<CategoryStage, string[]>()
-            STAGE_ORDER.forEach(stage => {
-                categoriesMap.set(stage, [])
-            })
 
             teams.forEach(t => {
                 if (t.category_stage) {
@@ -381,7 +381,10 @@ export const clubStatsService = {
                         attendance: null,
                         rosterSize: teamRosterSizes.get(tId) || 0,
                         injuryCount: 0,
-                        lastActivityDays: null
+                        lastActivityDays: null,
+                        globalStatus: 'low', // Will be calculated later
+                        unregisteredTrainingsCount: 0,
+                        inactivityDays: 0
                     })
                 })
 
@@ -427,6 +430,95 @@ export const clubStatsService = {
                         })
                     }
                 }
+
+                // Calculate unregistered trainings (last 7 days) per team
+                const startDate7 = new Date()
+                startDate7.setDate(startDate7.getDate() - 7)
+                const { data: recentTrainings } = await supabase
+                    .from('trainings')
+                    .select('id, team_id, date')
+                    .in('team_id', teamIds)
+                    .gte('date', startDate7.toISOString())
+                    .lte('date', new Date().toISOString())
+
+                if (recentTrainings) {
+                    const trainingIds = recentTrainings.map(t => t.id)
+                    const { data: attRecords } = await supabase
+                        .from('training_attendance')
+                        .select('training_id')
+                        .in('training_id', trainingIds)
+
+                    const trainingsWithAttendance = new Set(attRecords?.map(a => a.training_id) || [])
+
+                    // Count unregistered trainings per team
+                    teamIds.forEach(tId => {
+                        const teamTrainings = recentTrainings.filter(t => t.team_id === tId)
+                        const unregistered = teamTrainings.filter(t => {
+                            const tDate = new Date(t.date)
+                            return tDate < new Date() && !trainingsWithAttendance.has(t.id)
+                        }).length
+
+                        const teamDetail = teamDetailMap.get(tId)
+                        if (teamDetail) teamDetail.unregisteredTrainingsCount = unregistered
+                    })
+                }
+
+                // Calculate inactivity days per team
+                const { data: allTeamTrainings } = await supabase
+                    .from('trainings')
+                    .select('team_id, date, training_attendance!inner(id)')
+                    .in('team_id', teamIds)
+                    .order('date', { ascending: false })
+
+                const teamLastActivity = new Map<string, Date>()
+                allTeamTrainings?.forEach(t => {
+                    if (!teamLastActivity.has(t.team_id)) {
+                        teamLastActivity.set(t.team_id, new Date(t.date))
+                    }
+                })
+
+                const now = new Date()
+                teamIds.forEach(tId => {
+                    const lastActivity = teamLastActivity.get(tId)
+                    const teamDetail = teamDetailMap.get(tId)
+                    if (teamDetail) {
+                        if (lastActivity) {
+                            const daysSince = Math.floor((now.getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24))
+                            teamDetail.inactivityDays = daysSince
+                        } else {
+                            teamDetail.inactivityDays = 999 // No activity ever
+                        }
+                    }
+                })
+
+                // Calculate global status for each team
+                teamIds.forEach(tId => {
+                    const team = teamDetailMap.get(tId)
+                    if (!team) return
+
+                    let riskFactors = 0
+
+                    // High risk factors (instant red)
+                    if (team.attendance !== null && team.attendance < 80) riskFactors += 3
+                    if (team.rosterSize < 9) riskFactors += 3
+                    if (team.inactivityDays > 7) riskFactors += 3
+                    if (team.unregisteredTrainingsCount > 2) riskFactors += 3
+
+                    // Medium risk factors
+                    if (team.attendance !== null && team.attendance >= 80 && team.attendance < 85) riskFactors += 1
+                    if (team.rosterSize === 9) riskFactors += 1
+                    if (team.inactivityDays >= 4 && team.inactivityDays <= 7) riskFactors += 1
+                    if (team.unregisteredTrainingsCount >= 1 && team.unregisteredTrainingsCount <= 2) riskFactors += 1
+
+                    // Assign status
+                    if (riskFactors >= 3) {
+                        team.globalStatus = 'high' // Red
+                    } else if (riskFactors >= 1) {
+                        team.globalStatus = 'medium' // Orange
+                    } else {
+                        team.globalStatus = 'low' // Green
+                    }
+                })
 
                 categoriesSummary.push({
                     id: categoryName,
