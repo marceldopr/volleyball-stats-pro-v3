@@ -167,11 +167,29 @@ export function RosterPlanningTab({
                             ) || null
                         }
                     } else {
-                        status = 'pending'
-                        proposedTeam = teams.find(t =>
-                            t.category_stage === expectedCategory.name &&
-                            t.gender === player.gender
-                        ) || null
+                        // Try to find team in expected category with SAME identifier
+                        if (previousTeam && previousTeam.identifier_id) {
+                            proposedTeam = teams.find(t =>
+                                t.category_stage === expectedCategory.name &&
+                                t.gender === player.gender &&
+                                t.identifier_id === previousTeam.identifier_id
+                            ) || null
+                        }
+
+                        // Fallback: any team in category if strict match not found
+                        if (!proposedTeam) {
+                            proposedTeam = teams.find(t =>
+                                t.category_stage === expectedCategory.name &&
+                                t.gender === player.gender
+                            ) || null
+                        }
+
+                        // Set status based on whether we kept the identifier
+                        if (proposedTeam && previousTeam && proposedTeam.identifier_id === previousTeam.identifier_id) {
+                            status = 'pending_confirmation' // Good match (Color -> Color)
+                        } else {
+                            status = 'pending' // Different color or no color logic
+                        }
                     }
 
                     assignmentsMap.set(player.id, {
