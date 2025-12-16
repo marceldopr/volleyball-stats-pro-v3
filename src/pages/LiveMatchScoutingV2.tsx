@@ -1,5 +1,6 @@
 ﻿import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { clsx } from 'clsx'
 import { useMatchStoreV2, validateFIVBSubstitution } from '@/stores/matchStoreV2'
 import { toast } from 'sonner'
 import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
@@ -33,6 +34,7 @@ import { StartersModalV2 } from '@/components/match/StartersModalV2'
 import { RotationModalV2 } from '@/components/match/RotationModalV2'
 import { ExitMatchModal } from '@/components/match/ExitMatchModal'
 import { ActionPlayerModalV2 } from '@/components/match/ActionPlayerModalV2'
+import { MobileTabNav, TabView } from '@/components/match/MobileTabNav'
 
 
 
@@ -111,6 +113,9 @@ export function LiveMatchScoutingV2() {
 
     // Timeline Logic
     const [showTimeline, setShowTimeline] = useState(false)
+
+    // Mobile Tab State
+    const [activeTab, setActiveTab] = useState<TabView>('actions')
 
     // DEV-ONLY: Assert lineup/players validation
     if (import.meta.env.DEV) {
@@ -372,51 +377,110 @@ export function LiveMatchScoutingV2() {
                     disabled={derivedState.isMatchFinished}
                 />
 
+                {/* MOBILE TABS (Sticky below Header) */}
+                <MobileTabNav
+                    activeTab={activeTab}
+                    onTabChange={setActiveTab}
+                />
+
                 {/* MAIN GRID */}
-                <div className="flex-1 px-3 pt-3 flex flex-col">
+                <div className="flex-1 px-3 pt-3 flex flex-col pb-20 lg:pb-0">
 
-                    <ActionButtons
-                        isServing={isServing}
-                        disabled={actionCapture.isProcessing}
-                        onPointUs={actionCapture.handlePointUs}
-                        onPointOpponent={actionCapture.handlePointOpponent}
-                        onFreeballSent={actionCapture.handleFreeballSent}
-                        onFreeballReceived={actionCapture.handleFreeballReceived}
-                    />
+                    {/* ACTIONS TAB/SECTION */}
+                    <div className={clsx(
+                        activeTab === 'actions' ? 'block' : 'hidden lg:block'
+                    )}>
+                        <ActionButtons
+                            isServing={isServing}
+                            disabled={actionCapture.isProcessing}
+                            onPointUs={actionCapture.handlePointUs}
+                            onPointOpponent={actionCapture.handlePointOpponent}
+                            onFreeballSent={actionCapture.handleFreeballSent}
+                            onFreeballReceived={actionCapture.handleFreeballReceived}
+                        />
+                    </div>
 
-                    {/* ROTATION STRIP - Uses shared libero logic */}
-                    <RotationDisplay
-                        onCourtPlayers={derivedState.onCourtPlayers}
-                        currentLiberoId={derivedState.currentLiberoId}
-                        servingSide={derivedState.servingSide}
-                        availablePlayers={availablePlayers}
-                        getPlayerDisplay={getPlayerDisplay}
-                        onClick={handlers.openRotation}
-                    />
+                    {/* ROTATION TAB/SECTION */}
+                    <div className={clsx(
+                        // On Mobile: Only show if tab is 'rotation' OR 'actions' (small rotation strip)
+                        // Actually, user requested Tabs: Actions | Rotation | Timeline.
+                        // Standard: Actions tab usually has a small rotation view? 
+                        // User request: "Área central con tabs o switch: Acciones / Rotación / Timeline." implying full separation.
+                        // Let's hide RotationDisplay on 'actions' tab in mobile to save space if desired, OR keep it if it fits. 
+                        // Given portrait constraint, 'Actions' tab needs space for buttons. Let's separate or keep small.
+                        // However, RotationDisplay is currently a "Strip". Let's assume on Mobile 'Rotation' tab shows the full RotationModal or a bigger view? 
+                        // No, let's just show the strip in 'Rotation' tab for now to match current components, or stick to the requested separation.
+                        // If I hide it in Actions tab, user can't see who serves. 
+                        // Compromise: On 'Actions' tab, maybe show valid players? 
+                        // Let's stick to strict separation for now to ensure space. 
+                        // Wait, RotationDisplay is the STRIP. It is useful in Actions view.
+                        // If I hide it, user loses context. 
+                        // User said: "Match HUD... Tabs... Acciones / Rotación / Timeline".
+                        // Let's follow strict tabs.
+                        activeTab === 'rotation' ? 'block' : 'hidden lg:block',
+                        "lg:mt-4"
+                    )}>
+                        {/* Wrapper for Rotation Display to add spacing in desktop */}
+                        <RotationDisplay
+                            onCourtPlayers={derivedState.onCourtPlayers}
+                            currentLiberoId={derivedState.currentLiberoId}
+                            servingSide={derivedState.servingSide}
+                            availablePlayers={availablePlayers}
+                            getPlayerDisplay={getPlayerDisplay}
+                            onClick={handlers.openRotation}
+                        />
+                    </div>
+
+                    {/* TIMELINE TAB/SECTION (Mobile Only View via Tab, Desktop via Toggle) */}
+                    <div className={clsx(
+                        activeTab === 'timeline' ? 'block' : 'hidden', // Mobile: Tab control
+                        'lg:hidden' // Hide on desktop here, we handle it below for desktop toggle
+                    )}>
+                        <MatchTimelineV2
+                            events={formatTimeline(events, derivedState.ourSide, homeTeamName, awayTeamName)}
+                            className="mt-2"
+                        />
+                    </div>
 
                 </div>
 
-                {/* BOTTOM ACTIONS */}
-                <BottomActions
-                    onSubstitution={() => substitutionModal.openModal()}
-                    onLiberoSwap={handleInstantLiberoSwap}
-                    onUndo={undoEvent}
-                    onExit={handlers.openExit}
-                    onToggleTimeline={() => setShowTimeline(!showTimeline)}
-                    isTimelineOpen={showTimeline}
-                    lastEventLabel={getLastEventLabel(
-                        events[events.length - 1],
-                        new Map(availablePlayers.map(p => [p.id, p]))
-                    )}
-                    eventCount={events.length}
-                    disableSubstitution={!derivedState.hasLineupForCurrentSet || derivedState.isSetFinished || derivedState.isMatchFinished}
-                    disableLibero={!derivedState.hasLineupForCurrentSet || derivedState.isSetFinished || derivedState.isMatchFinished}
-                    disableUndo={events.length === 0}
-                />
+                {/* BOTTOM ACTIONS - Only visible on Actions Tab in Mobile? Or always?
+                    User said: "BottomActions fijo con acciones principales; el resto en 'Más…'."
+                    If I switch to Timeline tab, do I need bottom actions? Probably not.
+                    Let's show BottomActions only on 'actions' tab in mobile.
+                    Always show on Desktop.
+                */}
+                <div className={clsx(
+                    activeTab === 'actions' ? 'block' : 'hidden lg:block'
+                )}>
+                    <BottomActions
+                        onSubstitution={() => substitutionModal.openModal()}
+                        onLiberoSwap={handleInstantLiberoSwap}
+                        onUndo={undoEvent}
+                        onExit={handlers.openExit}
+                        onToggleTimeline={() => {
+                            // Desktop: Toggle state
+                            setShowTimeline(!showTimeline)
+                            // Mobile: Switch tab to timeline if not there, or back to actions
+                            if (window.innerWidth < 1024) {
+                                setActiveTab(prev => prev === 'timeline' ? 'actions' : 'timeline')
+                            }
+                        }}
+                        isTimelineOpen={showTimeline} // Only affects transparency/highlight
+                        lastEventLabel={getLastEventLabel(
+                            events[events.length - 1],
+                            new Map(availablePlayers.map(p => [p.id, p]))
+                        )}
+                        eventCount={events.length}
+                        disableSubstitution={!derivedState.hasLineupForCurrentSet || derivedState.isSetFinished || derivedState.isMatchFinished}
+                        disableLibero={!derivedState.hasLineupForCurrentSet || derivedState.isSetFinished || derivedState.isMatchFinished}
+                        disableUndo={events.length === 0}
+                    />
+                </div>
 
-                {/* Timeline Content (Expands Below) */}
+                {/* Desktop Timeline Content (Expands Below via BottomAction Toggle) */}
                 {showTimeline && (
-                    <div className="border-t border-zinc-800">
+                    <div className="hidden lg:block border-t border-zinc-800">
                         <MatchTimelineV2
                             events={formatTimeline(events, derivedState.ourSide, homeTeamName, awayTeamName)}
                             className=""

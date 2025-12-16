@@ -5,8 +5,6 @@ import {
   Trophy,
   BarChart3,
   Settings,
-  Menu,
-  X,
   LogOut,
   UserCog,
   FileText,
@@ -42,7 +40,6 @@ interface NavSection {
 }
 
 export function Sidebar() {
-  const [isOpen, setIsOpen] = useState(false)
   const [isClubMenuOpen, setIsClubMenuOpen] = useState(false)
   const [clubName, setClubName] = useState<string>('')
   const location = useLocation()
@@ -291,7 +288,6 @@ export function Sidebar() {
       <Link
         key={item.name}
         to={item.href!}
-        onClick={() => setIsOpen(false)}
         className={clsx(
           'flex items-center gap-3 rounded-lg transition-all duration-200',
           depth === 0 ? 'py-2 px-3' : 'py-1.5 px-3',
@@ -317,7 +313,6 @@ export function Sidebar() {
         <Link
           key={section.id}
           to={section.href}
-          onClick={() => setIsOpen(false)}
           className={clsx(
             'flex items-center gap-3 py-2.5 px-3 rounded-lg transition-all duration-200',
             isActive
@@ -363,91 +358,66 @@ export function Sidebar() {
   }
 
   return (
-    <>
-      {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="p-2.5 rounded-lg bg-gray-900 shadow-lg text-white hover:bg-gray-800 transition-colors"
-          aria-label="Toggle menu"
-        >
-          {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
+    <div className="flex flex-col h-full bg-gray-900 border-r border-gray-800">
+      {/* Header */}
+      <div className="flex flex-col items-center justify-center h-20 px-4 border-b border-gray-800 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <Trophy className="w-6 h-6 text-primary-500" />
+          <h1 className="text-white font-bold text-lg">Volleyball Stats</h1>
+        </div>
+        <p className="text-gray-400 text-xs mt-1">Pro Analytics</p>
       </div>
 
-      {/* Sidebar */}
-      <div className={clsx(
-        'fixed inset-y-0 left-0 z-40 w-64 bg-gray-900 shadow-xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col h-screen',
-        isOpen ? 'translate-x-0' : '-translate-x-full'
-      )}>
-        {/* Header */}
-        <div className="flex flex-col items-center justify-center h-20 px-4 border-b border-gray-800 flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-6 h-6 text-primary-500" />
-            <h1 className="text-white font-bold text-lg">Volleyball Stats</h1>
-          </div>
-          <p className="text-gray-400 text-xs mt-1">Pro Analytics</p>
+      {/* Navigation */}
+      <nav className="mt-4 px-3 flex-1 overflow-y-auto">
+        <div className="space-y-2 pb-4">
+          {navigation.map(section => renderSection(section))}
         </div>
+      </nav>
 
-        {/* Navigation */}
-        <nav className="mt-4 px-3 flex-1 overflow-y-auto">
-          <div className="space-y-2 pb-4">
-            {navigation.map(section => renderSection(section))}
-          </div>
-        </nav>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-gray-800 bg-gray-900 flex-shrink-0">
-          {profile && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setIsClubMenuOpen(open => !open)}
-                className="w-full flex items-center justify-between gap-3 text-left hover:bg-gray-800/50 rounded-lg p-2 transition-colors"
-              >
-                <div className="flex flex-col min-w-0">
-                  <span className="text-base font-semibold text-white truncate" title={clubName}>
-                    {clubName || 'Cargando...'}
-                  </span>
-                  <span className="text-xs text-white truncate" title={displayName}>
-                    {displayName}
-                  </span>
-                  <span className="text-xs font-medium text-primary-500">
-                    {roleLabel}
-                  </span>
-                </div>
-
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full border border-gray-600 text-gray-200 flex-shrink-0">
-                  <ChevronDown
-                    className={`w-4 h-4 transition-transform duration-200 ${isClubMenuOpen ? 'rotate-180' : ''}`}
-                  />
+      {/* Footer */}
+      <div className="p-4 border-t border-gray-800 bg-gray-900 flex-shrink-0">
+        {profile && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setIsClubMenuOpen(open => !open)}
+              className="w-full flex items-center justify-between gap-3 text-left hover:bg-gray-800/50 rounded-lg p-2 transition-colors"
+            >
+              <div className="flex flex-col min-w-0">
+                <span className="text-base font-semibold text-white truncate" title={clubName}>
+                  {clubName || 'Cargando...'}
                 </span>
-              </button>
+                <span className="text-xs text-white truncate" title={displayName}>
+                  {displayName}
+                </span>
+                <span className="text-xs font-medium text-primary-500">
+                  {roleLabel}
+                </span>
+              </div>
 
-              {isClubMenuOpen && (
-                <div className="mt-2 space-y-1">
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-400 hover:bg-red-900/20 hover:text-red-300 transition-colors"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Cerrar sesión</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full border border-gray-600 text-gray-200 flex-shrink-0">
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform duration-200 ${isClubMenuOpen ? 'rotate-180' : ''}`}
+                />
+              </span>
+            </button>
+
+            {isClubMenuOpen && (
+              <div className="mt-2 space-y-1">
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-400 hover:bg-red-900/20 hover:text-red-300 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Cerrar sesión</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
-
-      {/* Mobile overlay */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden backdrop-blur-sm"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
-    </>
+    </div>
   )
 }

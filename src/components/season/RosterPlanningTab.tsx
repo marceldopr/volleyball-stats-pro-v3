@@ -462,7 +462,7 @@ export function RosterPlanningTab({
             </div>
 
             {/* Players table */}
-            <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+            <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden overflow-x-auto">
                 <table className="w-full">
                     <thead>
                         <tr className="border-b border-gray-700">
