@@ -137,14 +137,17 @@ export function TeamSeasonContext() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-gray-500">Cargando contexto de temporada...</div>
+            <div className="flex items-center justify-center min-h-screen bg-gray-900">
+                <div className="text-gray-400">Cargando contexto de temporada...</div>
             </div>
         )
     }
 
+    const inputClassName = "w-full px-3 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
+    const cardClassName = "bg-gray-800 border border-gray-700 rounded-lg p-6 shadow-sm"
+
     return (
-        <div className="p-6 space-y-6 max-w-5xl mx-auto">
+        <div className="p-6 space-y-6 max-w-5xl mx-auto bg-gray-900 min-h-screen">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -157,8 +160,8 @@ export function TeamSeasonContext() {
                     >
                         Volver a Equipos
                     </Button>
-                    <h1 className="text-3xl font-bold text-gray-900">Contexto de Temporada</h1>
-                    <p className="text-gray-600 mt-1">
+                    <h1 className="text-2xl font-bold text-white">Contexto de Temporada</h1>
+                    <p className="text-gray-400 mt-1 text-sm">
                         {team?.name} • {currentSeason?.name}
                     </p>
                 </div>
@@ -174,15 +177,15 @@ export function TeamSeasonContext() {
             </div>
 
             {/* A) Objetivos de la temporada */}
-            <div className="card">
+            <div className={cardClassName}>
                 <div className="flex items-center gap-3 mb-4">
-                    <Target className="w-6 h-6 text-primary-600" />
-                    <h2 className="text-xl font-bold text-gray-900">Objetivos de la Temporada</h2>
+                    <Target className="w-5 h-5 text-primary-400" />
+                    <h2 className="text-lg font-semibold text-white">Objetivos de la Temporada</h2>
                 </div>
 
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
                             Objetivo Principal
                         </label>
                         <input
@@ -190,12 +193,12 @@ export function TeamSeasonContext() {
                             value={primaryGoal}
                             onChange={(e) => setPrimaryGoal(e.target.value)}
                             placeholder="Ej: Entrar en fase de ascenso"
-                            className="input-field w-full"
+                            className={inputClassName}
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
                             Objetivos Secundarios
                         </label>
                         <div className="flex gap-2 mb-2">
@@ -205,7 +208,7 @@ export function TeamSeasonContext() {
                                 onChange={(e) => setNewSecondaryGoal(e.target.value)}
                                 onKeyPress={(e) => e.key === 'Enter' && addSecondaryGoal()}
                                 placeholder="Ej: Consolidar recepción con remate de segundo tiempo"
-                                className="input-field flex-1"
+                                className={inputClassName}
                             />
                             <Button
                                 variant="ghost"
@@ -218,14 +221,14 @@ export function TeamSeasonContext() {
                         </div>
                         <div className="space-y-2">
                             {secondaryGoals.map((goal, index) => (
-                                <div key={index} className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg">
-                                    <span className="flex-1 text-gray-700">{goal}</span>
+                                <div key={index} className="flex items-center gap-2 bg-gray-700/30 border border-gray-600/30 p-3 rounded-lg">
+                                    <span className="flex-1 text-gray-200">{goal}</span>
                                     <Button
                                         variant="ghost"
                                         size="sm"
                                         icon={X}
                                         onClick={() => removeSecondaryGoal(index)}
-                                        className="text-red-600 hover:text-red-700"
+                                        className="text-red-400 hover:text-red-300"
                                     >
                                         {''}
                                     </Button>
@@ -237,35 +240,35 @@ export function TeamSeasonContext() {
             </div>
 
             {/* B) Roles y jerarquías */}
-            <div className="card">
+            <div className={cardClassName}>
                 <div className="flex items-center gap-3 mb-4">
-                    <Users className="w-6 h-6 text-primary-600" />
-                    <h2 className="text-xl font-bold text-gray-900">Roles y Jerarquías</h2>
+                    <Users className="w-5 h-5 text-primary-400" />
+                    <h2 className="text-lg font-semibold text-white">Roles y Jerarquías</h2>
                 </div>
 
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
                             Descripción de Roles
                         </label>
                         <textarea
                             value={roleHierarchy}
                             onChange={(e) => setRoleHierarchy(e.target.value)}
                             placeholder="Ej: Titulares por defecto: Colocadora 1, Centrales 2 y 3, Receptoras 4 y 5, Opuesta 6. Líbero 1 entra por Central 2."
-                            className="input-field w-full"
+                            className={inputClassName}
                             rows={4}
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
                             Notas de Rotación Habitual
                         </label>
                         <textarea
                             value={defaultRotationNotes}
                             onChange={(e) => setDefaultRotationNotes(e.target.value)}
                             placeholder="Ej: Rotación preferente: 4-3 con colocadora en zona 1. Cambios habituales en zona 6."
-                            className="input-field w-full"
+                            className={inputClassName}
                             rows={3}
                         />
                     </div>
@@ -273,10 +276,10 @@ export function TeamSeasonContext() {
             </div>
 
             {/* C) Prioridad técnica */}
-            <div className="card">
+            <div className={cardClassName}>
                 <div className="flex items-center gap-3 mb-4">
-                    <Zap className="w-6 h-6 text-primary-600" />
-                    <h2 className="text-xl font-bold text-gray-900">Prioridades Técnicas</h2>
+                    <Zap className="w-5 h-5 text-primary-400" />
+                    <h2 className="text-lg font-semibold text-white">Prioridades Técnicas</h2>
                 </div>
 
                 <div>
@@ -287,7 +290,7 @@ export function TeamSeasonContext() {
                             onChange={(e) => setNewTrainingFocus(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && addTrainingFocus()}
                             placeholder="Ej: Recepción compacta, Bloqueo en zona 2"
-                            className="input-field flex-1"
+                            className={inputClassName}
                         />
                         <Button
                             variant="ghost"
@@ -302,7 +305,7 @@ export function TeamSeasonContext() {
                         {trainingFocus.map((focus, index) => (
                             <div
                                 key={index}
-                                className="inline-flex items-center gap-2 bg-primary-100 text-primary-800 px-3 py-1.5 rounded-full text-sm font-medium"
+                                className="inline-flex items-center gap-2 bg-primary-600/20 text-primary-300 border border-primary-500/30 px-3 py-1.5 rounded-full text-sm font-medium"
                             >
                                 <span>{focus}</span>
                                 <Button
@@ -310,7 +313,7 @@ export function TeamSeasonContext() {
                                     size="sm"
                                     icon={X}
                                     onClick={() => removeTrainingFocus(index)}
-                                    className="hover:text-primary-900"
+                                    className="hover:text-primary-200"
                                 >
                                     {''}
                                 </Button>
@@ -321,10 +324,10 @@ export function TeamSeasonContext() {
             </div>
 
             {/* D) Reglas internas */}
-            <div className="card">
+            <div className={cardClassName}>
                 <div className="flex items-center gap-3 mb-4">
-                    <FileText className="w-6 h-6 text-primary-600" />
-                    <h2 className="text-xl font-bold text-gray-900">Reglas Internas</h2>
+                    <FileText className="w-5 h-5 text-primary-400" />
+                    <h2 className="text-lg font-semibold text-white">Reglas Internas</h2>
                 </div>
 
                 <div>
@@ -335,7 +338,7 @@ export function TeamSeasonContext() {
                             onChange={(e) => setNewInternalRule(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && addInternalRule()}
                             placeholder="Ej: 80% asistencia mínima"
-                            className="input-field flex-1"
+                            className={inputClassName}
                         />
                         <Button
                             variant="ghost"
@@ -348,14 +351,14 @@ export function TeamSeasonContext() {
                     </div>
                     <div className="space-y-2">
                         {internalRules.map((rule, index) => (
-                            <div key={index} className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg">
-                                <span className="flex-1 text-gray-700">• {rule}</span>
+                            <div key={index} className="flex items-center gap-2 bg-gray-700/30 border border-gray-600/30 p-3 rounded-lg">
+                                <span className="flex-1 text-gray-200">• {rule}</span>
                                 <Button
                                     variant="ghost"
                                     size="sm"
                                     icon={X}
                                     onClick={() => removeInternalRule(index)}
-                                    className="text-red-600 hover:text-red-700"
+                                    className="text-red-400 hover:text-red-300"
                                 >
                                     {''}
                                 </Button>
@@ -366,10 +369,10 @@ export function TeamSeasonContext() {
             </div>
 
             {/* E) Notas del staff */}
-            <div className="card">
+            <div className={cardClassName}>
                 <div className="flex items-center gap-3 mb-4">
-                    <Brain className="w-6 h-6 text-primary-600" />
-                    <h2 className="text-xl font-bold text-gray-900">Notas del Staff</h2>
+                    <Brain className="w-5 h-5 text-primary-400" />
+                    <h2 className="text-lg font-semibold text-white">Notas del Staff</h2>
                 </div>
 
                 <div>
@@ -377,7 +380,7 @@ export function TeamSeasonContext() {
                         value={staffNotes}
                         onChange={(e) => setStaffNotes(e.target.value)}
                         placeholder="Observaciones contextuales, perfil psicológico del grupo, ajustes previstos..."
-                        className="input-field w-full"
+                        className={inputClassName}
                         rows={6}
                     />
                 </div>

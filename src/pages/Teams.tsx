@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, Plus, Search, Target, FileText, BookOpen, Edit, Trash2, UserCog, Loader2, X } from 'lucide-react'
+import { Users, Plus, Search, Edit, Trash2, UserCog, Loader2, X } from 'lucide-react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { seasonService, SeasonDB } from '@/services/seasonService'
@@ -569,8 +569,8 @@ export function Teams() {
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Balance
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Acción
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">
+                        Acciones
                       </th>
                     </tr>
                   </thead>
@@ -578,114 +578,62 @@ export function Teams() {
                     {filteredTeams.map((team) => (
                       <tr
                         key={team.id}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                         onClick={() => navigate(`/teams/${team.id}?tab=home`)}
                       >
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-2.5 whitespace-nowrap">
                           <div className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white">
                             <TeamIdentifierDot identifier={team.identifier} size="sm" />
                             <span className="truncate">{getTeamDisplayName(team)}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-400 dark:text-gray-500">
                           {team.competition_level || '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          {team.coach_name || <span className="text-gray-400 italic">Sin asignar</span>}
+                        <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-400 dark:text-gray-500">
+                          {team.coach_name || <span className="text-gray-400 dark:text-gray-600 italic">Sin asignar</span>}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
+                        <td className="px-6 py-2.5 whitespace-nowrap text-center text-sm text-gray-400 dark:text-gray-500">
                           {team.active_players_count || 0}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
-                          {team.attendance_30d !== null ? `${team.attendance_30d}%` : '—'}
+                        <td className="px-6 py-2.5 whitespace-nowrap text-center text-sm text-gray-400 dark:text-gray-500">
+                          {team.attendance_30d !== null ? (
+                            `${team.attendance_30d}%`
+                          ) : (
+                            <span className="text-gray-500 dark:text-gray-600 italic text-xs">Sin entrenos</span>
+                          )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
+                        <td className="px-6 py-2.5 whitespace-nowrap text-center text-sm text-gray-400 dark:text-gray-500">
                           {team.wins !== undefined ? (
-                            <span className={team.wins > (team.losses || 0) ? 'text-green-600 font-medium' : ''}>
+                            <span className={team.wins > (team.losses || 0) ? 'text-green-600 dark:text-green-500 font-medium' : ''}>
                               {team.wins}V – {team.losses}D
                             </span>
-                          ) : '—'}
+                          ) : (
+                            <span className="text-gray-500 dark:text-gray-600 italic text-xs">Sin partidos</span>
+                          )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              icon={Target}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                navigate(`/teams/${team.id}/context`)
-                              }}
-                              title="Contexto de Temporada"
-                              className="p-2 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                            >
-                              {''}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              icon={FileText}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                navigate(`/reports/team-plan/${team.id}`)
-                              }}
-                              title="Planificación"
-                              className="p-2 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
-                            >
-                              {''}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              icon={BookOpen}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                navigate(`/teams/${team.id}/season/${currentSeason.id}/summary`)
-                              }}
-                              title="Resumen de Temporada"
-                              className="p-2 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
-                            >
-                              {''}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              icon={Users}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setManagingRosterTeam(team)
-                              }}
-                              title="Gestionar Plantilla"
-                              className="p-2 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                            >
-                              {''}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              icon={Edit}
+                        <td className="px-3 py-2.5 whitespace-nowrap text-right text-sm" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleOpenModal(team)
                               }}
-                              title="Editar"
-                              className="p-2 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                              className="p-1.5 text-gray-400 hover:text-primary-400 hover:bg-gray-700/50 rounded transition-colors"
+                              title="Editar equipo"
                             >
-                              {''}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              icon={Trash2}
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleDelete(team.id)
                               }}
-                              title="Eliminar"
-                              className="p-2 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-900/20 rounded transition-colors"
+                              title="Eliminar equipo"
                             >
-                              {''}
-                            </Button>
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
