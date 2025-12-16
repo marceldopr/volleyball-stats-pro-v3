@@ -11,10 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
   Calendar,
-  Activity,
-  Clock,
-  MapPin,
-  CalendarClock
+  Activity
 } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import { clsx } from 'clsx'
@@ -22,21 +19,14 @@ import { useAuthStore } from '@/stores/authStore'
 import { useRoleScope } from '@/hooks/useRoleScope'
 import { clubService } from '@/services/clubService'
 
-// Navigation item types
+// Navigation item with level-based hierarchy
 interface NavItem {
-  name: string
-  href?: string
-  icon: any
-  children?: NavItem[]
-}
-
-interface NavSection {
   id: string
   title: string
+  href?: string
   icon?: any
-  collapsible: boolean
-  items?: NavItem[]
-  href?: string // For standalone links like CALENDARIO
+  level: 1 | 2 | 3 | 4  // Visual hierarchy level
+  children?: { name: string; href: string }[]
 }
 
 export function Sidebar() {
@@ -47,9 +37,8 @@ export function Sidebar() {
   const { profile, logout } = useAuthStore()
   const { isDT, role } = useRoleScope()
 
-  // Collapsible sections state - default: all collapsed except standalones
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => new Set())
-  const [expandedSubmenus, setExpandedSubmenus] = useState<Set<string>>(() => new Set())
+  // Expanded items (for items with children)
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(() => new Set())
 
   // Fetch club name
   useEffect(() => {
@@ -68,134 +57,73 @@ export function Sidebar() {
     fetchClub()
   }, [profile?.club_id])
 
-  // Navigation structure for DT
-  const navigation: NavSection[] = useMemo(() => {
+  // New flat navigation structure with levels
+  const navigation: NavItem[] = useMemo(() => {
     if (!isDT) {
       // Coach navigation (simplified)
       return [
-        {
-          id: 'inicio',
-          title: 'Inicio',
-          icon: Home,
-          collapsible: false,
-          href: '/'
-        },
-        {
-          id: 'calendario',
-          title: 'Calendario',
-          icon: Calendar,
-          collapsible: false,
-          href: '/calendario'
-        },
-        {
-          id: 'mi-gestion',
-          title: 'MI GESTIÓN',
-          collapsible: true,
-          items: [
-            { name: 'Mis Equipos', href: '/teams', icon: Users },
-            { name: 'Partidos', href: '/matches', icon: Trophy },
-            { name: 'Informes', href: '/reports/players', icon: BarChart3 }
-          ]
-        }
+        { id: 'inicio', title: 'Inicio', href: '/', icon: Home, level: 1 },
+        { id: 'calendario', title: 'Calendario', href: '/calendario', icon: Calendar, level: 1 },
+        { id: 'equipos', title: 'Mis Equipos', href: '/teams', icon: Users, level: 2 },
+        { id: 'partidos', title: 'Partidos', href: '/matches', icon: Trophy, level: 2 },
+        { id: 'informes', title: 'Informes', href: '/reports/players', icon: BarChart3, level: 3 }
       ]
     }
 
-    // DT navigation (full)
+    // DT navigation (4-level hierarchy)
     return [
-      {
-        id: 'inicio',
-        title: 'Inicio',
-        icon: Home,
-        collapsible: false,
-        href: '/'
-      },
-      {
-        id: 'calendario',
-        title: 'Calendario',
-        icon: Calendar,
-        collapsible: false,
-        href: '/calendario'
-      },
-      {
-        id: 'club',
-        title: 'CLUB',
-        collapsible: true,
-        items: [
-          { name: 'Equipos', href: '/teams', icon: Users },
-          { name: 'Jugadores', href: '/players', icon: Users },
-          { name: 'Entrenadores', href: '/coach-assignments', icon: UserCog },
-          { name: 'Partidos', href: '/matches', icon: Trophy }
-        ]
-      },
+      // LEVEL 1 - Daily Operations
+      { id: 'inicio', title: 'Inicio', href: '/', icon: Home, level: 1 },
+      { id: 'calendario', title: 'Calendario', href: '/calendario', icon: Calendar, level: 1 },
+
+      // LEVEL 2 - Main Entities (no duplications)
+      { id: 'equipos', title: 'Equipos', href: '/teams', icon: Users, level: 2 },
+      { id: 'jugadores', title: 'Jugadores', href: '/players', icon: Users, level: 2 },
+      { id: 'entrenadores', title: 'Entrenadores', href: '/coach-assignments', icon: UserCog, level: 2 },
+      { id: 'partidos', title: 'Partidos', href: '/matches', icon: Trophy, level: 2 },
+
+      // LEVEL 3 - Analytics & Tracking
       {
         id: 'estadisticas',
-        title: 'ESTADÍSTICAS',
-        collapsible: true,
-        items: [
-          { name: 'Equipos', href: '/stats', icon: BarChart3 },
-          { name: 'Jugadores', href: '/reports/players', icon: Users }
+        title: 'Estadísticas',
+        icon: BarChart3,
+        level: 3,
+        children: [
+          { name: 'Equipos', href: '/stats' },
+          { name: 'Jugadores', href: '/reports/players' }
         ]
       },
+      { id: 'informes', title: 'Informes', href: '/club/dashboard', icon: FileText, level: 3 },
+      { id: 'salud', title: 'Salud y disponibilidad', href: '/salud-disponibilidad', icon: Activity, level: 3 },
+
+      // LEVEL 4 - Structure & Configuration
       {
-        id: 'gestion',
-        title: 'GESTIÓN',
-        collapsible: true,
-        items: [
-          {
-            name: 'Planificación',
-            icon: FileText,
-            children: [
-              { name: 'Temporada activa', href: '/reports/team-plans', icon: FileText },
-              { name: 'Próxima temporada', href: '/next-season', icon: CalendarClock }
-            ]
-          },
-          { name: 'Salud y disponibilidad', href: '/salud-disponibilidad', icon: Activity },
-          { name: 'Informes', href: '/club/dashboard', icon: BarChart3 }
+        id: 'planificacion',
+        title: 'Planificación',
+        icon: FileText,
+        level: 4,
+        children: [
+          { name: 'Temporada activa', href: '/reports/team-plans' },
+          { name: 'Próxima temporada', href: '/next-season' }
         ]
       },
-      {
-        id: 'configuracion',
-        title: 'CONFIGURACIÓN',
-        collapsible: true,
-        items: [
-          { name: 'Ajustes del club', href: '/settings', icon: Settings },
-          { name: 'Estructura Deportiva', href: '/settings?section=categorias', icon: Settings },
-          { name: 'Temporadas', href: '/settings?section=temporada', icon: Calendar },
-          { name: 'Espacios', href: '/settings?section=espacios', icon: MapPin },
-          { name: 'Horarios de entrenamiento', href: '/settings?section=horarios', icon: Clock }
-        ]
-      }
+      { id: 'estructura', title: 'Estructura Deportiva', href: '/settings?section=categorias', icon: Settings, level: 4 },
+      { id: 'temporadas', title: 'Temporadas', href: '/settings?section=temporada', icon: Calendar, level: 4 },
+      { id: 'ajustes', title: 'Ajustes del club', href: '/settings', icon: Settings, level: 4 }
     ]
   }, [isDT])
 
-  // Auto-expand section when navigating to a route inside it
+  // Auto-expand items when navigating to child route
   useEffect(() => {
     const path = location.pathname
 
-    navigation.forEach(section => {
-      if (section.collapsible && section.items) {
-        const hasActiveItem = section.items.some(item => {
-          if (item.href && path.startsWith(item.href.split('?')[0])) return true
-          if (item.children) {
-            return item.children.some(child => child.href && path.startsWith(child.href.split('?')[0]))
-          }
-          return false
-        })
-
-        if (hasActiveItem) {
-          setExpandedSections(prev => new Set([...prev, section.id]))
-
-          // Also expand submenu if needed
-          section.items.forEach(item => {
-            if (item.children) {
-              const hasActiveChild = item.children.some(child =>
-                child.href && path.startsWith(child.href.split('?')[0])
-              )
-              if (hasActiveChild) {
-                setExpandedSubmenus(prev => new Set([...prev, item.name]))
-              }
-            }
-          })
+    navigation.forEach(item => {
+      if (item.children) {
+        const hasActiveChild = item.children.some(child =>
+          child.href && path.startsWith(child.href.split('?')[0])
+        )
+        if (hasActiveChild) {
+          setExpandedItems(prev => new Set([...prev, item.id]))
         }
       }
     })
@@ -209,25 +137,13 @@ export function Sidebar() {
   if (roleStr === 'coach' || roleStr === 'entrenador') roleLabel = 'Entrenador'
   if (roleStr === 'admin') roleLabel = 'Administrador'
 
-  const toggleSection = (sectionId: string) => {
-    setExpandedSections(prev => {
+  const toggleItem = (itemId: string) => {
+    setExpandedItems(prev => {
       const newSet = new Set(prev)
-      if (newSet.has(sectionId)) {
-        newSet.delete(sectionId)
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId)
       } else {
-        newSet.add(sectionId)
-      }
-      return newSet
-    })
-  }
-
-  const toggleSubmenu = (itemName: string) => {
-    setExpandedSubmenus(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(itemName)) {
-        newSet.delete(itemName)
-      } else {
-        newSet.add(itemName)
+        newSet.add(itemId)
       }
       return newSet
     })
@@ -246,38 +162,115 @@ export function Sidebar() {
     return location.pathname === path || location.pathname.startsWith(path + '/')
   }
 
-  const renderNavItem = (item: NavItem, depth = 0) => {
+  // Helper to get spacing based on level transitions
+  const getLevelSpacing = (currentLevel: number, nextLevel?: number) => {
+    if (!nextLevel) return '' // Last item, no margin
+
+    if (currentLevel === 1 && nextLevel === 2) return 'mb-6' // Large gap after daily ops
+    if (currentLevel === 2 && nextLevel === 3) return 'mb-5' // Medium gap before analytics
+    if (currentLevel === 3 && nextLevel === 4) return 'mb-6' // Large gap before config
+
+    return '' // No extra gap within same level
+  }
+
+  // Helper to get styles based on level
+  const getLevelStyles = (level: number, isActive: boolean) => {
+    const baseStyles = 'flex items-center gap-3 w-full rounded-lg transition-all duration-200'
+
+    switch (level) {
+      case 1: // Daily Operations - Bold, prominent
+        return clsx(
+          baseStyles,
+          'px-3 py-2.5 text-base font-semibold',
+          isActive
+            ? 'bg-primary-600/20 text-primary-400'
+            : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
+        )
+
+      case 2: // Main Entities - Medium weight
+        return clsx(
+          baseStyles,
+          'px-3 py-2 text-sm font-medium',
+          isActive
+            ? 'bg-primary-600/20 text-primary-400'
+            : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
+        )
+
+      case 3: // Analytics - Same as Level 2
+        return clsx(
+          baseStyles,
+          'px-3 py-2 text-sm font-medium',
+          isActive
+            ? 'bg-primary-600/20 text-primary-400'
+            : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
+        )
+
+      case 4: // Configuration - Lighter, less prominent
+        return clsx(
+          baseStyles,
+          'px-3 py-1.5 text-sm font-normal',
+          isActive
+            ? 'bg-gray-700/30 text-gray-300'
+            : 'text-gray-400 hover:bg-gray-700/30 hover:text-gray-300'
+        )
+
+      default:
+        return baseStyles
+    }
+  }
+
+  // Helper for children/subitems
+  const getSubitemStyles = (isActive: boolean) => {
+    return clsx(
+      'flex items-center w-full py-1.5 pl-11 pr-3 rounded-lg text-sm transition-colors',
+      isActive
+        ? 'text-primary-400 bg-primary-600/10'
+        : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/30'
+    )
+  }
+
+  const renderNavItem = (item: NavItem, index: number, allItems: NavItem[]) => {
     const isActive = isItemActive(item.href)
     const hasChildren = item.children && item.children.length > 0
-    const isSubmenuExpanded = hasChildren && expandedSubmenus.has(item.name)
+    const isExpanded = hasChildren && expandedItems.has(item.id)
+    const nextItem = allItems[index + 1]
+    const spacing = getLevelSpacing(item.level, nextItem?.level)
 
     if (hasChildren) {
       return (
-        <div key={item.name}>
+        <div key={item.id} className={spacing}>
           <button
-            onClick={() => toggleSubmenu(item.name)}
-            className={clsx(
-              'flex items-center gap-3 w-full rounded-lg text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-200',
-              depth === 0 ? 'py-2 px-3' : 'py-1.5 px-3 ml-4'
-            )}
+            onClick={() => toggleItem(item.id)}
+            className={getLevelStyles(item.level, false)}
           >
-            <item.icon className="w-4 h-4 flex-shrink-0 text-gray-400" />
-            <span className="text-sm flex-1 text-left">{item.name}</span>
+            {item.icon && <item.icon className="w-5 h-5 flex-shrink-0 text-gray-400" />}
+            <span className="flex-1 text-left">{item.title}</span>
             <ChevronRight
               className={clsx(
                 'w-4 h-4 transition-transform duration-200',
-                isSubmenuExpanded && 'rotate-90'
+                isExpanded && 'rotate-90'
               )}
             />
           </button>
           <div
             className={clsx(
               'overflow-hidden transition-all duration-200',
-              isSubmenuExpanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'
+              isExpanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'
             )}
           >
-            <div className="mt-1 space-y-0.5 ml-4 border-l border-gray-700 pl-2">
-              {item.children!.map(child => renderNavItem(child, depth + 1))}
+            <div className="mt-1 space-y-0.5">
+              {item.children!.map(child => {
+                const childActive = isItemActive(child.href)
+                return (
+                  <Link
+                    key={child.name}
+                    to={child.href}
+                    className={getSubitemStyles(childActive)}
+                  >
+                    {child.name}
+                  </Link>
+                )
+              })}
             </div>
           </div>
         </div>
@@ -286,74 +279,13 @@ export function Sidebar() {
 
     return (
       <Link
-        key={item.name}
+        key={item.id}
         to={item.href!}
-        className={clsx(
-          'flex items-center gap-3 rounded-lg transition-all duration-200',
-          depth === 0 ? 'py-2 px-3' : 'py-1.5 px-3',
-          depth > 0 && 'ml-4',
-          isActive
-            ? 'bg-primary-600/20 text-primary-400 font-medium'
-            : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
-        )}
+        className={clsx(getLevelStyles(item.level, isActive), spacing)}
       >
-        <item.icon className={clsx('w-4 h-4 flex-shrink-0', isActive ? 'text-primary-400' : 'text-gray-400')} />
-        <span className="text-sm">{item.name}</span>
+        {item.icon && <item.icon className="w-5 h-5 flex-shrink-0" />}
+        <span>{item.title}</span>
       </Link>
-    )
-  }
-
-  const renderSection = (section: NavSection) => {
-    const isExpanded = expandedSections.has(section.id)
-
-    // Non-collapsible standalone link (INICIO, CALENDARIO)
-    if (!section.collapsible && section.href) {
-      const isActive = isItemActive(section.href)
-      return (
-        <Link
-          key={section.id}
-          to={section.href}
-          className={clsx(
-            'flex items-center gap-3 py-2.5 px-3 rounded-lg transition-all duration-200',
-            isActive
-              ? 'bg-primary-600/20 text-primary-400 font-medium'
-              : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
-          )}
-        >
-          {section.icon && <section.icon className={clsx('w-5 h-5', isActive ? 'text-primary-400' : 'text-gray-400')} />}
-          <span className="font-medium">{section.title}</span>
-        </Link>
-      )
-    }
-
-    // Collapsible section
-    return (
-      <div key={section.id}>
-        <button
-          onClick={() => toggleSection(section.id)}
-          className="flex items-center justify-between w-full py-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-300 transition-colors duration-200"
-        >
-          <span>{section.title}</span>
-          <ChevronDown
-            className={clsx(
-              'w-4 h-4 transition-transform duration-200',
-              !isExpanded && '-rotate-90'
-            )}
-          />
-        </button>
-        <div
-          className={clsx(
-            'overflow-hidden transition-all duration-200',
-            isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
-          )}
-        >
-          <ul className="space-y-0.5 mt-1">
-            {section.items?.map(item => (
-              <li key={item.name}>{renderNavItem(item)}</li>
-            ))}
-          </ul>
-        </div>
-      </div>
     )
   }
 
@@ -370,8 +302,8 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="mt-4 px-3 flex-1 overflow-y-auto">
-        <div className="space-y-2 pb-4">
-          {navigation.map(section => renderSection(section))}
+        <div className="pb-4">
+          {navigation.map((item, index) => renderNavItem(item, index, navigation))}
         </div>
       </nav>
 
