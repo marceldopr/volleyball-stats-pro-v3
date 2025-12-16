@@ -281,7 +281,7 @@ export const clubStatsService = {
             // Get all teams with their category
             let teamsQuery = supabase
                 .from('teams')
-                .select('id, category_stage, custom_name')
+                .select('id, category_stage, custom_name, gender')
                 .eq('club_id', clubId)
 
             if (seasonId) {
@@ -364,19 +364,48 @@ export const clubStatsService = {
                 // Initialize default details for all teams in category
                 teamIds.forEach(tId => {
                     const t = teams.find(x => x.id === tId)
-                    // Construct a short display name. If category is "Cadete", we don't need "Cadete" in the team name field if it's "Cadete A".
-                    // We just want "A" or "Azul".
-                    let shortName = t?.custom_name || 'Equipo'
-                    if (t?.custom_name) shortName = t.custom_name
-                    // Clean up redundancy if exists
-                    const catPrefix = categoryName + ' '
-                    if (shortName.startsWith(catPrefix)) {
-                        shortName = shortName.replace(catPrefix, '')
+
+                    let shortName = 'Equipo'
+                    let fullName = 'Equipo'
+
+                    if (t) {
+                        // Build name from available fields: custom_name + gender
+                        const genderMap: Record<string, string> = {
+                            'male': 'Masculino',
+                            'female': 'Femenino',
+                            'mixed': 'Mixto'
+                        }
+                        const genderDisplay = t.gender ? (genderMap[t.gender] || t.gender) : undefined
+
+                        // Full name: custom_name or gender
+                        const parts = []
+                        if (t.custom_name && t.custom_name.trim()) {
+                            parts.push(t.custom_name.trim())
+                        }
+                        if (genderDisplay) {
+                            parts.push(genderDisplay)
+                        }
+                        fullName = parts.length > 0 ? parts.join(' ') : 'Equipo'
+
+                        // Short name: remove category prefix if present
+                        shortName = fullName
+                        if (t.category_stage) {
+                            const catPrefix = t.category_stage.toLowerCase()
+                            const nameLower = shortName.toLowerCase()
+                            if (nameLower.startsWith(catPrefix)) {
+                                shortName = shortName.substring(t.category_stage.length).trim()
+                            }
+                        }
+
+                        // Fallback if empty
+                        if (!shortName || shortName.trim() === '') {
+                            shortName = fullName
+                        }
                     }
 
                     teamDetailMap.set(tId, {
                         id: tId,
-                        name: t?.custom_name || 'Equipo',
+                        name: fullName,
                         shortName: shortName,
                         attendance: null,
                         rosterSize: teamRosterSizes.get(tId) || 0,

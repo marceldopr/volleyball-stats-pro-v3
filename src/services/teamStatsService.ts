@@ -3,13 +3,20 @@ import { supabase } from '@/lib/supabaseClient'
 export interface TeamHomeSummary {
     teamId: string
     attendance: number | null  // percentage
-    lastMatchText: string | null
-    pointsErrorRatio: number | null
+    rosterCount: number  // Active players count
+    availableCount: number  // Players available (placeholder - same as rosterCount for now)
+    unavailableCount: number  // Players unavailable (placeholder - 0 for now)
+    injuryCount: number  // Players injured (placeholder - 0 for now)
+    lastActivityDays: number | null  // Days since last confirmed training
     nextEvent: {
         type: 'match' | 'training'
         label: string
         date: string
     } | null
+    recentActivity: {
+        lastTraining: { date: string; confirmed: boolean } | null
+        lastMatch: { date: string; result: string } | null
+    }
     alerts: Array<{
         id: string
         type: 'warning' | 'info'
@@ -104,22 +111,160 @@ export const teamStatsService = {
      * Get comprehensive home page summary for a team
      */
     async getTeamHomeSummary(teamId: string): Promise<TeamHomeSummary> {
-        const [attendance, lastMatch, nextEvent, alerts] = await Promise.all([
+        // Try to get current season, with fallbacks
+        let seasonId = ''
+
+        // Strategy 1: Try to get season marked as current
+        const { data: currentSeason } = await supabase
+            .from('seasons')
+            .select('id, name')
+            .eq('is_current', true)
+            .single()
+
+        if (currentSeason) {
+            seasonId = currentSeason.id
+        } else {
+            // Strategy 2: Get most recent season (by name descending, assuming format like "2025/2026")
+            const { data: recentSeason } = await supabase
+                .from('seasons')
+                .select('id, name')
+                .order('name', { ascending: false })
+                .limit(1)
+                .single()
+
+            if (recentSeason) {
+                seasonId = recentSeason.id
+            }
+        }
+
+        const [attendance, rosterCount, lastActivityDays, nextEvent, recentActivity, alerts] = await Promise.all([
             this.getTeamAttendance(teamId, 30),
-            this.getLastMatchSummary(teamId),
+            this.getRosterCount(teamId, seasonId),
+            this.getLastActivityDays(teamId),
             this.getNextEvent(teamId),
+            this.getRecentActivity(teamId),
             this.getTeamAlerts(teamId)
         ])
 
         return {
             teamId,
             attendance,
-            lastMatchText: lastMatch,
-            pointsErrorRatio: await this.getPointsErrorsRatio(teamId),
+            rosterCount,
+            availableCount: rosterCount, // Placeholder - no real available/unavailable data yet
+            unavailableCount: 0, // Placeholder
+            injuryCount: 0, // Placeholder - no injury data source
+            lastActivityDays,
             nextEvent,
+            recentActivity,
             alerts
         }
     },
+
+    /**
+     * Get active roster count for a team
+     */
+    async getRosterCount(teamId: string, seasonId: string): Promise<number> {
+        try {
+            // If no seasonId provided, get count without season filter
+            if (!seasonId) {
+                const { data, error } = await supabase
+                    .from('player_team_season')
+                    .select('id')
+                    .eq('team_id', teamId)
+
+                if (error) {
+                    return 0
+                }
+
+                return data?.length || 0
+            }
+
+            // Normal case with seasonId
+            const { data, error } = await supabase
+                .from('player_team_season')
+                .select('id')
+                .eq('team_id', teamId)
+                .eq('season_id', seasonId)
+
+            if (error) {
+                return 0
+            }
+
+            return data?.length || 0
+        } catch (error) {
+            return 0
+        }
+    },
+
+    /**
+     * Get days since last confirmed training
+     */
+    async getLastActivityDays(teamId: string): Promise<number | null> {
+        try {
+            const { data, error } = await supabase
+                .from('trainings')
+                .select('date, training_attendance!inner(id)')
+                .eq('team_id', teamId)
+                .order('date', { ascending: false })
+                .limit(1)
+                .single()
+
+            if (error || !data) return null
+
+            const lastDate = new Date(data.date)
+            const now = new Date()
+            const daysSince = Math.floor((now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+
+            return daysSince
+        } catch (error) {
+            console.error('Error getting last activity:', error)
+            return null
+        }
+    },
+
+    /**
+     * Get recent activity summary (last training and last match)
+     */
+    async getRecentActivity(teamId: string): Promise<TeamHomeSummary['recentActivity']> {
+        try {
+            // Get last training with attendance
+            const { data: lastTraining } = await supabase
+                .from('trainings')
+                .select('date, training_attendance!inner(id)')
+                .eq('team_id', teamId)
+                .order('date', { ascending: false })
+                .limit(1)
+                .single()
+
+            // Get last finished match
+            const { data: lastMatch } = await supabase
+                .from('matches')
+                .select('match_date, result')
+                .eq('team_id', teamId)
+                .eq('status', 'finished')
+                .order('match_date', { ascending: false })
+                .limit(1)
+                .single()
+
+            return {
+                lastTraining: lastTraining ? {
+                    date: lastTraining.date,
+                    confirmed: true
+                } : null,
+                lastMatch: lastMatch ? {
+                    date: lastMatch.match_date,
+                    result: lastMatch.result || 'Sin resultado'
+                } : null
+            }
+        } catch (error) {
+            console.error('Error getting recent activity:', error)
+            return {
+                lastTraining: null,
+                lastMatch: null
+            }
+        }
+    },
+
 
     /**
      * Calculate points/errors ratio for the team based on recent matches

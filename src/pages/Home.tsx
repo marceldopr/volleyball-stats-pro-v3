@@ -241,39 +241,83 @@ export function Home() {
                                     <div className="h-48 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
                                     <div className="h-48 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
                                 </div>
+                            ) : !summary ? (
+                                <div className="text-center py-12">
+                                    <p className="text-gray-500 dark:text-gray-400">No se pudieron cargar los datos del equipo</p>
+                                </div>
                             ) : (
-                                <div className="grid gap-6 md:grid-cols-2">
-                                    {/* Team Status Card */}
-                                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                            <Activity className="w-5 h-5 text-primary-500" />
-                                            Estado del equipo
-                                        </h3>
-                                        <div className="space-y-3">
-                                            <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
-                                                <span className="text-gray-600 dark:text-gray-400">Asistencia (30 días)</span>
-                                                <span className="font-medium text-gray-900 dark:text-white">
-                                                    {summary?.attendance !== null ? `${summary?.attendance}%` : '--'}
-                                                </span>
-                                            </div>
-                                            <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
-                                                <span className="text-gray-600 dark:text-gray-400">Último partido</span>
-                                                <span className="font-medium text-gray-900 dark:text-white truncate max-w-[200px] text-right" title={summary?.lastMatchText || ''}>
-                                                    {summary?.lastMatchText || 'Sin datos'}
-                                                </span>
-                                            </div>
-                                            <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
-                                                <span className="text-gray-600 dark:text-gray-400">Ratio puntos/errores</span>
-                                                <span className="font-medium text-gray-900 dark:text-white">
-                                                    {summary?.pointsErrorRatio ?? '--'}
-                                                </span>
+                                <div className="space-y-6">
+                                    {/* Row 1: Estado del equipo + Próximo evento */}
+                                    <div className="grid gap-6 md:grid-cols-2">
+                                        {/* Estado del equipo - Enhanced */}
+                                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                                <Activity className="w-5 h-5 text-primary-500" />
+                                                Estado del equipo
+                                            </h3>
+                                            <div className="space-y-3">
+                                                {/* Attendance */}
+                                                <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                                                    <span className="text-gray-600 dark:text-gray-400">Asistencia (30d)</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={cn("font-semibold",
+                                                            summary?.attendance === null ? "text-gray-400" :
+                                                                summary!.attendance >= 80 ? "text-emerald-600" :
+                                                                    summary!.attendance >= 70 ? "text-amber-600" :
+                                                                        "text-red-600"
+                                                        )}>
+                                                            {summary?.attendance !== null ? `${summary!.attendance}%` : 'Sin datos'}
+                                                        </span>
+                                                        {summary?.attendance !== null && (
+                                                            <span className="text-lg">
+                                                                {summary!.attendance >= 80 ? '🟢' : summary!.attendance >= 70 ? '🟠' : '🔴'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Active players */}
+                                                <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                                                    <span className="text-gray-600 dark:text-gray-400">Jugadoras activas</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={cn("font-semibold",
+                                                            (summary?.rosterCount || 0) >= 12 ? "text-emerald-600" :
+                                                                (summary?.rosterCount || 0) >= 9 ? "text-amber-600" :
+                                                                    "text-red-600"
+                                                        )}>
+                                                            {summary?.rosterCount || 0}
+                                                        </span>
+                                                        <span className="text-lg">
+                                                            {(summary?.rosterCount || 0) >= 12 ? '🟢' : (summary?.rosterCount || 0) >= 9 ? '🟠' : '🔴'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Last activity */}
+                                                <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                                                    <span className="text-gray-600 dark:text-gray-400">Último entrenamiento</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={cn("font-semibold",
+                                                            summary?.lastActivityDays === null || summary?.lastActivityDays === undefined ? "text-gray-400" :
+                                                                summary!.lastActivityDays <= 3 ? "text-emerald-600" :
+                                                                    summary!.lastActivityDays <= 7 ? "text-amber-600" :
+                                                                        "text-red-600"
+                                                        )}>
+                                                            {summary?.lastActivityDays === null || summary?.lastActivityDays === undefined ? 'Sin datos' :
+                                                                summary!.lastActivityDays === 0 ? 'Hoy' :
+                                                                    `hace ${summary!.lastActivityDays} día${summary!.lastActivityDays !== 1 ? 's' : ''}`}
+                                                        </span>
+                                                        {summary?.lastActivityDays !== null && summary?.lastActivityDays !== undefined && (
+                                                            <span className="text-lg">
+                                                                {summary!.lastActivityDays <= 3 ? '🟢' : summary!.lastActivityDays <= 7 ? '🟠' : '🔴'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    {/* Next Event & Alerts Column */}
-                                    <div className="space-y-6">
-                                        {/* Next Event */}
+                                        {/* Próximo evento */}
                                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
                                             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                                                 <Calendar className="w-5 h-5 text-blue-500" />
@@ -282,18 +326,43 @@ export function Home() {
                                             {summary?.nextEvent ? (
                                                 <div>
                                                     <p className="font-medium text-gray-900 dark:text-white text-lg">
-                                                        {summary.nextEvent.label.split(' - ')[0]}
+                                                        {summary!.nextEvent.type === 'training' ? 'Entrenamiento' : 'Partido'}
                                                     </p>
-                                                    <p className="text-gray-500 dark:text-gray-400 mt-1">
-                                                        {summary.nextEvent.label.split(' - ').slice(1).join(' - ')}
+                                                    <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
+                                                        {summary!.nextEvent.label.split(' - ').slice(1).join(' - ')}
                                                     </p>
                                                 </div>
                                             ) : (
-                                                <p className="text-gray-500 dark:text-gray-400">Sin eventos programados.</p>
+                                                <p className="text-gray-500 dark:text-gray-400">Sin eventos programados</p>
                                             )}
                                         </div>
+                                    </div>
 
-                                        {/* Alerts */}
+                                    {/* Row 2: Plantilla + Alertas */}
+                                    <div className="grid gap-6 md:grid-cols-2">
+                                        {/* Plantilla y disponibilidad */}
+                                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                                <Users className="w-5 h-5 text-purple-500" />
+                                                Plantilla
+                                            </h3>
+                                            <div className="space-y-2">
+                                                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                                                    {summary?.rosterCount || 0} jugadoras
+                                                </p>
+                                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                    {summary?.availableCount || 0} disponibles · {summary?.unavailableCount || 0} no disponibles
+                                                </p>
+                                                {(summary?.injuryCount || 0) > 0 && (
+                                                    <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+                                                        <span>⚠️</span>
+                                                        {summary?.injuryCount} lesión{summary?.injuryCount !== 1 ? 'es' : ''} activa{summary?.injuryCount !== 1 ? 's' : ''}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Alertas del equipo */}
                                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
                                             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                                                 <AlertTriangle className="w-5 h-5 text-amber-500" />
@@ -312,9 +381,42 @@ export function Home() {
                                                     ))}
                                                 </ul>
                                             ) : (
-                                                <p className="text-sm text-gray-400 dark:text-gray-500 flex items-center gap-2">
-                                                    <ClipboardList className="w-4 h-4" />
-                                                    Sin alertas por ahora.
+                                                <p className="text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                                                    <span>🟢</span>
+                                                    Sin alertas por ahora
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Row 3: Actividad reciente */}
+                                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                            <ClipboardList className="w-5 h-5 text-green-500" />
+                                            Actividad reciente
+                                        </h3>
+                                        <div className="space-y-2 text-sm">
+                                            {summary?.recentActivity?.lastTraining && (
+                                                <p className="text-gray-700 dark:text-gray-300">
+                                                    <span className="font-medium">Entrenamiento confirmado</span> · {' '}
+                                                    {new Date(summary.recentActivity.lastTraining.date).toLocaleDateString('es-ES', {
+                                                        day: 'numeric',
+                                                        month: 'long'
+                                                    })}
+                                                </p>
+                                            )}
+                                            {summary?.recentActivity?.lastMatch && (
+                                                <p className="text-gray-700 dark:text-gray-300">
+                                                    <span className="font-medium">Último partido</span> · {' '}
+                                                    {new Date(summary.recentActivity.lastMatch.date).toLocaleDateString('es-ES', {
+                                                        day: 'numeric',
+                                                        month: 'long'
+                                                    })}
+                                                </p>
+                                            )}
+                                            {!summary?.recentActivity?.lastTraining && !summary?.recentActivity?.lastMatch && (
+                                                <p className="text-gray-400 dark:text-gray-500 italic">
+                                                    Sin actividad reciente registrada
                                                 </p>
                                             )}
                                         </div>
