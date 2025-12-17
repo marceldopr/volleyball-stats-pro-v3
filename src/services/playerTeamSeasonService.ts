@@ -251,5 +251,32 @@ export const playerTeamSeasonService = {
             console.error('Error bulk upserting assignments:', error)
             throw error
         }
+    },
+
+    updatePlayerInjuryStatus: async (
+        playerId: string,
+        seasonId: string,
+        hasInjury: boolean
+    ): Promise<void> => {
+        // Find player_team_season record for this player in this season
+        const { data: pts, error: fetchError } = await supabase
+            .from('player_team_season')
+            .select('id')
+            .eq('player_id', playerId)
+            .eq('season_id', seasonId)
+            .limit(1)
+            .single()
+
+        if (fetchError || !pts) {
+            throw new Error('Player not assigned to any team in this season')
+        }
+
+        // Update has_injury field
+        const { error } = await supabase
+            .from('player_team_season')
+            .update({ has_injury: hasInjury })
+            .eq('id', pts.id)
+
+        if (error) throw error
     }
 }

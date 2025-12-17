@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Edit, X, Loader2, Eye, Trash2 } from 'lucide-react'
+import { Plus, Search, X, Loader2, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { playerService, PlayerDB } from '@/services/playerService'
@@ -16,7 +16,7 @@ export function Players() {
     const navigate = useNavigate()
     const { profile } = useAuthStore()
     const { isCoach, assignedTeamIds, loading: roleLoading } = useCurrentUserRole()
-    const [players, setPlayers] = useState<(PlayerDB & { team?: { name: string, category: string } })[]>([])
+    const [players, setPlayers] = useState<(PlayerDB & { team?: { name: string, category: string }, has_injury?: boolean | null })[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [positionFilter, setPositionFilter] = useState('all')
@@ -311,68 +311,62 @@ export function Players() {
                                     {filteredPlayers.map((player) => (
                                         <tr
                                             key={player.id}
-                                            className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                            onClick={() => navigate(`/players/${player.id}`)}
+                                            className="hover:bg-gray-100 dark:hover:bg-gray-600 transition-all duration-150 cursor-pointer"
                                         >
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                                    {player.first_name} {player.last_name}
+                                            <td className="px-6 py-2.5 whitespace-nowrap">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                                        {player.first_name} {player.last_name}
+                                                    </div>
+                                                    {player.has_injury && (
+                                                        <span
+                                                            className="text-orange-500"
+                                                            title="Lesión activa"
+                                                        >
+                                                            🩹
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${player.main_position === 'L'
+                                            <td className="px-6 py-2.5 whitespace-nowrap">
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${player.main_position === 'L'
                                                     ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                                                     : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
                                                     }`}>
                                                     {POSITION_NAMES[player.main_position as keyof typeof POSITION_NAMES] || player.main_position}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                                            <td className="px-6 py-2.5 whitespace-nowrap">
                                                 {player.team ? (
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
                                                         {player.team.name}
                                                     </span>
                                                 ) : (
                                                     <span className="text-gray-400 text-xs italic">Sin equipo</span>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${player.is_active
+                                            <td className="px-6 py-2.5 whitespace-nowrap text-center">
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${player.is_active
                                                     ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                                                     : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                                                     }`}>
                                                     {player.is_active ? 'Activa' : 'Inactiva'}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                            <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                                 {player.birth_date ? new Date(player.birth_date).getFullYear() : '-'} • {player.height_cm ? `${player.height_cm}cm` : '-'} • {player.dominant_hand === 'right' ? 'Diestra' : 'Zurda'}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <td className="px-6 py-2.5 whitespace-nowrap text-right text-sm font-medium">
                                                 <div className="flex items-center justify-end gap-2">
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        icon={Eye}
-                                                        onClick={() => navigate(`/players/${player.id}`)}
-                                                        title="Ver detalle"
-                                                        className="p-2 hover:text-blue-900 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                                    >
-                                                        {''}
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        icon={Edit}
-                                                        onClick={() => handleOpenModal(player)}
-                                                        title="Editar"
-                                                        className="p-2 hover:text-orange-900 dark:hover:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-900/20"
-                                                    >
-                                                        {''}
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
                                                         icon={Trash2}
-                                                        onClick={() => handleDeletePlayer(player.id)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            handleDeletePlayer(player.id)
+                                                        }}
                                                         title="Eliminar"
                                                         className="p-2 hover:text-red-900 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
                                                     >
