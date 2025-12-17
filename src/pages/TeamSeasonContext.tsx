@@ -143,11 +143,12 @@ export function TeamSeasonContext() {
         )
     }
 
-    const inputClassName = "w-full px-3 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
-    const cardClassName = "bg-gray-800 border border-gray-700 rounded-lg p-6 shadow-sm"
+    const inputClassName = "w-full px-3 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-colors"
+    const textareaClassName = "w-full px-3 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm resize-none transition-colors"
+    const cardClassName = "bg-gray-800 rounded-xl border border-gray-700 p-4 shadow-sm"
 
     return (
-        <div className="p-6 space-y-6 max-w-5xl mx-auto bg-gray-900 min-h-screen">
+        <div className="p-6 space-y-4 max-w-5xl mx-auto bg-gray-900 min-h-screen">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -178,14 +179,14 @@ export function TeamSeasonContext() {
 
             {/* A) Objetivos de la temporada */}
             <div className={cardClassName}>
-                <div className="flex items-center gap-3 mb-4">
-                    <Target className="w-5 h-5 text-primary-400" />
-                    <h2 className="text-lg font-semibold text-white">Objetivos de la Temporada</h2>
+                <div className="flex items-center gap-2 mb-3">
+                    <Target className="w-4 h-4 text-gray-400" />
+                    <h2 className="text-base font-semibold text-white">Objetivos de la Temporada</h2>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-3">
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                        <label className="block text-xs font-medium text-gray-400 mb-1.5">
                             Objetivo Principal
                         </label>
                         <input
@@ -198,7 +199,7 @@ export function TeamSeasonContext() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                        <label className="block text-xs font-medium text-gray-400 mb-1.5">
                             Objetivos Secundarios
                         </label>
                         <div className="flex gap-2 mb-2">
@@ -221,7 +222,7 @@ export function TeamSeasonContext() {
                         </div>
                         <div className="space-y-2">
                             {secondaryGoals.map((goal, index) => (
-                                <div key={index} className="flex items-center gap-2 bg-gray-700/30 border border-gray-600/30 p-3 rounded-lg">
+                                <div key={index} className="flex items-center gap-2 bg-gray-700/30 border border-gray-600/30 p-2 rounded-lg text-sm">
                                     <span className="flex-1 text-gray-200">{goal}</span>
                                     <Button
                                         variant="ghost"
@@ -241,12 +242,12 @@ export function TeamSeasonContext() {
 
             {/* B) Roles y jerarquías */}
             <div className={cardClassName}>
-                <div className="flex items-center gap-3 mb-4">
-                    <Users className="w-5 h-5 text-primary-400" />
-                    <h2 className="text-lg font-semibold text-white">Roles y Jerarquías</h2>
+                <div className="flex items-center gap-2 mb-3">
+                    <Users className="w-4 h-4 text-gray-400" />
+                    <h2 className="text-base font-semibold text-white">Roles y Jerarquías</h2>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-3">
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
                             Descripción de Roles
@@ -255,21 +256,21 @@ export function TeamSeasonContext() {
                             value={roleHierarchy}
                             onChange={(e) => setRoleHierarchy(e.target.value)}
                             placeholder="Ej: Titulares por defecto: Colocadora 1, Centrales 2 y 3, Receptoras 4 y 5, Opuesta 6. Líbero 1 entra por Central 2."
-                            className={inputClassName}
-                            rows={4}
+                            className={textareaClassName}
+                            rows={3}
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                        <label className="block text-xs font-medium text-gray-400 mb-1.5">
                             Notas de Rotación Habitual
                         </label>
                         <textarea
                             value={defaultRotationNotes}
                             onChange={(e) => setDefaultRotationNotes(e.target.value)}
                             placeholder="Ej: Rotación preferente: 4-3 con colocadora en zona 1. Cambios habituales en zona 6."
-                            className={inputClassName}
-                            rows={3}
+                            className={textareaClassName}
+                            rows={2}
                         />
                     </div>
                 </div>
@@ -277,9 +278,9 @@ export function TeamSeasonContext() {
 
             {/* C) Prioridad técnica */}
             <div className={cardClassName}>
-                <div className="flex items-center gap-3 mb-4">
-                    <Zap className="w-5 h-5 text-primary-400" />
-                    <h2 className="text-lg font-semibold text-white">Prioridades Técnicas</h2>
+                <div className="flex items-center gap-2 mb-3">
+                    <Zap className="w-4 h-4 text-gray-400" />
+                    <h2 className="text-base font-semibold text-white">Prioridades Técnicas</h2>
                 </div>
 
                 <div>
@@ -325,9 +326,9 @@ export function TeamSeasonContext() {
 
             {/* D) Reglas internas */}
             <div className={cardClassName}>
-                <div className="flex items-center gap-3 mb-4">
-                    <FileText className="w-5 h-5 text-primary-400" />
-                    <h2 className="text-lg font-semibold text-white">Reglas Internas</h2>
+                <div className="flex items-center gap-2 mb-3">
+                    <FileText className="w-4 h-4 text-gray-400" />
+                    <h2 className="text-base font-semibold text-white">Reglas Internas</h2>
                 </div>
 
                 <div>
@@ -351,7 +352,7 @@ export function TeamSeasonContext() {
                     </div>
                     <div className="space-y-2">
                         {internalRules.map((rule, index) => (
-                            <div key={index} className="flex items-center gap-2 bg-gray-700/30 border border-gray-600/30 p-3 rounded-lg">
+                            <div key={index} className="flex items-center gap-2 bg-gray-700/30 border border-gray-600/30 p-2 rounded-lg text-sm">
                                 <span className="flex-1 text-gray-200">• {rule}</span>
                                 <Button
                                     variant="ghost"
@@ -370,9 +371,9 @@ export function TeamSeasonContext() {
 
             {/* E) Notas del staff */}
             <div className={cardClassName}>
-                <div className="flex items-center gap-3 mb-4">
-                    <Brain className="w-5 h-5 text-primary-400" />
-                    <h2 className="text-lg font-semibold text-white">Notas del Staff</h2>
+                <div className="flex items-center gap-2 mb-3">
+                    <Brain className="w-4 h-4 text-gray-400" />
+                    <h2 className="text-base font-semibold text-white">Notas del Staff</h2>
                 </div>
 
                 <div>
@@ -380,8 +381,8 @@ export function TeamSeasonContext() {
                         value={staffNotes}
                         onChange={(e) => setStaffNotes(e.target.value)}
                         placeholder="Observaciones contextuales, perfil psicológico del grupo, ajustes previstos..."
-                        className={inputClassName}
-                        rows={6}
+                        className={textareaClassName}
+                        rows={4}
                     />
                 </div>
             </div>
