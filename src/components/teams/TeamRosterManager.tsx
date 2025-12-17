@@ -62,6 +62,11 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
     const [editingPositionValue, setEditingPositionValue] = useState('')
     const [savingPosition, setSavingPosition] = useState(false)
 
+    // Inline Status Edit State
+    const [editingStatusId, setEditingStatusId] = useState<string | null>(null)
+    const [editingStatusValue, setEditingStatusValue] = useState<'active' | 'inactive' | 'lesionada'>('active')
+    const [savingStatus, setSavingStatus] = useState(false)
+
     // Evaluation Modal State
     const [evaluationModalOpen, setEvaluationModalOpen] = useState(false)
     const [selectedPlayer, setSelectedPlayer] = useState<PlayerDB | null>(null)
@@ -268,6 +273,36 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
         }
     }
 
+    // Handle inline status edit
+    const handleStartEditStatus = (item: RosterItem) => {
+        setEditingStatusId(item.id)
+        setEditingStatusValue((item.status as 'active' | 'inactive') || 'active')
+    }
+
+    const handleCancelEditStatus = () => {
+        setEditingStatusId(null)
+    }
+
+    const handleSaveStatus = async () => {
+        if (!editingStatusId) return
+
+        setSavingStatus(true)
+        try {
+            await playerTeamSeasonService.updatePlayerInTeamSeason(editingStatusId, {
+                status: editingStatusValue
+            })
+            toast.success(`Estado actualizado a ${editingStatusValue === 'active' ? 'Activa' : 'Inactiva'}`)
+            setEditingStatusId(null)
+            loadRoster()
+        } catch (error) {
+            toast.error('Error al actualizar estado')
+            console.error(error)
+        } finally {
+            setSavingStatus(false)
+        }
+    }
+
+
     const handleRemovePlayer = async (id: string) => {
         if (!window.confirm('¿Estás seguro de quitar a esta jugadora del equipo?')) return
 
@@ -396,8 +431,14 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                             </thead>
                             <tbody className="divide-y divide-gray-700">
                                 {roster.map((item) => (
-                                    <tr key={item.id} className="hover:bg-gray-700/50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap font-medium text-white">
+                                    <tr
+                                        key={item.id}
+                                        className={`transition-colors ${item.status === 'inactive'
+                                            ? 'opacity-50 hover:bg-gray-700/30'
+                                            : 'hover:bg-gray-700/50'
+                                            }`}
+                                    >
+                                        <td className="px-6 py-2.5 whitespace-nowrap font-medium text-white">
                                             {editingJerseyId === item.id ? (
                                                 <div className="flex items-center gap-2">
                                                     <input
@@ -439,15 +480,20 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                                 >
                                                     <span>{item.jersey_number || '-'}</span>
                                                     {!isReadOnly && (
-                                                        <span className="opacity-0 group-hover:opacity-100 text-gray-500 text-xs">✎</span>
+                                                        <span className="opacity-0 group-hover:opacity-100 text-gray-500 text-sm">✎</span>
                                                     )}
                                                 </button>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-gray-200">
-                                            {item.player ? `${item.player.first_name} ${item.player.last_name}` : 'Jugadora desconocida'}
+                                        <td className="px-6 py-2.5 whitespace-nowrap text-gray-200">
+                                            <div className="flex items-center gap-2">
+                                                <span>{item.player ? `${item.player.first_name} ${item.player.last_name}` : 'Jugadora desconocida'}</span>
+                                                {item.status === 'lesionada' && (
+                                                    <span className="text-red-400 text-sm font-bold" title="Lesionada">✖</span>
+                                                )}
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-6 py-2.5 whitespace-nowrap">
                                             {editingPositionId === item.id ? (
                                                 <div className="flex items-center gap-2">
                                                     <select
@@ -485,7 +531,7 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                                     className={`cursor-pointer group flex items-center gap-2 ${!isReadOnly ? 'hover:bg-gray-700/50 rounded px-2 py-1 -ml-2' : ''}`}
                                                 >
                                                     {item.position ? (
-                                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${item.position === 'L' ? 'bg-yellow-900/30 text-yellow-200 border border-yellow-700/30' : 'bg-blue-900/30 text-blue-200 border border-blue-700/30'
+                                                        <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${item.position === 'L' ? 'bg-yellow-900/30 text-yellow-200 border border-yellow-700/30' : 'bg-blue-900/30 text-blue-200 border border-blue-700/30'
                                                             }`}>
                                                             {POSITION_NAMES[item.position as keyof typeof POSITION_NAMES]}
                                                         </span>
@@ -493,18 +539,66 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                                         <span className="text-gray-500 text-xs italic">Sin asignar</span>
                                                     )}
                                                     {!isReadOnly && (
-                                                        <span className="text-gray-500 opacity-0 group-hover:opacity-100 text-xs">✎</span>
+                                                        <span className="text-gray-500 opacity-0 group-hover:opacity-100 text-sm">✎</span>
                                                     )}
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${item.status === 'active' ? 'bg-green-900/30 text-green-200 border border-green-700/30' : 'bg-red-900/30 text-red-200 border border-red-700/30'
-                                                }`}>
-                                                {item.status === 'active' ? 'Activa' : item.status}
-                                            </span>
+                                        <td className="px-6 py-2.5 whitespace-nowrap">
+                                            {editingStatusId === item.id ? (
+                                                <div className="flex items-center gap-2">
+                                                    <select
+                                                        value={editingStatusValue}
+                                                        onChange={(e) => setEditingStatusValue(e.target.value as 'active' | 'inactive' | 'lesionada')}
+                                                        className="w-28 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                                        autoFocus
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') handleSaveStatus()
+                                                            if (e.key === 'Escape') handleCancelEditStatus()
+                                                        }}
+                                                    >
+                                                        <option value="active">Activa</option>
+                                                        <option value="inactive">Inactiva</option>
+                                                        <option value="lesionada">Lesionada</option>
+                                                    </select>
+                                                    <button
+                                                        onClick={handleSaveStatus}
+                                                        disabled={savingStatus}
+                                                        className="text-green-400 hover:text-green-300 disabled:opacity-50"
+                                                        title="Guardar"
+                                                    >
+                                                        ✓
+                                                    </button>
+                                                    <button
+                                                        onClick={handleCancelEditStatus}
+                                                        className="text-gray-400 hover:text-gray-300"
+                                                        title="Cancelar"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => !isReadOnly && handleStartEditStatus(item)}
+                                                        className={`group px-2 py-0.5 text-xs font-semibold rounded-full transition-colors ${item.status === 'lesionada'
+                                                            ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+                                                            : item.status === 'inactive'
+                                                                ? 'bg-gray-700/30 text-gray-400 border border-gray-600/30'
+                                                                : 'bg-green-900/30 text-green-200 border border-green-700/30'
+                                                            } ${!isReadOnly ? 'hover:border-blue-500/50 cursor-pointer' : 'cursor-default'}`}
+                                                        disabled={isReadOnly}
+                                                        title={!isReadOnly ? 'Click para cambiar' : ''}
+                                                    >
+                                                        {item.status === 'lesionada' ? 'Lesionada' : item.status === 'inactive' ? 'Inactiva' : 'Activa'}
+                                                    </button>
+                                                    {!isReadOnly && (
+                                                        <span className="opacity-0 group-hover:opacity-100 text-gray-500 text-sm">✎</span>
+                                                    )}
+                                                </div>
+                                            )}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-6 py-2.5 whitespace-nowrap">
                                             {item.player && item.evaluations && (
                                                 <EvaluationChips
                                                     evaluations={item.evaluations}
@@ -518,7 +612,7 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                             )}
                                         </td>
                                         {canEditAllFields && (
-                                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                                            <td className="px-6 py-2.5 whitespace-nowrap text-right">
                                                 <button
                                                     onClick={() => handleRemovePlayer(item.id)}
                                                     className="text-red-400 hover:text-red-300 p-2 hover:bg-red-900/20 rounded-full transition-colors"
@@ -544,142 +638,146 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
             </div>
 
             {/* Add Player Modal */}
-            {showAddModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-                    <div className="bg-gray-800 rounded-xl shadow-xl max-w-md w-full overflow-hidden border border-gray-700">
-                        <div className="flex items-center justify-between p-6 border-b border-gray-700">
-                            <h2 className="text-xl font-semibold text-white">Añadir Jugadora</h2>
-                            <button
-                                onClick={() => setShowAddModal(false)}
-                                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-                            >
-                                <X className="w-5 h-5 text-gray-400" />
-                            </button>
-                        </div>
+            {
+                showAddModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                        <div className="bg-gray-800 rounded-xl shadow-xl max-w-md w-full overflow-hidden border border-gray-700">
+                            <div className="flex items-center justify-between p-6 border-b border-gray-700">
+                                <h2 className="text-xl font-semibold text-white">Añadir Jugadora</h2>
+                                <button
+                                    onClick={() => setShowAddModal(false)}
+                                    className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                                >
+                                    <X className="w-5 h-5 text-gray-400" />
+                                </button>
+                            </div>
 
-                        <form onSubmit={handleAddPlayers} className="p-6 space-y-4">
-                            <div>
-                                <div className="flex justify-between items-center mb-1">
-                                    <label className="block text-sm font-medium text-gray-300">
-                                        Selecciona Jugadoras ({selectedPlayerIds.size})
-                                    </label>
-                                    <div className="flex items-center gap-3">
-                                        <label className="flex items-center gap-1.5 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={strictCategoryMatch}
-                                                onChange={(e) => setStrictCategoryMatch(e.target.checked)}
-                                                className="rounded border-gray-600 bg-gray-700 text-primary-500 focus:ring-offset-gray-900"
-                                            />
-                                            <span className="text-xs text-gray-400">Solo {team.category_stage}</span>
+                            <form onSubmit={handleAddPlayers} className="p-6 space-y-4">
+                                <div>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <label className="block text-sm font-medium text-gray-300">
+                                            Selecciona Jugadoras ({selectedPlayerIds.size})
                                         </label>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowIncompatible(!showIncompatible)}
-                                            className={`text-xs flex items-center gap-1 ${showIncompatible ? 'text-orange-400' : 'text-gray-500'}`}
-                                        >
-                                            <Filter className="w-3 h-3" />
-                                            {showIncompatible ? 'Ocultar incompatibles' : 'Mostrar incompatibles'}
-                                        </button>
+                                        <div className="flex items-center gap-3">
+                                            <label className="flex items-center gap-1.5 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={strictCategoryMatch}
+                                                    onChange={(e) => setStrictCategoryMatch(e.target.checked)}
+                                                    className="rounded border-gray-600 bg-gray-700 text-primary-500 focus:ring-offset-gray-900"
+                                                />
+                                                <span className="text-xs text-gray-400">Solo {team.category_stage}</span>
+                                            </label>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowIncompatible(!showIncompatible)}
+                                                className={`text-xs flex items-center gap-1 ${showIncompatible ? 'text-orange-400' : 'text-gray-500'}`}
+                                            >
+                                                <Filter className="w-3 h-3" />
+                                                {showIncompatible ? 'Ocultar incompatibles' : 'Mostrar incompatibles'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Buscar por nombre..."
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            className="w-full bg-gray-900 border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-2"
+                                        />
+                                    </div>
+                                    <div className="max-h-[300px] overflow-y-auto border border-gray-700 rounded-md bg-gray-900/50">
+                                        {filteredAvailablePlayers.length === 0 ? (
+                                            <div className="p-4 text-center text-sm text-gray-500">
+                                                Sin jugadoras disponibles para este equipo
+                                            </div>
+                                        ) : (
+                                            <div className="divide-y divide-gray-700">
+                                                {filteredAvailablePlayers.map(p => (
+                                                    <div
+                                                        key={p.id}
+                                                        onClick={() => p.compatibility.compatible && togglePlayerSelection(p.id)}
+                                                        className={`p-3 flex items-center justify-between cursor-pointer transition-colors ${selectedPlayerIds.has(p.id)
+                                                            ? 'bg-primary-900/40 border-l-4 border-primary-500'
+                                                            : 'hover:bg-gray-700/50'
+                                                            } ${!p.compatibility.compatible ? 'opacity-60 cursor-not-allowed bg-gray-900' : ''}`}
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-4 h-4 rounded border flex items-center justify-center ${selectedPlayerIds.has(p.id)
+                                                                ? 'bg-primary-500 border-primary-500'
+                                                                : 'border-gray-500'
+                                                                }`}>
+                                                                {selectedPlayerIds.has(p.id) && (
+                                                                    <span className="text-white text-xs">✓</span>
+                                                                )}
+                                                            </div>
+                                                            <div>
+                                                                <div className="font-medium text-sm text-gray-200">
+                                                                    {p.first_name} {p.last_name}
+                                                                </div>
+                                                                <div className="text-xs text-gray-500">
+                                                                    {p.main_position} • {p.gender === 'female' ? 'Fem' : 'Masc'} • {p.birth_date ? new Date(p.birth_date).getFullYear() : 'Sin fecha'}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {!p.compatibility.compatible && (
+                                                            <div className="text-xs text-red-400 flex items-center gap-1" title={p.compatibility.issues.join(', ')}>
+                                                                <AlertTriangle className="w-3 h-3" />
+                                                                Incompatible
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="Buscar por nombre..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="w-full bg-gray-900 border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-2"
-                                    />
-                                </div>
-                                <div className="max-h-[300px] overflow-y-auto border border-gray-700 rounded-md bg-gray-900/50">
-                                    {filteredAvailablePlayers.length === 0 ? (
-                                        <div className="p-4 text-center text-sm text-gray-500">
-                                            Sin jugadoras disponibles para este equipo
-                                        </div>
-                                    ) : (
-                                        <div className="divide-y divide-gray-700">
-                                            {filteredAvailablePlayers.map(p => (
-                                                <div
-                                                    key={p.id}
-                                                    onClick={() => p.compatibility.compatible && togglePlayerSelection(p.id)}
-                                                    className={`p-3 flex items-center justify-between cursor-pointer transition-colors ${selectedPlayerIds.has(p.id)
-                                                        ? 'bg-primary-900/40 border-l-4 border-primary-500'
-                                                        : 'hover:bg-gray-700/50'
-                                                        } ${!p.compatibility.compatible ? 'opacity-60 cursor-not-allowed bg-gray-900' : ''}`}
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${selectedPlayerIds.has(p.id)
-                                                            ? 'bg-primary-500 border-primary-500'
-                                                            : 'border-gray-500'
-                                                            }`}>
-                                                            {selectedPlayerIds.has(p.id) && (
-                                                                <span className="text-white text-xs">✓</span>
-                                                            )}
-                                                        </div>
-                                                        <div>
-                                                            <div className="font-medium text-sm text-gray-200">
-                                                                {p.first_name} {p.last_name}
-                                                            </div>
-                                                            <div className="text-xs text-gray-500">
-                                                                {p.main_position} • {p.gender === 'female' ? 'Fem' : 'Masc'} • {p.birth_date ? new Date(p.birth_date).getFullYear() : 'Sin fecha'}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    {!p.compatibility.compatible && (
-                                                        <div className="text-xs text-red-400 flex items-center gap-1" title={p.compatibility.issues.join(', ')}>
-                                                            <AlertTriangle className="w-3 h-3" />
-                                                            Incompatible
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
 
-                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-700 mt-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowAddModal(false)}
-                                    className="text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors border border-gray-600"
-                                    disabled={adding}
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="bg-primary-500 hover:bg-primary-600 text-white font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    disabled={adding || selectedPlayerIds.size === 0}
-                                >
-                                    {adding ? 'Añadiendo...' : `Añadir (${selectedPlayerIds.size})`}
-                                </button>
-                            </div>
-                        </form>
+                                <div className="flex justify-end gap-3 pt-4 border-t border-gray-700 mt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAddModal(false)}
+                                        className="text-gray-300 hover:text-white hover:bg-gray-700 px-4 py-2 rounded-lg transition-colors border border-gray-600"
+                                        disabled={adding}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="bg-primary-500 hover:bg-primary-600 text-white font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        disabled={adding || selectedPlayerIds.size === 0}
+                                    >
+                                        {adding ? 'Añadiendo...' : `Añadir (${selectedPlayerIds.size})`}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Evaluation Modal */}
-            {selectedPlayer && (
-                <PlayerEvaluationModal
-                    isOpen={evaluationModalOpen}
-                    onClose={() => {
-                        setEvaluationModalOpen(false)
-                        setSelectedPlayer(null)
-                        setSelectedEvaluation(null)
-                    }}
-                    player={selectedPlayer}
-                    team={team}
-                    season={season}
-                    phase={selectedPhase}
-                    existingEvaluation={selectedEvaluation}
-                    onSave={handleSaveEvaluation}
-                    mode="edit"
-                />
-            )}
-        </div>
+            {
+                selectedPlayer && (
+                    <PlayerEvaluationModal
+                        isOpen={evaluationModalOpen}
+                        onClose={() => {
+                            setEvaluationModalOpen(false)
+                            setSelectedPlayer(null)
+                            setSelectedEvaluation(null)
+                        }}
+                        player={selectedPlayer}
+                        team={team}
+                        season={season}
+                        phase={selectedPhase}
+                        existingEvaluation={selectedEvaluation}
+                        onSave={handleSaveEvaluation}
+                        mode="edit"
+                    />
+                )
+            }
+        </div >
     )
 }

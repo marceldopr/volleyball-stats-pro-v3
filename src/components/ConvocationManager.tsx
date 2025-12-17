@@ -40,7 +40,7 @@ export function ConvocationManager({
                 setError('')
 
                 // Load team roster
-                const roster = await playerTeamSeasonService.getRosterByTeamAndSeason(teamId, seasonId)
+                const roster = await playerTeamSeasonService.getActiveRosterByTeamAndSeason(teamId, seasonId)
                 const filteredRoster = roster.filter((item: any) => item.player)
                 setTeamRoster(filteredRoster)
 

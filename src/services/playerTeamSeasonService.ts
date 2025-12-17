@@ -13,6 +13,7 @@ export interface PlayerTeamSeasonDB {
     expected_category: string | null
     current_category: string | null
     status: string | null
+    has_injury: boolean | null
     notes: string | null
     created_at: string
     updated_at: string
@@ -52,6 +53,42 @@ export const playerTeamSeasonService = {
         }
 
         // 4. Map player details to roster items
+        const playersMap = new Map(playersData?.map(p => [p.id, p]))
+
+        return rosterData.map(item => ({
+            ...item,
+            player: playersMap.get(item.player_id)
+        }))
+    },
+
+    // Get only ACTIVE players for a team in a season (excludes inactive)
+    getActiveRosterByTeamAndSeason: async (teamId: string, seasonId: string): Promise<PlayerTeamSeasonDB[]> => {
+        const { data: rosterData, error: rosterError } = await supabase
+            .from('player_team_season')
+            .select('*')
+            .eq('team_id', teamId)
+            .eq('season_id', seasonId)
+            .eq('status', 'active')  // Only active players
+
+        if (rosterError) {
+            console.error('Error fetching active roster:', rosterError)
+            throw rosterError
+        }
+
+        if (!rosterData || rosterData.length === 0) return []
+
+        const playerIds = rosterData.map(item => item.player_id)
+
+        const { data: playersData, error: playersError } = await supabase
+            .from('club_players')
+            .select('*')
+            .in('id', playerIds)
+
+        if (playersError) {
+            console.error('Error fetching player details:', playersError)
+            return rosterData
+        }
+
         const playersMap = new Map(playersData?.map(p => [p.id, p]))
 
         return rosterData.map(item => ({

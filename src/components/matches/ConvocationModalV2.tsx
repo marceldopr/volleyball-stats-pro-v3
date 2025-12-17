@@ -40,7 +40,7 @@ export function ConvocationModalV2({ matchId, onClose, onSave }: ConvocationModa
                 setMatch(matchData)
 
                 // 2. Load Roster
-                const roster = await playerTeamSeasonService.getRosterByTeamAndSeason(matchData.team_id, matchData.season_id)
+                const roster = await playerTeamSeasonService.getActiveRosterByTeamAndSeason(matchData.team_id, matchData.season_id)
                 setAvailablePlayers(roster)
 
                 // 3. Load Existing Convocations
@@ -192,8 +192,9 @@ export function ConvocationModalV2({ matchId, onClose, onSave }: ConvocationModa
                                                 <span>·</span>
                                                 <span className="uppercase text-[10px]">
                                                     {(() => {
-                                                        const role = item.role && !['starter', 'convocado'].includes(item.role.toLowerCase()) ? item.role : null
-                                                        const rawRole = role || player.main_position || item.expected_category || 'Sin posición'
+                                                        // Use POSITION field (what gets edited in Plantilla)
+                                                        const position = item.position && !['starter', 'convocado'].includes(item.position.toLowerCase()) ? item.position : null
+                                                        const rawRole = position || player.main_position || 'OH'
                                                         return rawRole
                                                     })()}
                                                 </span>

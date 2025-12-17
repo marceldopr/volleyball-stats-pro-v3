@@ -68,8 +68,8 @@ export function useMatchData({ matchId, loadMatch, setInitialOnCourtPlayers }: U
                 // 3. Load Match into Store
                 loadMatch(match.id, match.actions || [], ourSide, { home: homeTeamName, away: awayTeamName })
 
-                // 3. Load Roster (Context for numbers/roles)
-                const roster = await playerTeamSeasonService.getRosterByTeamAndSeason(match.team_id, match.season_id)
+                // 3. Load Roster (Context for numbers/roles) - ONLY ACTIVE PLAYERS
+                const roster = await playerTeamSeasonService.getActiveRosterByTeamAndSeason(match.team_id, match.season_id)
 
                 // 4. Load Convocations
                 const convos = await matchServiceV2.getConvocationsV2(matchId)
@@ -85,19 +85,19 @@ export function useMatchData({ matchId, loadMatch, setInitialOnCourtPlayers }: U
                         // Priority: Roster Number > Player Profile Number > '?'
                         const number = rosterItem?.jersey_number || pData.jersey_number || '?'
 
-                        // Priority: Custom Match Role > Roster Role > Player Profile Position > '?'
-                        // Priority: Custom Match Role (if not generic) > Roster Role > Player Profile Position > '?'
+                        // Priority: Custom Match Role > Roster POSITION > Player Profile Position > '?'
                         let effectiveRole = c.role_in_match
                         if (effectiveRole && (effectiveRole.toLowerCase() === 'starter' || effectiveRole.toLowerCase() === 'convocado')) {
                             effectiveRole = null
                         }
 
-                        let rosterRole = rosterItem?.role
-                        if (rosterRole && (rosterRole.toLowerCase() === 'starter' || rosterRole.toLowerCase() === 'convocado')) {
-                            rosterRole = null
+                        // Use POSITION field from roster (this is what gets edited in TeamRosterManager)
+                        let rosterPosition = rosterItem?.position
+                        if (rosterPosition && (rosterPosition.toLowerCase() === 'starter' || rosterPosition.toLowerCase() === 'convocado')) {
+                            rosterPosition = null
                         }
 
-                        const rawRole = effectiveRole || rosterRole || pData.main_position || '?'
+                        const rawRole = effectiveRole || rosterPosition || pData.main_position || '?'
 
                         // Map Spanish/Full names to Codes
                         const roleMap: Record<string, string> = {

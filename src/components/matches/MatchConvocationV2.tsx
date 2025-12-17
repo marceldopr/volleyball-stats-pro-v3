@@ -38,7 +38,7 @@ export function MatchConvocationV2() {
                 setMatch(matchData)
 
                 // 2. Load Roster
-                const roster = await playerTeamSeasonService.getRosterByTeamAndSeason(matchData.team_id, matchData.season_id)
+                const roster = await playerTeamSeasonService.getActiveRosterByTeamAndSeason(matchData.team_id, matchData.season_id)
                 setAvailablePlayers(roster)
 
                 // 3. Load Existing Convocations
