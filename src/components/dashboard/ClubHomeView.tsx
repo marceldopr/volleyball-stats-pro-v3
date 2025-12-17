@@ -10,6 +10,7 @@ import {
 import { useAuthStore } from '@/stores/authStore'
 import { clubStatsService, ClubOverviewSummary } from '@/services/clubStatsService'
 import { RotatingAlertBanner } from './RotatingAlertBanner'
+import { RecentActivityFeed } from '@/components/home/RecentActivityFeed'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -164,7 +165,10 @@ export function ClubHomeView() {
                 </div>
             </div>
 
-            {/* 2. Categorías */}
+            {/* 2. Recent Activity Feed */}
+            {profile?.club_id && <RecentActivityFeed clubId={profile.club_id} />}
+
+            {/* 3. Categorías */}
             <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Estado por Categorías</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -267,7 +271,7 @@ export function ClubHomeView() {
                 </div>
             </div>
 
-            {/* 3. Problem Coaches (Compact Table Style) */}
+            {/* 4. Problem Coaches (Compact Table Style) */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Alertas de Staff</h3>
