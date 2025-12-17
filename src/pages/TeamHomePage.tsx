@@ -103,8 +103,8 @@ export function TeamHomePage() {
 
     return (
         <div className="space-y-6">
-            {/* 1️⃣ Estado Actual */}
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
+            {/* 1️⃣ LEVEL 1 - Estado Actual */}
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-md">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                     <TrendingUp className="w-6 h-6 text-primary-500" />
                     Estado Actual
@@ -138,11 +138,39 @@ export function TeamHomePage() {
                 )}
             </div>
 
+            {/* 2️⃣ LEVEL 1 - Volumen del Equipo */}
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-md">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                    <Users className="w-6 h-6 text-primary-500" />
+                    Volumen del Equipo
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Asistencia media</p>
+                        <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                            {teamStats?.attendanceAverage ? `${teamStats.attendanceAverage}%` : '—'}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Últimos entrenamientos</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Partidos jugados</p>
+                        <p className="text-3xl font-bold text-gray-900 dark:text-white">—</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Últimos 30 días</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Jugadoras en baja</p>
+                        <p className="text-3xl font-bold text-gray-900 dark:text-white">—</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Lesiones o ausencias</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* LEVEL 2 - Context Blocks */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* 2️⃣ Rendimiento Deportivo Simple */}
-                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                        <Activity className="w-5 h-5 text-primary-500" />
+                {/* 3️⃣ Rendimiento Deportivo */}
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-gray-400" />
                         Rendimiento Deportivo
                     </h3>
                     {teamStats && (teamStats.pointsErrorRatio > 0 || teamStats.receptionEffectiveness > 0) ? (
@@ -174,10 +202,10 @@ export function TeamHomePage() {
                     )}
                 </div>
 
-                {/* 3️⃣ Tendencia Reciente */}
-                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                        <Activity className="w-5 h-5 text-primary-500" />
+                {/* 4️⃣ Tendencia Reciente */}
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-gray-400" />
                         Tendencia Reciente
                     </h3>
                     {recentActivity?.lastMatch ? (
@@ -213,37 +241,10 @@ export function TeamHomePage() {
                 </div>
             </div>
 
-            {/* 4️⃣ Volumen del Equipo */}
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                    <Users className="w-5 h-5 text-primary-500" />
-                    Volumen del Equipo
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Asistencia media</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                            {teamStats?.attendanceAverage ? `${teamStats.attendanceAverage}%` : '—'}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Últimos entrenamientos</p>
-                    </div>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Partidos jugados</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">—</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Últimos 30 días</p>
-                    </div>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-lg">
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Jugadoras en baja</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">—</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Lesiones o ausencias</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* 5️⃣ Evolución de Asistencia */}
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-primary-500" />
+            {/* 5️⃣ LEVEL 3 - Evolución de Asistencia */}
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-gray-400" />
                     Evolución de Asistencia (últimos 30 días)
                 </h3>
                 <TeamAttendanceChart data={attendanceEvolution} loading={loadingAttendance} />
