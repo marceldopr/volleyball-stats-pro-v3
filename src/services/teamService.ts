@@ -129,12 +129,47 @@ export const teamService = {
 
     // Fetch a single team by its ID
     getTeamById: async (teamId: string): Promise<TeamDB | null> => {
-        const { data, error } = await supabase.from('teams').select('id, club_id, season_id, custom_name, category, category_stage, division_name, team_suffix, gender, competition_level, head_coach_id, assistant_coach_id, identifier_id, notes, created_at, updated_at').eq('id', teamId).single()
+        const { data, error } = await supabase
+            .from('teams')
+            .select(`
+                id, 
+                club_id, 
+                season_id, 
+                custom_name, 
+                category, 
+                category_stage, 
+                division_name, 
+                team_suffix, 
+                gender, 
+                competition_level, 
+                head_coach_id, 
+                assistant_coach_id, 
+                identifier_id, 
+                notes, 
+                created_at, 
+                updated_at,
+                identifier:club_identifiers!identifier_id(name, type, code)
+            `)
+            .eq('id', teamId)
+            .single()
+
         if (error) {
             if (error.code === 'PGRST116') return null // No rows found
             console.error('Error fetching team by ID:', error)
             throw error
         }
+
+        // Transform identifier array to single object
+        if (data) {
+            const result: any = { ...data }
+            if (Array.isArray(data.identifier) && data.identifier.length > 0) {
+                result.identifier = data.identifier[0]
+            } else if (Array.isArray(data.identifier)) {
+                result.identifier = null
+            }
+            return result
+        }
+
         return data
     },
 

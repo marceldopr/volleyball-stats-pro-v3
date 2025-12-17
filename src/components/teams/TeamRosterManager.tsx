@@ -29,6 +29,18 @@ interface RosterItem extends PlayerTeamSeasonDB {
     }
 }
 
+// Helper function to calculate age from birth date
+function calculateAge(birthDate: string): number {
+    const birth = new Date(birthDate)
+    const today = new Date()
+    let age = today.getFullYear() - birth.getFullYear()
+    const monthDiff = today.getMonth() - birth.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--
+    }
+    return age
+}
+
 export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerProps) {
     const { profile } = useAuthStore()
     const { isDT, isAdmin, isCoach, assignedTeamIds } = useCurrentUserRole()
@@ -421,6 +433,7 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Dorsal</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Nombre</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Edad</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Posición</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Estado</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Evaluación</th>
@@ -492,6 +505,9 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                                     <span className="text-red-400 text-sm font-bold" title="Lesionada">✖</span>
                                                 )}
                                             </div>
+                                        </td>
+                                        <td className="px-6 py-2.5 whitespace-nowrap text-gray-300 text-sm">
+                                            {item.player?.birth_date ? calculateAge(item.player.birth_date) : '-'}
                                         </td>
                                         <td className="px-6 py-2.5 whitespace-nowrap">
                                             {editingPositionId === item.id ? (

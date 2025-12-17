@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 
 export type ActivityType = 'evaluation' | 'training' | 'match'
 
@@ -18,10 +19,23 @@ export interface ActivityItem {
 async function getRecentEvaluations(clubId: string, limit: number): Promise<ActivityItem[]> {
     const { data: clubTeams, error: teamsError } = await supabase
         .from('teams')
-        .select('id, custom_name, category_stage, gender')
+        .select(`
+            id, 
+            custom_name, 
+            category_stage, 
+            gender,
+            identifier_id,
+            identifier:club_identifiers!identifier_id(name, type, code)
+        `)
         .eq('club_id', clubId)
 
-    if (teamsError || !clubTeams) return []
+    console.log('[Evaluations] Teams data:', clubTeams)
+    console.log('[Evaluations] First team identifier:', clubTeams?.[0]?.identifier)
+
+    if (teamsError || !clubTeams) {
+        console.error('[Evaluations] Teams error:', teamsError)
+        return []
+    }
 
     const teamIds = clubTeams.map(t => t.id)
 
@@ -36,16 +50,23 @@ async function getRecentEvaluations(clubId: string, limit: number): Promise<Acti
 
     const playerIds = [...new Set(data.map(e => e.player_id))]
     const { data: players } = await supabase
-        .from('players')
+        .from('club_players')
         .select('id, first_name, last_name')
         .in('id', playerIds)
 
     return data.map(item => {
         const player = players?.find(p => p.id === item.player_id)
-        const team = clubTeams.find(t => t.id === item.team_id)
-        const teamName = team
-            ? `${team.category_stage || ''} ${team.gender === 'female' ? 'Femenino' : team.gender === 'male' ? 'Masculino' : ''}`.trim()
-            : 'Equipo'
+        const rawTeam = clubTeams.find(t => t.id === item.team_id)
+        // Transform identifier array to single object
+        const team = rawTeam ? {
+            category_stage: rawTeam.category_stage,
+            custom_name: rawTeam.custom_name,
+            gender: rawTeam.gender,
+            identifier: (Array.isArray(rawTeam.identifier) && rawTeam.identifier.length > 0)
+                ? rawTeam.identifier[0]
+                : null
+        } : null
+        const teamName = team ? getTeamDisplayName(team) : 'Equipo'
 
         const phaseLabel = item.phase === 'start' ? 'Inicio' : item.phase === 'mid' ? 'Mitad' : 'Final'
 
@@ -67,7 +88,14 @@ async function getRecentEvaluations(clubId: string, limit: number): Promise<Acti
 async function getRecentTrainings(clubId: string, limit: number): Promise<ActivityItem[]> {
     const { data: clubTeams, error: teamsError } = await supabase
         .from('teams')
-        .select('id, custom_name, category_stage, gender')
+        .select(`
+            id, 
+            custom_name, 
+            category_stage, 
+            gender,
+            identifier_id,
+            identifier:club_identifiers!identifier_id(name, type, code)
+        `)
         .eq('club_id', clubId)
 
     if (teamsError || !clubTeams) return []
@@ -89,10 +117,17 @@ async function getRecentTrainings(clubId: string, limit: number): Promise<Activi
     if (!data) return []
 
     return data.map(item => {
-        const team = clubTeams.find(t => t.id === item.team_id)
-        const teamName = team
-            ? `${team.category_stage || ''} ${team.gender === 'female' ? 'Femenino' : team.gender === 'male' ? 'Masculino' : ''}`.trim()
-            : 'Equipo'
+        const rawTeam = clubTeams.find(t => t.id === item.team_id)
+        // Transform identifier array to single object
+        const team = rawTeam ? {
+            category_stage: rawTeam.category_stage,
+            custom_name: rawTeam.custom_name,
+            gender: rawTeam.gender,
+            identifier: (Array.isArray(rawTeam.identifier) && rawTeam.identifier.length > 0)
+                ? rawTeam.identifier[0]
+                : null
+        } : null
+        const teamName = team ? getTeamDisplayName(team) : 'Equipo'
 
         return {
             id: item.id,
@@ -111,7 +146,14 @@ async function getRecentTrainings(clubId: string, limit: number): Promise<Activi
 async function getRecentMatches(clubId: string, limit: number): Promise<ActivityItem[]> {
     const { data: clubTeams, error: teamsError } = await supabase
         .from('teams')
-        .select('id, custom_name, category_stage, gender')
+        .select(`
+            id, 
+            custom_name, 
+            category_stage, 
+            gender,
+            identifier_id,
+            identifier:club_identifiers!identifier_id(name, type, code)
+        `)
         .eq('club_id', clubId)
 
     if (teamsError || !clubTeams) return []
@@ -133,10 +175,17 @@ async function getRecentMatches(clubId: string, limit: number): Promise<Activity
     if (!data) return []
 
     return data.map(item => {
-        const team = clubTeams.find(t => t.id === item.team_id)
-        const teamName = team
-            ? `${team.category_stage || ''} ${team.gender === 'female' ? 'Femenino' : team.gender === 'male' ? 'Masculino' : ''}`.trim()
-            : 'Equipo'
+        const rawTeam = clubTeams.find(t => t.id === item.team_id)
+        // Transform identifier array to single object
+        const team = rawTeam ? {
+            category_stage: rawTeam.category_stage,
+            custom_name: rawTeam.custom_name,
+            gender: rawTeam.gender,
+            identifier: (Array.isArray(rawTeam.identifier) && rawTeam.identifier.length > 0)
+                ? rawTeam.identifier[0]
+                : null
+        } : null
+        const teamName = team ? getTeamDisplayName(team) : 'Equipo'
 
         const action = item.status === 'completed' || item.status === 'finished' ? 'finalizado' : 'creado'
 

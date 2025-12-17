@@ -109,11 +109,8 @@ export function TeamDashboardPage() {
                             {''}
                         </Button>
                         <div className="flex-1">
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                                 {getTeamDisplayName(team)}
-                                <span className="text-sm font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full">
-                                    {team.category_stage}
-                                </span>
                             </h1>
                             <p className="text-sm text-gray-500 dark:text-gray-400">
                                 Temporada {currentSeason.name}
