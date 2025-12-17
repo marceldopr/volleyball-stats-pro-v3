@@ -102,7 +102,7 @@ export function PlayerDetail() {
 
     const getPositionName = (position: string) => {
         const positions: Record<string, string> = {
-            'OH': 'Opuesta',
+            'OH': 'Receptora',
             'MB': 'Central',
             'S': 'Colocadora',
             'L': 'Líbero',
@@ -147,22 +147,20 @@ export function PlayerDetail() {
 
                                 <div className="flex items-center gap-2">
                                     <span className="font-medium text-gray-400">Estado:</span>
-                                    <span className={`px-3 py-1 rounded-full font-medium ${player.is_active
-                                        ? 'bg-green-500/20 text-green-300 border border-green-500/30'
-                                        : 'bg-gray-700/30 text-gray-400 border border-gray-600/30'
-                                        }`}>
-                                        {player.is_active ? 'Activa' : 'Inactiva'}
-                                    </span>
-                                </div>
-
-                                {hasInjury && (
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-medium text-gray-400">Lesión:</span>
-                                        <span className="px-3 py-1 bg-orange-500/20 text-orange-300 rounded-full font-medium border border-orange-500/30 flex items-center gap-1">
-                                            🩹 Activa
+                                    {hasInjury ? (
+                                        <span className="px-3 py-1 bg-orange-500/20 text-orange-300 rounded-full font-medium border border-orange-500/30 flex items-center gap-1.5">
+                                            🟠 Lesionada
                                         </span>
-                                    </div>
-                                )}
+                                    ) : player.is_active ? (
+                                        <span className="px-3 py-1 bg-green-500/20 text-green-300 rounded-full font-medium border border-green-500/30 flex items-center gap-1.5">
+                                            🟢 Activa
+                                        </span>
+                                    ) : (
+                                        <span className="px-3 py-1 bg-gray-700/30 text-gray-400 rounded-full font-medium border border-gray-600/30 flex items-center gap-1.5">
+                                            🔴 Inactiva
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -194,13 +192,7 @@ export function PlayerDetail() {
 
             {/* Tab Content */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {activeTab === 'resumen' && (
-                    <PlayerResumen
-                        player={player}
-                        currentSeason={currentSeason}
-                        hasInjury={hasInjury}
-                    />
-                )}
+                {activeTab === 'resumen' && <PlayerResumen player={player} />}
                 {activeTab === 'admin' && <PlayerAdministrativo playerId={player.id} />}
                 {activeTab === 'fisico' && (
                     <PlayerFisicoSalud

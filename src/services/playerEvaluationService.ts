@@ -98,8 +98,8 @@ export const playerEvaluationService = {
             .from('player_team_season_evaluations')
             .select(`
                 *,
-                teams:team_id(custom_name),
-                seasons:season_id(name)
+                teams(id, custom_name, category),
+                seasons(id, name)
             `)
             .eq('player_id', playerId)
             .order('created_at', { ascending: false })

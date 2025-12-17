@@ -6,6 +6,7 @@ import type { SeasonDB } from '@/services/seasonService'
 import type { PlayerEvaluationDB, PlayerEvaluationInput } from '@/services/playerEvaluationService'
 import { playerEvaluationService } from '@/services/playerEvaluationService'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
+import { EVALUATION_SCALE } from '@/constants/evaluationScale'
 import { Button } from '@/components/ui/Button'
 import { RatingInput } from './RatingInput'
 import { CompactRatingDisplay } from './CompactRatingDisplay'
@@ -193,10 +194,10 @@ export function PlayerEvaluationModal({
                             <div className="space-y-4">
                                 <div>
                                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-                                        Rendimiento (1-5)
+                                        {EVALUATION_SCALE.name}
                                     </h3>
                                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                        1=Muy mejorable • 2=Mejorable • 3=Adecuado • 4=Bueno • 5=Excelente
+                                        {EVALUATION_SCALE.description}
                                     </p>
                                 </div>
                                 <div className="grid grid-cols-1 gap-4">
@@ -269,10 +270,10 @@ export function PlayerEvaluationModal({
                             <div className="space-y-4">
                                 <div>
                                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-                                        Rendimiento (1-5)
+                                        {EVALUATION_SCALE.name}
                                     </h3>
                                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                        1=Muy mejorable • 2=Mejorable • 3=Adecuado • 4=Bueno • 5=Excelente
+                                        {EVALUATION_SCALE.description}
                                     </p>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -386,7 +387,7 @@ export function PlayerEvaluationModal({
                                 Progresión de la jugadora
                             </h3>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                                Valoraciones 1–3 por fase (inicio, mitad, final)
+                                {EVALUATION_SCALE.name} por fase (inicio, mitad, final)
                             </p>
                             <PlayerEvaluationProgressChart
                                 evaluations={evaluationHistory}
