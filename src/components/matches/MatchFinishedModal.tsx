@@ -22,7 +22,7 @@ export interface MatchFinishedModalProps {
 
 export function MatchFinishedModal({
     isOpen,
-    // matchId, // Not used in render
+    matchId: _matchId,
     matchInfo,
     onGoToAnalysis,
     onGoToMenu,
