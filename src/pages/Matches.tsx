@@ -189,7 +189,21 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
         // Reload matches from Supabase
         if (profile?.club_id && currentSeason) {
           const matches = await matchService.listMatches(profile.club_id, currentSeason.id)
-          setSupabaseMatches(matches)
+          let filteredMatches = matches
+
+          // 1. Filter by teamId prop if provided
+          if (teamId) {
+            filteredMatches = filteredMatches.filter(match => match.team_id === teamId)
+          }
+
+          // 2. Filter by role (Coach)
+          if (isCoach) {
+            filteredMatches = filteredMatches.filter(match =>
+              assignedTeamIds.includes(match.team_id)
+            )
+          }
+
+          setSupabaseMatches(filteredMatches)
         }
 
         // selectedMatch state removed - no longer needed
@@ -297,7 +311,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
           variant="primary"
           size="md"
           icon={Plus}
-          onClick={() => navigate('/matches/create-v2')}
+          onClick={() => navigate('/matches/create')}
         >
           Nuevo Partido
         </Button>
@@ -512,13 +526,15 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                     })()}
 
                     {/* Delete Button */}
-                    <button
-                      onClick={() => handleDeleteClick(match)}
-                      className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                      title="Eliminar partido"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {(!isCoach || (isCoach && match.status === 'planned')) && (
+                      <button
+                        onClick={() => handleDeleteClick(match)}
+                        className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        title="Eliminar partido"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
