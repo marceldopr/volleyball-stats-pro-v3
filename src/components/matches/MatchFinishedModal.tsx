@@ -1,30 +1,36 @@
+import { RotateCcw, Home, BarChart2 } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+
 export interface MatchFinishedModalProps {
     isOpen: boolean
-    onConfirm: () => void
-    onUndo: () => void
-    onViewReadOnly: () => void
-    homeTeamName: string
-    awayTeamName: string
-    setsWonHome: number
-    setsWonAway: number
-    finalSetScore: { home: number; away: number }
+    matchId?: string
+    matchInfo: {
+        homeTeamName: string
+        awayTeamName: string
+        sets: any[]
+        homeSetsWon: number
+        awaySetsWon: number
+        date?: string
+        time?: string
+        competition?: string
+        stats?: any
+    }
+    onGoToAnalysis: () => void
+    onGoToMenu: () => void
+    onUndoMatchEnd: () => void
 }
-
-import { Check, RotateCcw, Eye } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
 
 export function MatchFinishedModal({
     isOpen,
-    onConfirm,
-    onUndo,
-    onViewReadOnly,
-    homeTeamName,
-    awayTeamName,
-    setsWonHome,
-    setsWonAway,
-    finalSetScore
+    // matchId, // Not used in render
+    matchInfo,
+    onGoToAnalysis,
+    onGoToMenu,
+    onUndoMatchEnd
 }: MatchFinishedModalProps) {
     if (!isOpen) return null
+
+    const lastSet = matchInfo.sets[matchInfo.sets.length - 1] || { home: 0, away: 0 }
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -39,12 +45,12 @@ export function MatchFinishedModal({
 
                     <div className="mt-4 p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-100 dark:border-zinc-800">
                         <div className="flex justify-between items-center mb-2">
-                            <span className="font-bold text-zinc-700 dark:text-zinc-300">{homeTeamName}</span>
-                            <span className="text-2xl font-black">{setsWonHome} - {setsWonAway}</span>
-                            <span className="font-bold text-zinc-700 dark:text-zinc-300">{awayTeamName}</span>
+                            <span className="font-bold text-zinc-700 dark:text-zinc-300">{matchInfo.homeTeamName}</span>
+                            <span className="text-2xl font-black">{matchInfo.homeSetsWon} - {matchInfo.awaySetsWon}</span>
+                            <span className="font-bold text-zinc-700 dark:text-zinc-300">{matchInfo.awayTeamName}</span>
                         </div>
                         <div className="text-sm text-zinc-500 dark:text-zinc-500 font-mono">
-                            Último set: {finalSetScore.home} - {finalSetScore.away}
+                            Último set: {lastSet.home} - {lastSet.away}
                         </div>
                     </div>
 
@@ -60,10 +66,10 @@ export function MatchFinishedModal({
                         variant="primary"
                         size="lg"
                         className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                        icon={Check}
-                        onClick={onConfirm}
+                        icon={BarChart2}
+                        onClick={onGoToAnalysis}
                     >
-                        Confirmar y Finalizar
+                        Ver Análisis
                     </Button>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -71,17 +77,17 @@ export function MatchFinishedModal({
                             variant="outline"
                             className="w-full border-zinc-300 dark:border-zinc-700"
                             icon={RotateCcw}
-                            onClick={onUndo}
+                            onClick={onUndoMatchEnd}
                         >
-                            Deshacer último
+                            Deshacer Fin
                         </Button>
                         <Button
                             variant="secondary"
                             className="w-full"
-                            icon={Eye}
-                            onClick={onViewReadOnly}
+                            icon={Home}
+                            onClick={onGoToMenu}
                         >
-                            Ver partido
+                            Ir al Menú
                         </Button>
                     </div>
                 </div>
