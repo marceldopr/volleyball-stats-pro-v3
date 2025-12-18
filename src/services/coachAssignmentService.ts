@@ -33,14 +33,14 @@ export const coachAssignmentService = {
     getCoachesWithAssignments: async (clubId: string, seasonId: string): Promise<CoachWithAssignments[]> => {
         console.log('[getCoachesWithAssignments] Starting query with:', { clubId, seasonId })
 
-        // 1. Get all coaches from the club
+        // 1. Get all coaches AND DT from the club
         // NOTE: Removed 'email' from select as it likely doesn't exist in profiles table and causes 400 error
-        // NOTE: Checking for both 'coach' and 'entrenador' to handle legacy data
+        // NOTE: Including both 'coach' and 'dt' roles - DT can also be assigned as coach to teams
         const { data: coaches, error: coachesError } = await supabase
             .from('profiles')
             .select('id, full_name, role, club_id')
             .eq('club_id', clubId)
-            .eq('role', 'coach')
+            .in('role', ['coach', 'dt'])
 
         console.log('[getCoachesWithAssignments] Coaches query result:', {
             count: coaches?.length || 0,

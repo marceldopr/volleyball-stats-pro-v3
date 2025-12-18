@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, UserPlus, X, Trash2 } from 'lucide-react'
+import { Users, UserPlus, X, User, Award } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 import { coachAssignmentService, CoachWithAssignments } from '@/services/coachAssignmentService'
@@ -8,6 +8,8 @@ import { seasonService, SeasonDB } from '@/services/seasonService'
 import { toast } from 'sonner'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { useNavigate } from 'react-router-dom'
+import { TeamIdentifierDot } from '@/components/teams/TeamIdentifierDot'
+import { clsx } from 'clsx'
 
 export function CoachAssignments() {
     const navigate = useNavigate()
@@ -124,6 +126,60 @@ export function CoachAssignments() {
         }
     }
 
+    // Helper: Get role badge info based on coach role and assignments
+    const getRoleBadgeInfo = (coach: CoachWithAssignments) => {
+        const isDTRole = coach.role === 'dt'
+        const hasAssignments = coach.assignments.length > 0
+
+        if (isDTRole && hasAssignments) {
+            return {
+                label: 'DT + Entrenador',
+                className: 'bg-gradient-to-r from-purple-100 to-orange-100 text-purple-800 dark:from-purple-900/40 dark:to-orange-900/40 dark:text-purple-200 border border-purple-200 dark:border-purple-700'
+            }
+        } else if (isDTRole) {
+            return {
+                label: 'DT',
+                className: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200 border border-purple-200 dark:border-purple-700'
+            }
+        } else {
+            return {
+                label: 'Entrenador',
+                className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200 border border-blue-200 dark:border-blue-700'
+            }
+        }
+    }
+
+    // Helper: Get workload badge info based on number of teams
+    const getWorkloadBadgeInfo = (teamCount: number) => {
+        if (teamCount === 0) {
+            return {
+                label: '0 equipos',
+                className: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+            }
+        } else if (teamCount <= 2) {
+            return {
+                label: `${teamCount} ${teamCount === 1 ? 'equipo' : 'equipos'}`,
+                className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+            }
+        } else if (teamCount <= 4) {
+            return {
+                label: `${teamCount} equipos`,
+                className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
+            }
+        } else {
+            return {
+                label: `${teamCount} equipos`,
+                className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
+            }
+        }
+    }
+
+    // Helper: Get team data for rendering pills
+    const getTeamDataForPill = (teamId: string) => {
+        const team = availableTeams.find(t => t.id === teamId)
+        return team
+    }
+
     // Filter teams that are not already assigned to the selected coach
     const getAvailableTeamsForCoach = (coachId: string) => {
         const coach = coaches.find(c => c.id === coachId)
@@ -164,58 +220,115 @@ export function CoachAssignments() {
                     </p>
                 </div>
             ) : (
-                <div className="space-y-4">
-                    {coaches.map(coach => (
-                        <div
-                            key={coach.id}
-                            className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 lg:p-6"
-                        >
-                            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-4">
-                                <div className="flex-1">
-                                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">{coach.full_name}</h3>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">{coach.email}</p>
-                                </div>
-                                <button
-                                    onClick={() => handleOpenAssignModal(coach.id)}
-                                    className="btn-primary flex items-center gap-2 text-sm font-medium whitespace-nowrap"
-                                >
-                                    <UserPlus className="w-4 h-4" />
-                                    Asignar equipo
-                                </button>
-                            </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    {coaches.map(coach => {
+                        const roleBadge = getRoleBadgeInfo(coach)
+                        const workloadBadge = getWorkloadBadgeInfo(coach.assignments.length)
 
-                            <div>
-                                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Equipos asignados:</p>
-                                {coach.assignments.length === 0 ? (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 italic">Sin equipos asignados</p>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {coach.assignments.map(assignment => (
-                                            <div
-                                                key={assignment.id}
-                                                className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 rounded-lg px-4 py-2.5"
-                                            >
-                                                <span className="text-sm text-gray-900 dark:text-gray-100">
-                                                    {assignment.team_name}
+                        return (
+                            <div
+                                key={coach.id}
+                                className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
+                            >
+                                {/* Header with name, role badge, and workload */}
+                                <div className="p-5 border-b border-gray-100 dark:border-gray-700/50">
+                                    <div className="flex items-start gap-3 mb-3">
+                                        <div className="mt-1 p-2 rounded-full bg-gray-100 dark:bg-gray-700/50">
+                                            <User className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                                                    {coach.full_name}
+                                                </h3>
+                                                <span className={clsx(
+                                                    'text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap',
+                                                    roleBadge.className
+                                                )}>
+                                                    {roleBadge.label}
                                                 </span>
-                                                <button
-                                                    onClick={() => handleRemoveAssignment(
-                                                        assignment.id,
-                                                        coach.full_name,
-                                                        assignment.team_name
-                                                    )}
-                                                    className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                                                    title="Quitar asignación"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
                                             </div>
-                                        ))}
+                                            {coach.email && (
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                                                    {coach.email}
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
-                                )}
+
+                                    {/* Workload indicator */}
+                                    <div className="flex items-center gap-2">
+                                        <Award className="w-4 h-4 text-gray-400" />
+                                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Carga:</span>
+                                        <span className={clsx(
+                                            'text-xs font-semibold px-2 py-0.5 rounded-full',
+                                            workloadBadge.className
+                                        )}>
+                                            {workloadBadge.label}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Body: Team assignments as pills */}
+                                <div className="p-5">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                                            Equipos asignados
+                                        </p>
+                                        <button
+                                            onClick={() => handleOpenAssignModal(coach.id)}
+                                            className="btn-primary flex items-center gap-1.5 text-xs font-medium px-3 py-1.5"
+                                        >
+                                            <UserPlus className="w-3.5 h-3.5" />
+                                            Asignar
+                                        </button>
+                                    </div>
+
+                                    {coach.assignments.length === 0 ? (
+                                        <div className="text-center py-6">
+                                            <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+                                                Sin equipos asignados
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-wrap gap-2">
+                                            {coach.assignments.map(assignment => {
+                                                const teamData = getTeamDataForPill(assignment.team_id)
+
+                                                return (
+                                                    <div
+                                                        key={assignment.id}
+                                                        className="group relative flex items-center gap-2 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border border-orange-200 dark:border-orange-700/50 rounded-lg px-3 py-2 hover:shadow-sm transition-all"
+                                                    >
+                                                        {teamData && (
+                                                            <TeamIdentifierDot
+                                                                identifier={teamData.identifier}
+                                                                size="sm"
+                                                            />
+                                                        )}
+                                                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                            {assignment.team_name}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => handleRemoveAssignment(
+                                                                assignment.id,
+                                                                coach.full_name,
+                                                                assignment.team_name
+                                                            )}
+                                                            className="ml-1 opacity-0 group-hover:opacity-100 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-all"
+                                                            title="Quitar asignación"
+                                                        >
+                                                            <X className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        )
+                    })}
                 </div>
             )}
 
