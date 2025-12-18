@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { MatchEventType } from '@/stores/matchStoreV2'
+import type { MatchEventType } from '@/stores/matchStore'
 
 export interface UseTimeoutsV2Args {
     currentSet: number
@@ -23,7 +23,7 @@ export interface UseTimeoutsV2Return {
     callTimeoutAway: () => void
 }
 
-export function useTimeoutsV2({
+export function useTimeouts({
     currentSet,
     timeoutsHome,
     timeoutsAway,

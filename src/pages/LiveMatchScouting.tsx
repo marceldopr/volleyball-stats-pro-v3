@@ -1,15 +1,15 @@
 ﻿import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { clsx } from 'clsx'
-import { useMatchStoreV2, validateFIVBSubstitution } from '@/stores/matchStoreV2'
+import { useMatchStore, validateFIVBSubstitution } from '@/stores/matchStore'
 import { toast } from 'sonner'
 import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
-import { MatchTimelineV2 } from '@/components/MatchTimelineV2'
+import { MatchTimeline } from '@/components/MatchTimeline'
 import { formatTimeline } from '@/utils/timelineFormatter'
-import { MatchFinishedModalV2 } from '@/components/matches/MatchFinishedModalV2'
-import { ReceptionModalV2 } from '@/components/matches/ReceptionModalV2'
-import { SetSummaryModalV2 } from '@/components/matches/SetSummaryModalV2'
-import { SubstitutionModalV2 } from '@/components/matches/SubstitutionModalV2'
+import { MatchFinishedModal } from '@/components/matches/MatchFinishedModal'
+import { ReceptionModal } from '@/components/matches/ReceptionModal'
+import { SetSummaryModal } from '@/components/matches/SetSummaryModal'
+import { SubstitutionModal } from '@/components/matches/SubstitutionModal'
 import { isLibero, isValidSubstitution } from '@/lib/volleyball/substitutionHelpers'
 import { getLastEventLabel } from '@/utils/matchEventLabels'
 
@@ -18,11 +18,11 @@ import { useMatchData } from '@/hooks/match/useMatchData'
 import { useStartersModal } from '@/hooks/match/useStartersModal'
 import { useReceptionModal } from '@/hooks/match/useReceptionModal'
 import { useSubstitutionModal } from '@/hooks/match/useSubstitutionModal'
-import { useActionCaptureV2 } from '@/hooks/match/useActionCaptureV2'
-import { useMatchModalsManagerV2 } from '@/hooks/match/useMatchModalsManagerV2'
-import { useTimeoutsV2 } from '@/hooks/match/useTimeoutsV2'
-import { useMatchEffectsV2 } from '@/hooks/match/useMatchEffectsV2'
-import { usePlayerHelpersV2 } from '@/hooks/match/usePlayerHelpersV2'
+import { useActionCapture } from '@/hooks/match/useActionCapture'
+import { useMatchModalsManager } from '@/hooks/match/useMatchModalsManager'
+import { useTimeouts } from '@/hooks/match/useTimeouts'
+import { useMatchEffects } from '@/hooks/match/useMatchEffects'
+import { usePlayerHelpers } from '@/hooks/match/usePlayerHelpers'
 
 // UI Components
 import { ReadOnlyBanner } from '@/components/match/ReadOnlyBanner'
@@ -30,16 +30,16 @@ import { MatchHeader } from '@/components/match/MatchHeader'
 import { ActionButtons } from '@/components/match/ActionButtons'
 import { RotationDisplay } from '@/components/match/RotationDisplay'
 import { BottomActions } from '@/components/match/BottomActions'
-import { StartersModalV2 } from '@/components/match/StartersModalV2'
-import { RotationModalV2 } from '@/components/match/RotationModalV2'
+import { StartersModal } from '@/components/match/StartersModal'
+import { RotationModal } from '@/components/match/RotationModal'
 import { ExitMatchModal } from '@/components/match/ExitMatchModal'
-import { ActionPlayerModalV2 } from '@/components/match/ActionPlayerModalV2'
+import { ActionPlayerModal } from '@/components/match/ActionPlayerModal'
 import { MobileTabNav, TabView } from '@/components/match/MobileTabNav'
 
 
 
 
-export function LiveMatchScoutingV2() {
+export function LiveMatchScouting() {
     const { matchId } = useParams<{ matchId: string }>()
     const navigate = useNavigate()
 
@@ -53,11 +53,11 @@ export function LiveMatchScoutingV2() {
         setInitialOnCourtPlayers,
         undoEvent,
         closeSetSummaryModal
-    } = useMatchStoreV2()
+    } = useMatchStore()
 
     // Team names from root state (NOT derived state - these are stable)
-    const homeTeamName = useMatchStoreV2(state => state.homeTeamName)
-    const awayTeamName = useMatchStoreV2(state => state.awayTeamName)
+    const homeTeamName = useMatchStore(state => state.homeTeamName)
+    const awayTeamName = useMatchStore(state => state.awayTeamName)
 
     // Custom Hooks - Data Loading
     const { loading, matchData, availablePlayers } = useMatchData({
@@ -74,13 +74,13 @@ export function LiveMatchScoutingV2() {
         showSubstitutionModal: substitutionModal.showSubstitutionModal,
         showStartersModal: startersModal.showStartersModal
     })
-    const actionCapture = useActionCaptureV2({
+    const actionCapture = useActionCapture({
         currentSet: derivedState.currentSet,
         addEvent
     })
 
     // Custom Hooks - Modals Manager
-    const { modals, handlers } = useMatchModalsManagerV2({
+    const { modals, handlers } = useMatchModalsManager({
         matchId,
         derivedState,
         events,
@@ -93,7 +93,7 @@ export function LiveMatchScoutingV2() {
     })
 
     // Custom Hooks - Timeouts
-    const timeouts = useTimeoutsV2({
+    const timeouts = useTimeouts({
         currentSet: derivedState.currentSet,
         timeoutsHome: derivedState.timeoutsHome,
         timeoutsAway: derivedState.timeoutsAway,
@@ -102,7 +102,7 @@ export function LiveMatchScoutingV2() {
     })
 
     // Custom Hooks - Effects (validation, auto-save)
-    useMatchEffectsV2({
+    useMatchEffects({
         matchId,
         loading,
         availablePlayers,
@@ -328,7 +328,7 @@ export function LiveMatchScoutingV2() {
         effectiveOnCourtPlayers,
         benchPlayers,
         getPlayerAt
-    } = usePlayerHelpersV2({
+    } = usePlayerHelpers({
         availablePlayers,
         derivedState,
         isServing
@@ -436,7 +436,7 @@ export function LiveMatchScoutingV2() {
                         activeTab === 'timeline' ? 'block' : 'hidden', // Mobile: Tab control
                         'lg:hidden' // Hide on desktop here, we handle it below for desktop toggle
                     )}>
-                        <MatchTimelineV2
+                        <MatchTimeline
                             events={formatTimeline(events, derivedState.ourSide, homeTeamName, awayTeamName)}
                             className="mt-2"
                         />
@@ -481,7 +481,7 @@ export function LiveMatchScoutingV2() {
                 {/* Desktop Timeline Content (Expands Below via BottomAction Toggle) */}
                 {showTimeline && (
                     <div className="hidden lg:block border-t border-zinc-800">
-                        <MatchTimelineV2
+                        <MatchTimeline
                             events={formatTimeline(events, derivedState.ourSide, homeTeamName, awayTeamName)}
                             className=""
                         />
@@ -489,7 +489,7 @@ export function LiveMatchScoutingV2() {
                 )}
 
                 {/* MODAL STARTERS (Selección de Titulares - Visual) */}
-                <StartersModalV2
+                <StartersModal
                     isOpen={modals.showStartersModal}
                     derivedState={derivedState}
                     availablePlayers={availablePlayers}
@@ -509,7 +509,7 @@ export function LiveMatchScoutingV2() {
                 />
 
                 {/* MODAL ROTATION */}
-                <RotationModalV2
+                <RotationModal
                     isOpen={modals.showRotationModal}
                     onClose={handlers.closeRotation}
                     onCourtPlayers={derivedState.onCourtPlayers}
@@ -545,7 +545,7 @@ export function LiveMatchScoutingV2() {
                     }).filter(Boolean) as Array<{ position: number; player: { id: string; name: string; number: number; role: string } }>
 
                     return (
-                        <ReceptionModalV2
+                        <ReceptionModal
                             isOpen={receptionModal.showReceptionModal}
                             onClose={() => receptionModal.setShowReceptionModal(false)}
                             onConfirm={handleReceptionEval}
@@ -572,7 +572,7 @@ export function LiveMatchScoutingV2() {
                     )
                 })()}
 
-                <SetSummaryModalV2
+                <SetSummaryModal
                     isOpen={modals.isSetSummaryOpen}
                     summary={derivedState.lastFinishedSetSummary}
                     homeTeamName={homeTeamName || 'Local'}
@@ -582,7 +582,7 @@ export function LiveMatchScoutingV2() {
                     onUndo={handlers.handleUndoSetSummary}
                 />
 
-                <MatchFinishedModalV2
+                <MatchFinishedModal
                     isOpen={modals.isMatchFinishedModalOpen}
                     matchId={matchId}
                     matchInfo={{
@@ -666,7 +666,7 @@ export function LiveMatchScoutingV2() {
                 />
 
                 {/* MODAL SUBSTITUTION */}
-                <SubstitutionModalV2
+                <SubstitutionModal
                     isOpen={modals.showSubstitutionModal}
                     onClose={() => substitutionModal.closeModal()}
                     onConfirm={handleConfirmSubstitution}
@@ -686,7 +686,7 @@ export function LiveMatchScoutingV2() {
                 />
 
                 {/* MODAL ACTION PLAYER (Selección de jugadora para acciones) */}
-                <ActionPlayerModalV2
+                <ActionPlayerModal
                     isOpen={actionCapture.isActionModalOpen}
                     actionType={actionCapture.currentActionType}
                     currentSet={derivedState.currentSet}

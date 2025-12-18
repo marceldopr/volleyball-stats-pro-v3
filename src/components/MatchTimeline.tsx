@@ -5,7 +5,7 @@ interface MatchTimelineV2Props {
     className?: string
 }
 
-export function MatchTimelineV2({ events, className = '' }: MatchTimelineV2Props) {
+export function MatchTimeline({ events, className = '' }: MatchTimelineV2Props) {
     // Reverse to show most recent first
     const reversedEvents = [...events].reverse()
 

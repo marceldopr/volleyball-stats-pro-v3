@@ -1,4 +1,4 @@
-import { PlayerV2 } from '@/stores/matchStoreV2'
+import { PlayerV2 } from '@/stores/matchStore'
 
 /**
  * Determina si una jugadora es líbero basado en su rol

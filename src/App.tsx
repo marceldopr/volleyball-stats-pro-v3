@@ -3,10 +3,10 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { Teams } from '@/pages/Teams'
 import { TeamSeasonContext } from '@/pages/TeamSeasonContext'
 import { Matches } from '@/pages/Matches'
-import { MatchWizardV2 } from '@/pages/MatchWizardV2'
-import { MatchConvocationV2 } from '@/components/matches/MatchConvocationV2'
-import { LiveMatchScoutingV2 } from '@/pages/LiveMatchScoutingV2'
-import { MatchAnalysisV2 } from '@/pages/MatchAnalysisV2'
+import { MatchWizard } from '@/pages/MatchWizard'
+import { MatchConvocation } from '@/components/matches/MatchConvocation'
+import { LiveMatchScouting } from '@/pages/LiveMatchScouting'
+import { MatchAnalysis } from '@/pages/MatchAnalysis'
 import { Analytics } from '@/pages/Analytics'
 import { SettingsPage } from '@/pages/Settings'
 import { NewMatch } from '@/pages/NewMatch'
@@ -142,24 +142,24 @@ function App() {
                   } />
 
                   {/* V2 Match System Routes */}
-                  <Route path="/matches/create-v2" element={
+                  <Route path="/matches/create" element={
                     <RoleGuard allowedForDT allowedForCoach>
-                      <MatchWizardV2 />
+                      <MatchWizard />
                     </RoleGuard>
                   } />
-                  <Route path="/matches/v2/:matchId/convocation" element={
+                  <Route path="/matches/:matchId/convocation" element={
                     <RoleGuard allowedForDT allowedForCoach>
-                      <MatchConvocationV2 />
+                      <MatchConvocation />
                     </RoleGuard>
                   } />
-                  <Route path="/live-match-v2/:matchId" element={
+                  <Route path="/live-match/:matchId" element={
                     <RoleGuard allowedForDT allowedForCoach>
-                      <LiveMatchScoutingV2 />
+                      <LiveMatchScouting />
                     </RoleGuard>
                   } />
-                  <Route path="/match-analysis-v2/:matchId" element={
+                  <Route path="/match-analysis/:matchId" element={
                     <RoleGuard allowedForDT allowedForCoach>
-                      <MatchAnalysisV2 />
+                      <MatchAnalysis />
                     </RoleGuard>
                   } />
 

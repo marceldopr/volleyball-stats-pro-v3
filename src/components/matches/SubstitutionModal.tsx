@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Check, X, RefreshCw, Lock, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { PlayerV2 } from '@/stores/matchStoreV2'
+import { PlayerV2 } from '@/stores/matchStore'
 import { isLibero, isValidSubstitution } from '@/lib/volleyball/substitutionHelpers'
 import { toast } from 'sonner'
 import { RotationGridStandard } from '../match/RotationGridStandard'
@@ -45,7 +45,7 @@ interface SubstitutionModalV2Props {
     }
 }
 
-export function SubstitutionModalV2({
+export function SubstitutionModal({
     isOpen,
     onClose,
     onConfirm,

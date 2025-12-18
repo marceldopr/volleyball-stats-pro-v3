@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { toast } from 'sonner'
-import { MatchEventType } from '@/stores/matchStoreV2'
+import { MatchEventType } from '@/stores/matchStore'
 import { useActionPlayerModal, ActionType, isPointUs, isPointOpponent } from './useActionPlayerModal'
 
 interface UseActionCaptureV2Args {
@@ -11,23 +11,23 @@ interface UseActionCaptureV2Args {
 interface UseActionCaptureV2Return {
     // State to disable buttons during processing
     isProcessing: boolean
-    
+
     // Modal State
     isActionModalOpen: boolean
     currentActionType: ActionType | null
-    
+
     // Action Handlers (Green/Red buttons)
     handlePointUs: (reason: string) => void
     handlePointOpponent: (reason: string) => void
     handleFreeballSent: () => void
     handleFreeballReceived: () => void
-    
+
     // Modal Callbacks
     handleConfirmActionPlayer: (playerId: string) => void
     handleCancelActionPlayer: () => void
 }
 
-export function useActionCaptureV2({
+export function useActionCapture({
     currentSet,
     addEvent
 }: UseActionCaptureV2Args): UseActionCaptureV2Return {
@@ -61,7 +61,7 @@ export function useActionCaptureV2({
             // All other our-point actions open modal for player selection
             // We do NOT use executeAction here because we are just opening a modal, not dispatching the final event yet
             // However, to keep consistency with "buttonsDisabled" logic, we might want to prevent opening if processing
-            if (isProcessing) return 
+            if (isProcessing) return
             actionModal.openForAction(reason as ActionType)
         }
     }, [addEvent, executeAction, actionModal, isProcessing])
@@ -111,15 +111,15 @@ export function useActionCaptureV2({
 
     return {
         isProcessing,
-        
+
         isActionModalOpen: actionModal.isOpen,
         currentActionType: actionModal.actionType,
-        
+
         handlePointUs,
         handlePointOpponent,
         handleFreeballSent,
         handleFreeballReceived,
-        
+
         handleConfirmActionPlayer,
         handleCancelActionPlayer
     }

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, ChevronDown, ChevronUp, Clock, TrendingUp, Users, AlertCircle, Hash, RefreshCw, Timer } from 'lucide-react'
-import { useMatchStoreV2 } from '@/stores/matchStoreV2'
+import { useMatchStore } from '@/stores/matchStore'
 import { useMatchData } from '@/hooks/match/useMatchData'
 import {
     calculateMatchDuration,
@@ -17,21 +17,21 @@ import { Button } from '@/components/ui/Button'
 import { calculateGameFlow } from '@/lib/volleyball/gameFlow'
 import { SetGameFlowChart } from '@/components/match/SetGameFlowChart'
 
-export function MatchAnalysisV2() {
+export function MatchAnalysis() {
     const { matchId } = useParams<{ matchId: string }>()
     const navigate = useNavigate()
 
     const [timelineExpanded, setTimelineExpanded] = useState(false)
 
     // Store state
-    const { derivedState, loadMatch, setInitialOnCourtPlayers } = useMatchStoreV2()
-    const homeTeamName = useMatchStoreV2(state => state.homeTeamName)
-    const awayTeamName = useMatchStoreV2(state => state.awayTeamName)
-    const events = useMatchStoreV2(state => state.events)
-    const ourSide = useMatchStoreV2(state => state.ourSide)
-    const initialOnCourtPlayers = useMatchStoreV2(state => state.initialOnCourtPlayers)
+    const { derivedState, loadMatch, setInitialOnCourtPlayers } = useMatchStore()
+    const homeTeamName = useMatchStore(state => state.homeTeamName)
+    const awayTeamName = useMatchStore(state => state.awayTeamName)
+    const events = useMatchStore(state => state.events)
+    const ourSide = useMatchStore(state => state.ourSide)
+    const initialOnCourtPlayers = useMatchStore(state => state.initialOnCourtPlayers)
 
-    // Use the same hook as LiveMatchScoutingV2 to properly load match data  
+    // Use the same hook as LiveMatchScouting to properly load match data  
     // This ensures convocations are loaded and setInitialOnCourtPlayers is called
     const { loading, matchData, availablePlayers } = useMatchData({
         matchId,

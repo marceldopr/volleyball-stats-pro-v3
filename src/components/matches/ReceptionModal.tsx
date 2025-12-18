@@ -35,7 +35,7 @@ const RATING_CONFIG = {
     4: { label: 'Perfecta', color: 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800', textColor: 'text-white' }
 }
 
-export function ReceptionModalV2({
+export function ReceptionModal({
     isOpen,
     onClose,
     onConfirm,

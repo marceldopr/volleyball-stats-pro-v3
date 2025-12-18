@@ -4,7 +4,7 @@
  * without mutating store state.
  */
 
-import { PlayerV2 } from '@/stores/matchStoreV2'
+import { PlayerV2 } from '@/stores/matchStore'
 
 // --- Types ---
 

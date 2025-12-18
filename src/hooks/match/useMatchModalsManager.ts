@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { NavigateFunction } from 'react-router-dom'
 import { toast } from 'sonner'
-import { useMatchStoreV2, DerivedMatchState, MatchEvent } from '@/stores/matchStoreV2'
-import { matchServiceV2 } from '@/services/matchServiceV2'
+import { useMatchStore, DerivedMatchState, MatchEvent } from '@/stores/matchStore'
+import { matchService } from '@/services/matchService'
 
 // Interface for the arguments the hook needs
 export interface UseMatchModalsManagerV2Args {
@@ -50,7 +50,7 @@ export interface MatchModalsHandlers {
     handleBackFromStarters: () => void
 }
 
-export function useMatchModalsManagerV2({
+export function useMatchModalsManager({
     matchId,
     derivedState,
     events,
@@ -95,7 +95,7 @@ export function useMatchModalsManagerV2({
             const detailedResult = `Sets: ${setsWon} (${setScores})`
 
             // Save to Supabase with current status
-            await matchServiceV2.updateMatchV2(matchId, {
+            await matchService.updateMatch(matchId, {
                 actions: events,
                 status: derivedState.isMatchFinished ? 'finished' : 'in_progress',
                 result: detailedResult
@@ -166,7 +166,7 @@ export function useMatchModalsManagerV2({
                 .join(', ')
             const detailedResult = `Sets: ${setsWon} (${setScores})`
 
-            await matchServiceV2.updateMatchV2(matchId, {
+            await matchService.updateMatch(matchId, {
                 actions: events,
                 status: derivedState.isMatchFinished ? 'finished' : 'in_progress',
                 result: detailedResult
@@ -202,7 +202,7 @@ export function useMatchModalsManagerV2({
 
             // Reopen the set summary modal via store's closeSetSummaryModal mechanism
             // Since we want to OPEN it, we need to set the flag directly
-            // Original code: useMatchStoreV2.getState().derivedState.setSummaryModalOpen = true
+            // Original code: useMatchStore.getState().derivedState.setSummaryModalOpen = true
             // This is a direct mutation of derivedState which is usually read-only/computed? 
             // Actually in Zustand it might be mutable if not using a reducer pattern strictly, 
             // but `derivedState` is usually computed. 
@@ -212,19 +212,19 @@ export function useMatchModalsManagerV2({
             // The store has `closeSetSummaryModal` which sets `dismissedSetSummaries`.
             // To "re-open", we might need to remove it from `dismissedSetSummaries`.
             // But the original code effectively did:
-            // `const store = useMatchStoreV2.getState()`
+            // `const store = useMatchStore.getState()`
             // `store.derivedState.setSummaryModalOpen = true`
             // If derivedState is re-calculated on every event, this manual setting might be lost on next event.
             // But if no event happened, it might stick for UI rendering.
             // A better way would be if the store had `openSetSummaryModal`.
             // For now, I will replicate the original behavior strictly.
-            const store = useMatchStoreV2.getState()
+            const store = useMatchStore.getState()
             // @ts-ignore - Direct mutation legacy support
             store.derivedState.setSummaryModalOpen = true
             // Only force update if needed, but React should pick up if we use the hook. 
             // Since we are inside a hook, we can't force the component to re-render easily unless we use a setter.
             // But the original code did this.
-            useMatchStoreV2.setState({ derivedState: { ...store.derivedState, setSummaryModalOpen: true } })
+            useMatchStore.setState({ derivedState: { ...store.derivedState, setSummaryModalOpen: true } })
         }
     }
 

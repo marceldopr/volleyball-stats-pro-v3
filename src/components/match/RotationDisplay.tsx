@@ -1,5 +1,5 @@
 import { calculateLiberoRotation } from '@/lib/volleyball/liberoLogic'
-import type { PlayerV2 } from '@/stores/matchStoreV2'
+import type { PlayerV2 } from '@/stores/matchStore'
 import { RotationGridStandard, type RotationSlotPlayer } from './RotationGridStandard'
 
 interface RotationDisplayProps {

@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabaseClient'
 
 /**
- * matchServiceV2 - Servei per a partits V2 amb event-sourcing
+ * matchService - Servei per a partits con event-sourcing
  * 
  * IMPORTANT: Aquest servei és COMPLETAMENT NOU i AÏLLAT del V1
  * - Només gestiona partits amb engine: 'v2'
@@ -45,11 +45,11 @@ export interface CreateMatchV2Input {
     notes?: string
 }
 
-export const matchServiceV2 = {
+export const matchService = {
     /**
-     * Crear un nou partit V2
+     * Crear un nou partit
      */
-    async createMatchV2(input: CreateMatchV2Input): Promise<string> {
+    async createMatch(input: CreateMatchV2Input): Promise<string> {
         try {
             const { data, error } = await supabase
                 .from('matches')
@@ -84,15 +84,15 @@ export const matchServiceV2 = {
     },
 
     /**
-     * Obtenir un partit V2 per ID
+     * Obtenir un partit per ID
      */
-    async getMatchV2(id: string): Promise<MatchV2DB | null> {
+    async getMatch(id: string): Promise<MatchV2DB | null> {
         try {
             const { data, error } = await supabase
                 .from('matches')
                 .select('*, teams(custom_name, category_stage, gender)')
                 .eq('id', id)
-                
+
                 .single()
 
             if (error) {
@@ -111,16 +111,16 @@ export const matchServiceV2 = {
     },
 
     /**
-     * Llistar partits V2 per club i temporada
+     * Llistar partits per club i temporada
      */
-    async listMatchesV2(clubId: string, seasonId: string): Promise<MatchV2DB[]> {
+    async listMatches(clubId: string, seasonId: string): Promise<MatchV2DB[]> {
         try {
             const { data, error } = await supabase
                 .from('matches')
                 .select('*')
                 .eq('club_id', clubId)
                 .eq('season_id', seasonId)
-                
+
                 .order('match_date', { ascending: false })
 
             if (error) {
@@ -136,9 +136,9 @@ export const matchServiceV2 = {
     },
 
     /**
-     * Actualitzar un partit V2
+     * Actualitzar un partit
      */
-    async updateMatchV2(
+    async updateMatch(
         id: string,
         updates: {
             actions?: any[]
@@ -148,7 +148,7 @@ export const matchServiceV2 = {
     ): Promise<void> {
         try {
             // Verificar que és un partit V2
-            const match = await this.getMatchV2(id)
+            const match = await this.getMatch(id)
             if (!match) {
                 throw new Error('Match V2 not found')
             }
@@ -160,7 +160,7 @@ export const matchServiceV2 = {
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', id)
-                
+
 
             if (error) {
                 console.error('Error updating V2 match:', error)
@@ -173,15 +173,15 @@ export const matchServiceV2 = {
     },
 
     /**
-     * Eliminar un partit V2
+     * Eliminar un partit
      */
-    async deleteMatchV2(id: string): Promise<void> {
+    async deleteMatch(id: string): Promise<void> {
         try {
             const { error } = await supabase
                 .from('matches')
                 .delete()
                 .eq('id', id)
-                
+
 
             if (error) {
                 console.error('Error deleting V2 match:', error)
@@ -196,7 +196,7 @@ export const matchServiceV2 = {
     /**
      * Obtenir convocatòries d'un partit
      */
-    async getConvocationsV2(matchId: string): Promise<any[]> {
+    async getConvocations(matchId: string): Promise<any[]> {
         try {
             const { data, error } = await supabase
                 .from('match_convocations')
@@ -212,9 +212,9 @@ export const matchServiceV2 = {
     },
 
     /**
-     * Guardar convocatòria V2 (reemplaça l'existent)
+     * Guardar convocatòria (reemplaça l'existent)
      */
-    async saveConvocationV2(matchId: string, teamId: string, seasonId: string, playerIds: string[]): Promise<void> {
+    async saveConvocation(matchId: string, teamId: string, seasonId: string, playerIds: string[]): Promise<void> {
         try {
             // 1. Eliminar convocatòries existents
             const { error: deleteError } = await supabase
@@ -248,9 +248,119 @@ export const matchServiceV2 = {
     },
 
     /**
-     * Iniciar partit V2
+     * Get full match details including players and stats (from V1)
+     * Used for match analysis pages
      */
-    async startMatchV2(matchId: string): Promise<void> {
+    async getMatchFullDetails(id: string): Promise<any | null> {
+        try {
+            // 1. Get match metadata
+            const { data: matchData, error: matchError } = await supabase
+                .from('matches')
+                .select('*')
+                .eq('id', id)
+                .single()
+
+            if (matchError || !matchData) {
+                console.error('Error fetching match details:', matchError)
+                return null
+            }
+
+            // 2. Get players (convocations)
+            const { data: convocationData, error: convocationError } = await supabase
+                .from('match_convocations')
+                .select(`
+                    player_id,
+                    role_in_match,
+                    club_players (
+                        id,
+                        first_name,
+                        last_name,
+                        main_position
+                    )
+                `)
+                .eq('match_id', id)
+                .eq('status', 'convocado')
+
+            if (convocationError) {
+                console.error('Error fetching convocations:', convocationError)
+            }
+
+            // 3. Get jersey numbers from player_team_season
+            const { data: rosterData } = await supabase
+                .from('player_team_season')
+                .select('player_id, jersey_number')
+                .eq('team_id', matchData.team_id)
+                .eq('season_id', matchData.season_id)
+
+            const jerseyMap = (rosterData || []).reduce((acc: any, item: any) => {
+                acc[item.player_id] = item.jersey_number
+                return acc
+            }, {})
+
+            // 4. Get stats
+            const { data: statsData, error: statsError } = await supabase
+                .from('match_player_set_stats')
+                .select('*')
+                .eq('match_id', id)
+
+            if (statsError) {
+                console.error('Error fetching stats:', statsError)
+            }
+
+            // 5. Transform to Match object
+            const players = (convocationData || []).map((conv: any) => {
+                const playerStats = (statsData || []).filter((s: any) => s.player_id === conv.player_id)
+
+                // Aggregate stats
+                const aggregatedStats = {
+                    serves: playerStats.reduce((sum: number, s: any) => sum + (s.serves || 0), 0),
+                    aces: playerStats.reduce((sum: number, s: any) => sum + (s.aces || 0), 0),
+                    serveErrors: playerStats.reduce((sum: number, s: any) => sum + (s.serve_errors || 0), 0),
+                    receptions: playerStats.reduce((sum: number, s: any) => sum + (s.receptions || 0), 0),
+                    receptionErrors: playerStats.reduce((sum: number, s: any) => sum + (s.reception_errors || 0), 0),
+                    attacks: playerStats.reduce((sum: number, s: any) => sum + (s.attacks || 0), 0),
+                    kills: playerStats.reduce((sum: number, s: any) => sum + (s.kills || 0), 0),
+                    attackErrors: playerStats.reduce((sum: number, s: any) => sum + (s.attack_errors || 0), 0),
+                    blocks: playerStats.reduce((sum: number, s: any) => sum + (s.blocks || 0), 0),
+                    blockErrors: playerStats.reduce((sum: number, s: any) => sum + (s.block_errors || 0), 0),
+                    digs: playerStats.reduce((sum: number, s: any) => sum + (s.digs || 0), 0),
+                    digsErrors: playerStats.reduce((sum: number, s: any) => sum + (s.digs_errors || 0), 0),
+                    sets: playerStats.reduce((sum: number, s: any) => sum + (s.sets || 0), 0),
+                    setErrors: playerStats.reduce((sum: number, s: any) => sum + (s.set_errors || 0), 0),
+                }
+
+                return {
+                    playerId: conv.player_id,
+                    name: `${conv.club_players.first_name} ${conv.club_players.last_name}`,
+                    number: parseInt(jerseyMap[conv.player_id] || '0'),
+                    position: conv.role_in_match || conv.club_players.main_position || '?',
+                    starter: false,
+                    stats: aggregatedStats
+                }
+            })
+
+            return {
+                id: matchData.id,
+                opponent: matchData.opponent_name,
+                date: matchData.match_date,
+                status: matchData.status,
+                result: matchData.result,
+                teamId: matchData.team_id,
+                season_id: matchData.season_id,
+                teamSide: matchData.home_away === 'home' ? 'local' : 'visitante',
+                players: players,
+                acciones: matchData.actions || [],
+            }
+        } catch (error) {
+            console.error('Error in getMatchFullDetails:', error)
+            return null
+        }
+    },
+
+    /**
+     * Iniciar partit
+     */
+    async startMatch(matchId: string): Promise<void> {
         try {
             const { error } = await supabase
                 .from('matches')
@@ -259,7 +369,7 @@ export const matchServiceV2 = {
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', matchId)
-                
+
 
             if (error) throw error
         } catch (error) {

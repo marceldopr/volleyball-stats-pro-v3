@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { PlayerCard } from './PlayerCard'
-import type { DerivedMatchState, PlayerV2 } from '@/stores/matchStoreV2'
+import type { DerivedMatchState, PlayerV2 } from '@/stores/matchStore'
 
 interface StartersModalV2Props {
     isOpen: boolean
@@ -28,7 +28,7 @@ function formatName(fullName: string): string {
     return `${firstName} ${lastNameInitial}.`
 }
 
-export function StartersModalV2({
+export function StartersModal({
     isOpen,
     derivedState,
     availablePlayers,

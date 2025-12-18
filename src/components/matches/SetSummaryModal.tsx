@@ -1,7 +1,7 @@
 
 import { Check, RotateCcw, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { SetSummary } from '@/stores/matchStoreV2'
+import { SetSummary } from '@/stores/matchStore'
 
 interface SetSummaryModalV2Props {
     isOpen: boolean
@@ -13,7 +13,7 @@ interface SetSummaryModalV2Props {
     onClose: () => void
 }
 
-export function SetSummaryModalV2({
+export function SetSummaryModal({
     isOpen,
     summary,
     homeTeamName,

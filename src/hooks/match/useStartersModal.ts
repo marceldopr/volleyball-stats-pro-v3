@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import type { DerivedMatchState } from '@/stores/matchStoreV2'
+import type { DerivedMatchState } from '@/stores/matchStore'
 
 interface UseStartersModalProps {
     derivedState: DerivedMatchState

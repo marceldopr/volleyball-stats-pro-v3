@@ -6,11 +6,11 @@ import { useAuthStore } from '@/stores/authStore'
 import { useRoleScope } from '@/hooks/useRoleScope'
 import { seasonService } from '@/services/seasonService'
 import { teamService } from '@/services/teamService'
-import { matchServiceV2 } from '@/services/matchServiceV2'
+import { matchService } from '@/services/matchService'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { toast } from 'sonner'
 
-export function MatchWizardV2() {
+export function MatchWizard() {
     const navigate = useNavigate()
     const { profile } = useAuthStore()
     const { isCoach, assignedTeamIds, loading: roleLoading } = useRoleScope()
@@ -119,7 +119,7 @@ export function MatchWizardV2() {
         try {
             setSaving(true)
 
-            await matchServiceV2.createMatchV2({
+            await matchService.createMatch({
                 club_id: profile.club_id,
                 season_id: currentSeason.id,
                 team_id: formData.teamId,
@@ -130,7 +130,7 @@ export function MatchWizardV2() {
                 home_away: formData.homeAway
             })
 
-            toast.success('¡Partido V2 creado con éxito!')
+            toast.success('¡Partido creado con éxito!')
             navigate('/matches')
         } catch (error) {
             console.error('Error creating V2 match:', error)
@@ -164,7 +164,7 @@ export function MatchWizardV2() {
                             </Button>
                             <div>
                                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                    🔴 Crear Partido V2
+                                    Crear Partido
                                 </h1>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">
                                     Sistema con event-sourcing y undo/redo ilimitado
@@ -180,7 +180,7 @@ export function MatchWizardV2() {
                     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-6">
                         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                             <p className="text-sm text-blue-800 dark:text-blue-200">
-                                <strong>Nuevo sistema V2:</strong> Este partido usará event-sourcing con capacidad de undo/redo ilimitado.
+                                <strong>Este partido usará event-sourcing con capacidad de undo/redo ilimitado.</strong>
                             </p>
                         </div>
 
@@ -306,7 +306,7 @@ export function MatchWizardV2() {
                                 size="md"
                                 disabled={saving}
                             >
-                                {saving ? 'Creando...' : '🔴 Crear Partido V2'}
+                                {saving ? 'Creando...' : 'Crear Partido'}
                             </Button>
                         </div>
                     </div>

@@ -141,7 +141,7 @@ export function Home() {
                             variant="secondary"
                             size="md"
                             icon={Plus}
-                            onClick={() => navigate('/matches/create-v2')}
+                            onClick={() => navigate('/matches/create')}
                         >
                             Crear partido
                         </Button>

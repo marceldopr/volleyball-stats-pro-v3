@@ -1,4 +1,4 @@
-import type { MatchEvent, PlayerV2 } from '@/stores/matchStoreV2'
+import type { MatchEvent, PlayerV2 } from '@/stores/matchStore'
 
 // Event type labels in Spanish
 export const eventTypeLabels: Record<string, string> = {

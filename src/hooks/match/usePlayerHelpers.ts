@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { DerivedMatchState, PlayerV2 } from '@/stores/matchStoreV2'
+import type { DerivedMatchState, PlayerV2 } from '@/stores/matchStore'
 import { getEffectiveOnCourtPlayers } from '@/lib/volleyball/effectivePlayers'
 
 export interface UsePlayerHelpersV2Args {
@@ -23,7 +23,7 @@ export interface UsePlayerHelpersV2Return {
  * Player helpers hook
  * Provides utility functions and computed values for player display and management
  */
-export function usePlayerHelpersV2({
+export function usePlayerHelpers({
     availablePlayers,
     derivedState,
     isServing

@@ -11,7 +11,7 @@ interface RotationModalV2Props {
     }
 }
 
-export function RotationModalV2({
+export function RotationModal({
     isOpen,
     onClose,
     onCourtPlayers,

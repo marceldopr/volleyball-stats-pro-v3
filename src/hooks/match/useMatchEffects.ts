@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { toast } from 'sonner'
-import type { DerivedMatchState, MatchEvent, PlayerV2 } from '@/stores/matchStoreV2'
-import { matchServiceV2 } from '@/services/matchServiceV2'
+import type { DerivedMatchState, MatchEvent, PlayerV2 } from '@/stores/matchStore'
+import { matchService } from '@/services/matchService'
 
 export interface UseMatchEffectsV2Args {
     matchId: string | undefined
@@ -16,7 +16,7 @@ export interface UseMatchEffectsV2Args {
  * Centralized match effects hook
  * Handles validation guards, auto-save, and flow triggers
  */
-export function useMatchEffectsV2({
+export function useMatchEffects({
     matchId,
     loading,
     availablePlayers,
@@ -83,7 +83,7 @@ export function useMatchEffectsV2({
                 const detailedResult = `Sets: ${setsWon} (${setScores})`
 
                 // Save to Supabase
-                await matchServiceV2.updateMatchV2(matchId, {
+                await matchService.updateMatch(matchId, {
                     actions: events,  // Save all events
                     status: 'finished',
                     result: detailedResult

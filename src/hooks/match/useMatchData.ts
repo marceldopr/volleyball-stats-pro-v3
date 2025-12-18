@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { matchServiceV2 } from '@/services/matchServiceV2'
+import { matchService } from '@/services/matchService'
 import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
 import { teamService } from '@/services/teamService'
 import { toast } from 'sonner'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
-import type { PlayerV2 } from '@/stores/matchStoreV2'
+import type { PlayerV2 } from '@/stores/matchStore'
 
 interface UseMatchDataProps {
     matchId: string | undefined
@@ -49,7 +49,7 @@ export function useMatchData({ matchId, loadMatch, setInitialOnCourtPlayers }: U
                     }
                 }
 
-                const match = await matchServiceV2.getMatchV2(matchId)
+                const match = await matchService.getMatch(matchId)
                 if (!match) throw new Error('Match not found')
 
                 setMatchData(match)
@@ -72,7 +72,7 @@ export function useMatchData({ matchId, loadMatch, setInitialOnCourtPlayers }: U
                 const roster = await playerTeamSeasonService.getActiveRosterByTeamAndSeason(match.team_id, match.season_id)
 
                 // 4. Load Convocations
-                const convos = await matchServiceV2.getConvocationsV2(matchId)
+                const convos = await matchService.getConvocations(matchId)
 
                 // Map all available players merging Roster info
                 const players = convos

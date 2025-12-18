@@ -1,4 +1,4 @@
-import { MatchEvent } from '@/stores/matchStoreV2'
+import { MatchEvent } from '@/stores/matchStore'
 
 /**
  * Data structure for a single set's game flow

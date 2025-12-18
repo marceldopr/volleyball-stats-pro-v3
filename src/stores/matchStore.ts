@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { rotateLineup } from '../lib/volleyball/rotationLogic'
-import { matchServiceV2 } from '@/services/matchServiceV2'
+import { matchService } from '@/services/matchService'
 
 // --- Types ---
 
@@ -773,7 +773,7 @@ function checkSetEnd(state: DerivedMatchState): { shouldEnd: boolean; winner: 'h
 
 // --- Store ---
 
-export const useMatchStoreV2 = create<MatchV2State>()(
+export const useMatchStore = create<MatchV2State>()(
     persist(
         (set, get) => ({
             dbMatchId: null,
@@ -1005,7 +1005,7 @@ export const useMatchStoreV2 = create<MatchV2State>()(
                 set({ pendingAutoSave: true })
 
                 try {
-                    await matchServiceV2.updateMatchV2(dbMatchId, {
+                    await matchService.updateMatch(dbMatchId, {
                         actions: events
                     })
                     set({

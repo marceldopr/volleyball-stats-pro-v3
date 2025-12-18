@@ -5,7 +5,7 @@
  * This is the SINGLE SOURCE OF TRUTH for "who is actually on court right now".
  */
 
-import { PlayerV2 } from '@/stores/matchStoreV2'
+import { PlayerV2 } from '@/stores/matchStore'
 import { calculateLiberoRotation } from './liberoLogic'
 
 export interface OnCourtPlayer {

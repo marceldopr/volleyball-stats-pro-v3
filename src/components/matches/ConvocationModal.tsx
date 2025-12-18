@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, Check, Play, Save } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { matchServiceV2, MatchV2DB } from '@/services/matchServiceV2'
+import { matchService, MatchV2DB } from '@/services/matchService'
 import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
 import { toast } from 'sonner'
 
@@ -11,13 +11,13 @@ function getPlayerDisplayName(player: any): string {
     return `${player.first_name} ${player.last_name}`
 }
 
-interface ConvocationModalV2Props {
+interface ConvocationModalProps {
     matchId: string
     onClose: () => void
     onSave?: () => void
 }
 
-export function ConvocationModalV2({ matchId, onClose, onSave }: ConvocationModalV2Props) {
+export function ConvocationModal({ matchId, onClose, onSave }: ConvocationModalProps) {
     const navigate = useNavigate()
 
     const [loading, setLoading] = useState(true)
@@ -31,7 +31,7 @@ export function ConvocationModalV2({ matchId, onClose, onSave }: ConvocationModa
             try {
                 setLoading(true)
                 // 1. Load Match
-                const matchData = await matchServiceV2.getMatchV2(matchId)
+                const matchData = await matchService.getMatch(matchId)
                 if (!matchData) {
                     toast.error('Partido no encontrado')
                     onClose()
@@ -44,7 +44,7 @@ export function ConvocationModalV2({ matchId, onClose, onSave }: ConvocationModa
                 setAvailablePlayers(roster)
 
                 // 3. Load Existing Convocations
-                const existingConvocations = await matchServiceV2.getConvocationsV2(matchId)
+                const existingConvocations = await matchService.getConvocations(matchId)
                 if (existingConvocations.length > 0) {
                     setSelectedPlayerIds(new Set(existingConvocations.map(c => c.player_id)))
                 } else {
@@ -81,13 +81,13 @@ export function ConvocationModalV2({ matchId, onClose, onSave }: ConvocationModa
             const playerIds = Array.from(selectedPlayerIds)
 
             // Save convocation
-            await matchServiceV2.saveConvocationV2(match.id, match.team_id, match.season_id, playerIds)
+            await matchService.saveConvocation(match.id, match.team_id, match.season_id, playerIds)
 
             if (startMatch) {
                 // Start match
-                await matchServiceV2.startMatchV2(match.id)
+                await matchService.startMatch(match.id)
                 toast.success('Partido iniciado')
-                navigate(`/live-match-v2/${match.id}`)
+                navigate(`/live-match/${match.id}`)
             } else {
                 toast.success('Convocatoria guardada')
                 onSave?.() // Call callback

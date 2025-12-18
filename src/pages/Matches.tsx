@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ConvocationManager } from '../components/ConvocationManager'
-import { ConvocationModalV2 } from '../components/matches/ConvocationModalV2'
+import { ConvocationModal } from '../components/matches/ConvocationModal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useAuthStore } from '../stores/authStore'
 import { seasonService } from '../services/seasonService'
 import { teamService } from '../services/teamService'
-import { matchService } from '../services/matchService'
 import { matchConvocationService } from '../services/matchConvocationService'
-import { matchServiceV2 } from '../services/matchServiceV2'
+import { matchService } from '../services/matchService'
 import { useRoleScope } from '@/hooks/useRoleScope'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { Plus, Trophy, Trash2, Users, Play, BarChart3 } from 'lucide-react'
@@ -50,7 +49,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
           setAvailableTeams(teams)
 
           // Load matches from Supabase
-          const allMatches = await matchService.getMatchesByClubAndSeason(profile.club_id, season.id)
+          const allMatches = await matchService.listMatches(profile.club_id, season.id)
 
           // Filter matches based on role and prop
           let filteredMatches = allMatches
@@ -189,7 +188,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
 
         // Reload matches from Supabase
         if (profile?.club_id && currentSeason) {
-          const matches = await matchService.getMatchesByClubAndSeason(profile.club_id, currentSeason.id)
+          const matches = await matchService.listMatches(profile.club_id, currentSeason.id)
           setSupabaseMatches(matches)
         }
 
@@ -232,7 +231,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
     setSelectedMatchForConvocation(null)
     // Reload matches to update convocation status
     if (profile?.club_id && currentSeason) {
-      matchService.getMatchesByClubAndSeason(profile.club_id, currentSeason.id)
+      matchService.listMatches(profile.club_id, currentSeason.id)
         .then(matches => {
           let filteredMatches = matches
           if (teamId) {
@@ -456,8 +455,8 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                             onClick={async () => {
                               if (match.engine === 'v2') {
                                 try {
-                                  await matchServiceV2.startMatchV2(match.id)
-                                  navigate(`/live-match-v2/${match.id}`)
+                                  await matchService.startMatch(match.id)
+                                  navigate(`/live-match/${match.id}`)
                                 } catch (e) {
                                   console.error('Error starting V2 match:', e)
                                   alert('Error al iniciar el partido V2')
@@ -501,11 +500,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                             size="sm"
                             icon={BarChart3}
                             onClick={() => {
-                              if (match.engine === 'v2') {
-                                navigate(`/match-analysis-v2/${match.id}`)
-                              } else {
-                                navigate(`/matches/${match.id}/analysis`)
-                              }
+                              navigate(`/match-analysis/${match.id}`)
                             }}
                           >
                             Ver Análisis
@@ -599,7 +594,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
 
       {/* Convocation Modal V2 */}
       {convocationModalMatchId && (
-        <ConvocationModalV2
+        <ConvocationModal
           matchId={convocationModalMatchId}
           onClose={() => setConvocationModalMatchId(null)}
           onSave={() => {

@@ -1,4 +1,4 @@
-import { PlayerV2 } from '@/stores/matchStoreV2'
+import { PlayerV2 } from '@/stores/matchStore'
 import { PlayerCard } from './PlayerCard'
 import { ActionType, getActionTitle } from '@/hooks/match/useActionPlayerModal'
 
@@ -33,7 +33,7 @@ function getEligiblePositions(actionType: ActionType | null): Set<number> {
     }
 }
 
-export function ActionPlayerModalV2({
+export function ActionPlayerModal({
     isOpen,
     actionType,
     currentSet,

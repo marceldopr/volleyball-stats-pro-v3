@@ -1,4 +1,4 @@
-import { MatchEvent } from '@/stores/matchStoreV2'
+import { MatchEvent } from '@/stores/matchStore'
 
 interface PointsByType {
     home: {

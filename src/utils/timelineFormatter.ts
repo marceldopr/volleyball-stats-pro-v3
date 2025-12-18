@@ -1,4 +1,4 @@
-import { MatchEvent, calculateDerivedState } from '@/stores/matchStoreV2'
+import { MatchEvent, calculateDerivedState } from '@/stores/matchStore'
 
 export interface TimelineEntry {
     id: string
