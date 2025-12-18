@@ -1,65 +1,15 @@
 import { supabase } from '@/lib/supabaseClient'
 
-// Types defined locally (previously from matchStore which is now V2-only)
-export interface PlayerStats {
-    serves: number
-    aces: number
-    serveErrors: number
-    receptions: number
-    receptionErrors: number
-    attacks: number
-    kills: number
-    attackErrors: number
-    blocks: number
-    blockErrors: number
-    digs: number
-    digsErrors: number
-    sets: number
-    setErrors: number
-}
+/**
+ * matchServiceV2 - Servei per a partits V2 amb event-sourcing
+ * 
+ * IMPORTANT: Aquest servei és COMPLETAMENT NOU i AÏLLAT del V1
+ * - Només gestiona partits amb engine: 'v2'
+ * - NO toca cap partit V1
+ * - Utilitza event-sourcing i time-travel
+ */
 
-export interface MatchPlayer {
-    playerId: string
-    name: string
-    number: number
-    position: string
-    starter: boolean
-    stats: PlayerStats
-}
-
-export interface Set {
-    id: string
-    number: number
-    homeScore: number
-    awayScore: number
-    status: 'in_progress' | 'completed'
-}
-
-export interface Match {
-    id: string
-    dbMatchId?: string
-    opponent: string
-    date: string
-    time: string
-    location: string
-    status: 'upcoming' | 'live' | 'completed'
-    result?: string
-    teamId?: string
-    season_id?: string
-    teamSide: 'local' | 'visitante'
-    sets: Set[]
-    players: MatchPlayer[]
-    currentSet: number
-    setsWonLocal: number
-    setsWonVisitor: number
-    sacadorInicialSet1?: 'local' | 'visitor' | null
-    sacadorInicialSet5?: 'local' | 'visitor' | null
-    acciones: any[]
-    createdAt?: string
-    updatedAt?: string
-}
-
-export interface MatchDB {
+export interface MatchV2DB {
     id: string
     club_id: string
     season_id: string
@@ -67,369 +17,253 @@ export interface MatchDB {
     opponent_name: string
     competition_name: string | null
     match_date: string
-    location: string | null
-    home_away: 'home' | 'away' | 'neutral' | string
-    status: 'planned' | 'in_progress' | 'finished' | 'cancelled' | string
+    match_time: string | null
+    home_away: 'home' | 'away'
+    status: 'planned' | 'in_progress' | 'finished' | 'cancelled'
     result: string | null
     notes: string | null
     actions: any[] | null
+    engine: 'v2'  // SEMPRE 'v2'
     created_at: string
     updated_at: string
-    sacador_inicial_set_1?: 'local' | 'visitor' | null
-    sacador_inicial_set_5?: 'local' | 'visitor' | null
+    teams?: {
+        custom_name: string
+        category_stage?: string
+        gender?: string
+    }
 }
 
-export const matchService = {
+export interface CreateMatchV2Input {
+    club_id: string
+    season_id: string
+    team_id: string
+    opponent_name: string
+    competition_name?: string
+    match_date: string
+    match_time?: string
+    home_away: 'home' | 'away'
+    notes?: string
+}
+
+export const matchServiceV2 = {
     /**
-     * Get all matches for a club and season
+     * Crear un nou partit V2
      */
-    getMatchesByClubAndSeason: async (clubId: string, seasonId: string): Promise<MatchDB[]> => {
+    async createMatchV2(input: CreateMatchV2Input): Promise<string> {
+        try {
+            const { data, error } = await supabase
+                .from('matches')
+                .insert({
+                    club_id: input.club_id,
+                    season_id: input.season_id,
+                    team_id: input.team_id,
+                    opponent_name: input.opponent_name,
+                    competition_name: input.competition_name || null,
+                    match_date: input.match_date,
+                    match_time: input.match_time || null,
+                    home_away: input.home_away,
+                    status: 'planned',
+                    result: null,
+                    notes: input.notes || null,
+                    actions: [],
+                    engine: 'v2'  // SEMPRE 'v2'
+                })
+                .select('id')
+                .single()
+
+            if (error) {
+                console.error('Error creating V2 match:', error)
+                throw error
+            }
+
+            return data.id
+        } catch (error) {
+            console.error('Error in createMatchV2:', error)
+            throw error
+        }
+    },
+
+    /**
+     * Obtenir un partit V2 per ID
+     */
+    async getMatchV2(id: string): Promise<MatchV2DB | null> {
+        try {
+            const { data, error } = await supabase
+                .from('matches')
+                .select('*, teams(custom_name, category_stage, gender)')
+                .eq('id', id)
+                
+                .single()
+
+            if (error) {
+                if (error.code === 'PGRST116') {
+                    return null
+                }
+                console.error('Error fetching V2 match:', error)
+                throw error
+            }
+
+            return data as MatchV2DB
+        } catch (error) {
+            console.error('Error in getMatchV2:', error)
+            throw error
+        }
+    },
+
+    /**
+     * Llistar partits V2 per club i temporada
+     */
+    async listMatchesV2(clubId: string, seasonId: string): Promise<MatchV2DB[]> {
         try {
             const { data, error } = await supabase
                 .from('matches')
                 .select('*')
                 .eq('club_id', clubId)
                 .eq('season_id', seasonId)
+                
                 .order('match_date', { ascending: false })
 
             if (error) {
-                console.error('Error fetching matches:', error)
+                console.error('Error fetching V2 matches:', error)
                 throw error
             }
 
-            return data || []
+            return (data as MatchV2DB[]) || []
         } catch (error) {
-            console.error('Error in getMatchesByClubAndSeason:', error)
+            console.error('Error in listMatchesV2:', error)
             throw error
         }
     },
 
     /**
-     * Get a single match by ID
+     * Actualitzar un partit V2
      */
-    getMatchById: async (id: string): Promise<MatchDB | null> => {
-        try {
-            const { data, error } = await supabase
-                .from('matches')
-                .select('*')
-                .eq('id', id)
-                .single()
-
-            if (error) {
-                if (error.code === 'PGRST116') {
-                    // No rows returned
-                    return null
-                }
-                console.error('Error fetching match:', error)
-                throw error
-            }
-
-            return data
-        } catch (error) {
-            console.error('Error in getMatchById:', error)
-            throw error
+    async updateMatchV2(
+        id: string,
+        updates: {
+            actions?: any[]
+            status?: string
+            result?: string
         }
-    },
-
-    /**
-     * Get full match details including players and stats
-     */
-    getMatchFullDetails: async (id: string): Promise<Match | null> => {
+    ): Promise<void> {
         try {
-            // 1. Get match metadata
-            const { data: matchData, error: matchError } = await supabase
+            // Verificar que és un partit V2
+            const match = await this.getMatchV2(id)
+            if (!match) {
+                throw new Error('Match V2 not found')
+            }
+
+            const { error } = await supabase
                 .from('matches')
-                .select('*')
-                .eq('id', id)
-                .single()
-
-            if (matchError || !matchData) {
-                console.error('Error fetching match details:', matchError)
-                return null
-            }
-
-            // 2. Get players (convocations)
-            const { data: convocationData, error: convocationError } = await supabase
-                .from('match_convocations')
-                .select(`
-                    player_id,
-                    role_in_match,
-                    club_players (
-                        id,
-                        first_name,
-                        last_name,
-                        main_position
-                    )
-                `)
-                .eq('match_id', id)
-                .eq('status', 'convocado')
-
-            if (convocationError) {
-                console.error('Error fetching convocations:', convocationError)
-            }
-
-            // 3. Get jersey numbers from player_team_season (fallback if not in club_players)
-            const { data: rosterData } = await supabase
-                .from('player_team_season')
-                .select('player_id, jersey_number')
-                .eq('team_id', matchData.team_id)
-                .eq('season_id', matchData.season_id)
-
-            const jerseyMap = (rosterData || []).reduce((acc, item) => {
-                acc[item.player_id] = item.jersey_number
-                return acc
-            }, {} as Record<string, string>)
-
-            // 4. Get stats
-            const { data: statsData, error: statsError } = await supabase
-                .from('match_player_set_stats')
-                .select('*')
-                .eq('match_id', id)
-
-            if (statsError) {
-                console.error('Error fetching stats:', statsError)
-            }
-
-            // 5. Transform to Match object
-            const players: MatchPlayer[] = (convocationData || []).map((conv: any) => {
-                const playerStats = (statsData || []).filter((s: any) => s.player_id === conv.player_id)
-
-                // Aggregate stats
-                const aggregatedStats: PlayerStats = {
-                    serves: playerStats.reduce((sum: number, s: any) => sum + (s.serves || 0), 0),
-                    aces: playerStats.reduce((sum: number, s: any) => sum + (s.aces || 0), 0),
-                    serveErrors: playerStats.reduce((sum: number, s: any) => sum + (s.serve_errors || 0), 0),
-                    receptions: playerStats.reduce((sum: number, s: any) => sum + (s.receptions || 0), 0),
-                    receptionErrors: playerStats.reduce((sum: number, s: any) => sum + (s.reception_errors || 0), 0),
-                    attacks: playerStats.reduce((sum: number, s: any) => sum + (s.attacks || 0), 0),
-                    kills: playerStats.reduce((sum: number, s: any) => sum + (s.kills || 0), 0),
-                    attackErrors: playerStats.reduce((sum: number, s: any) => sum + (s.attack_errors || 0), 0),
-                    blocks: playerStats.reduce((sum: number, s: any) => sum + (s.blocks || 0), 0),
-                    blockErrors: playerStats.reduce((sum: number, s: any) => sum + (s.block_errors || 0), 0),
-                    digs: playerStats.reduce((sum: number, s: any) => sum + (s.digs || 0), 0),
-                    digsErrors: playerStats.reduce((sum: number, s: any) => sum + (s.digs_errors || 0), 0),
-                    sets: playerStats.reduce((sum: number, s: any) => sum + (s.sets || 0), 0),
-                    setErrors: playerStats.reduce((sum: number, s: any) => sum + (s.set_errors || 0), 0),
-                }
-
-                return {
-                    playerId: conv.player_id,
-                    name: `${conv.club_players.first_name} ${conv.club_players.last_name}`,
-                    number: parseInt(jerseyMap[conv.player_id] || conv.club_players.jersey_number || '0'),
-                    position: conv.role_in_match || conv.club_players.main_position || '?',
-                    starter: false, // Cannot determine from current schema easily, would need starters table
-                    stats: aggregatedStats
-                }
-            })
-
-            // Reconstruct sets
-            let sets: Set[] = []
-
-            // V2: Try to get set scores from SET_END events
-            const setEndEvents = (matchData.actions || []).filter((a: any) => a.type === 'SET_END')
-            if (setEndEvents.length > 0) {
-                // Use SET_END events (V2 format) - these have the actual scores
-                setEndEvents.forEach((event: any) => {
-                    sets.push({
-                        id: `set-${event.setNumber || event.payload?.setNumber || sets.length + 1}`,
-                        number: event.setNumber || event.payload?.setNumber || sets.length + 1,
-                        homeScore: event.payload?.homeScore ?? 0,
-                        awayScore: event.payload?.awayScore ?? 0,
-                        status: 'completed'
-                    })
+                .update({
+                    ...updates,
+                    updated_at: new Date().toISOString()
                 })
-            } else {
-                // Fallback: Infer sets from match_stats if no SET_END events
-                const maxSetFromStats = (statsData || []).reduce((max: number, s: any) => Math.max(max, s.set_number), 0)
-
-                if (maxSetFromStats > 0) {
-                    for (let i = 1; i <= maxSetFromStats; i++) {
-                        // Calculate score from actions if available, otherwise unknown
-                        // For now, we don't have per-set score in DB unless we parse actions or add a sets table
-                        // We'll leave scores as 0 unless we can parse them from result or actions
-                        sets.push({
-                            id: `set-${i}`,
-                            number: i,
-                            homeScore: 0,
-                            awayScore: 0,
-                            status: 'completed'
-                        })
-                    }
-                }
-            }
-
-            // PRIORITY 2: If no sets from stats or actions, try to parse result string (imported matches)
-            // Expected format: "3-1 (25-20, 20-25, 25-15, 25-18)" or just "3-0"
-            if (sets.length === 0 && matchData.result) {
-                const resultStr = matchData.result.trim()
-
-                // Check for detailed scores in parenthesis
-                const detailedMatch = resultStr.match(/\((.*?)\)/)
-                if (detailedMatch) {
-                    const setScoresStr = detailedMatch[1] // "25-20, 20-25, ..."
-                    const setScores = setScoresStr.split(',').map((s: string) => s.trim())
-
-                    setScores.forEach((score: string, index: number) => {
-                        const [home, away] = score.split('-').map((s: string) => parseInt(s.trim()))
-                        if (!isNaN(home) && !isNaN(away)) {
-                            sets.push({
-                                id: `set-${index + 1}`,
-                                number: index + 1,
-                                homeScore: home,
-                                awayScore: away,
-                                status: 'completed'
-                            })
-                        }
-                    })
-                } else {
-                    // Simple result "3-0"
-                    const parts = resultStr.split('-')
-                    if (parts.length >= 2) {
-                        const homeSets = parseInt(parts[0])
-                        const awaySets = parseInt(parts[1])
-                        if (!isNaN(homeSets) && !isNaN(awaySets)) {
-                            const totalSets = homeSets + awaySets
-                            for (let i = 1; i <= totalSets; i++) {
-                                sets.push({
-                                    id: `set-${i}`,
-                                    number: i,
-                                    homeScore: 0, // Unknown score
-                                    awayScore: 0, // Unknown score
-                                    status: 'completed'
-                                })
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Determine winner/loser sets for simple result if detailed scores missing
-            if (sets.length > 0 && sets[0].homeScore === 0 && sets[0].awayScore === 0 && matchData.result) {
-                const parts = matchData.result.split('-')
-                if (parts.length >= 2) {
-                    // const homeSetsWon = parseInt(parts[0])
-                    // We can't know which sets were won without detailed scores, 
-                    // but we can at least show the set count.
-                }
-            }
-
-            return {
-                id: matchData.id,
-                dbMatchId: matchData.id,
-                opponent: matchData.opponent_name,
-                date: matchData.match_date,
-                time: new Date(matchData.match_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                location: matchData.location || '',
-                status: matchData.status === 'planned' ? 'upcoming' : matchData.status === 'in_progress' ? 'live' : matchData.status === 'finished' ? 'completed' : 'upcoming',
-                result: matchData.result || undefined,
-                teamId: matchData.team_id,
-                season_id: matchData.season_id,
-                teamSide: matchData.home_away === 'home' ? 'local' : 'visitante',
-                sets: sets,
-                players: players,
-                currentSet: sets.length || 1,
-                setsWonLocal: 0,
-                setsWonVisitor: 0,
-                sacadorInicialSet1: null, // V2 handles this differently via events
-                sacadorInicialSet5: null,
-                acciones: matchData.actions || [],
-                createdAt: matchData.created_at,
-                updatedAt: matchData.updated_at
-            }
-
-        } catch (error) {
-            console.error('Error in getMatchFullDetails:', error)
-            return null
-        }
-    },
-
-    /**
-     * Create a new match
-     */
-    createMatch: async (data: {
-        club_id: string
-        season_id: string
-        team_id: string
-        opponent_name: string
-        match_date: string
-        location?: string
-        home_away?: 'home' | 'away' | 'neutral'
-        competition_name?: string
-        status?: 'planned' | 'in_progress' | 'finished' | 'cancelled'
-        notes?: string
-    }): Promise<MatchDB> => {
-        try {
-            // Apply defaults
-            const matchData = {
-                ...data,
-                home_away: data.home_away || 'home',
-                status: data.status || 'planned',
-                location: data.location || null,
-                competition_name: data.competition_name || null,
-                notes: data.notes || null
-            }
-
-            const { data: newMatch, error } = await supabase
-                .from('matches')
-                .insert([matchData])
-                .select()
-                .single()
-
-            if (error) {
-                console.error('Error creating match:', error)
-                throw error
-            }
-
-            return newMatch
-        } catch (error) {
-            console.error('Error in createMatch:', error)
-            throw error
-        }
-    },
-
-    /**
-     * Update an existing match
-     */
-    updateMatch: async (id: string, data: Partial<MatchDB>): Promise<MatchDB> => {
-        try {
-            // Remove read-only fields
-            const { id: _, created_at, updated_at, ...updateData } = data as any
-
-            const { data: updatedMatch, error } = await supabase
-                .from('matches')
-                .update(updateData)
                 .eq('id', id)
-                .select()
-                .single()
+                
 
             if (error) {
-                console.error('Error updating match:', error)
+                console.error('Error updating V2 match:', error)
                 throw error
             }
-
-            return updatedMatch
         } catch (error) {
-            console.error('Error in updateMatch:', error)
+            console.error('Error in updateMatchV2:', error)
             throw error
         }
     },
 
     /**
-     * Delete a match
+     * Eliminar un partit V2
      */
-    deleteMatch: async (id: string): Promise<void> => {
+    async deleteMatchV2(id: string): Promise<void> {
         try {
             const { error } = await supabase
                 .from('matches')
                 .delete()
                 .eq('id', id)
+                
 
             if (error) {
-                console.error('Error deleting match:', error)
+                console.error('Error deleting V2 match:', error)
                 throw error
             }
         } catch (error) {
-            console.error('Error in deleteMatch:', error)
+            console.error('Error in deleteMatchV2:', error)
+            throw error
+        }
+    },
+
+    /**
+     * Obtenir convocatòries d'un partit
+     */
+    async getConvocationsV2(matchId: string): Promise<any[]> {
+        try {
+            const { data, error } = await supabase
+                .from('match_convocations')
+                .select('*, club_players!inner(*)')
+                .eq('match_id', matchId)
+
+            if (error) throw error
+            return data || []
+        } catch (error) {
+            console.error('Error getting convocations V2:', error)
+            throw error
+        }
+    },
+
+    /**
+     * Guardar convocatòria V2 (reemplaça l'existent)
+     */
+    async saveConvocationV2(matchId: string, teamId: string, seasonId: string, playerIds: string[]): Promise<void> {
+        try {
+            // 1. Eliminar convocatòries existents
+            const { error: deleteError } = await supabase
+                .from('match_convocations')
+                .delete()
+                .eq('match_id', matchId)
+
+            if (deleteError) throw deleteError
+
+            // 2. Inserir noves convocatòries
+            if (playerIds.length === 0) return
+
+            const convocationsData = playerIds.map(playerId => ({
+                match_id: matchId,
+                team_id: teamId,
+                season_id: seasonId,
+                player_id: playerId,
+                status: 'convocado',
+                role_in_match: null
+            }))
+
+            const { error: insertError } = await supabase
+                .from('match_convocations')
+                .insert(convocationsData)
+
+            if (insertError) throw insertError
+        } catch (error) {
+            console.error('Error saving convocation V2:', error)
+            throw error
+        }
+    },
+
+    /**
+     * Iniciar partit V2
+     */
+    async startMatchV2(matchId: string): Promise<void> {
+        try {
+            const { error } = await supabase
+                .from('matches')
+                .update({
+                    status: 'in_progress',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', matchId)
+                
+
+            if (error) throw error
+        } catch (error) {
+            console.error('Error starting match V2:', error)
             throw error
         }
     }
