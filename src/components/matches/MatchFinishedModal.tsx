@@ -16,8 +16,9 @@ export interface MatchFinishedModalProps {
         stats?: any
     }
     onGoToAnalysis: () => void
-    onGoToMenu: () => void
-    onUndoMatchEnd: () => void
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    onGoToMatches: () => void
+    onUndoMatchEnd?: () => void
 }
 
 export function MatchFinishedModal({
@@ -25,7 +26,7 @@ export function MatchFinishedModal({
     matchId: _matchId,
     matchInfo,
     onGoToAnalysis,
-    onGoToMenu,
+    onGoToMatches,
     onUndoMatchEnd
 }: MatchFinishedModalProps) {
     if (!isOpen) return null
@@ -85,7 +86,7 @@ export function MatchFinishedModal({
                             variant="secondary"
                             className="w-full"
                             icon={Home}
-                            onClick={onGoToMenu}
+                            onClick={onGoToMatches}
                         >
                             Ir al Menú
                         </Button>
