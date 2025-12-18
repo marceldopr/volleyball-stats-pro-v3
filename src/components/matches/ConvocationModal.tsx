@@ -182,8 +182,14 @@ export function ConvocationModal({ matchId, onClose, onSave }: ConvocationModalP
 
                                         {/* Player Info */}
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="text-sm font-semibold text-white truncate">
+                                            <h3 className="text-sm font-semibold text-white truncate flex items-center gap-2">
                                                 {getPlayerDisplayName(player)}
+                                                {/* Badge for Secondary Assignment */}
+                                                {(item as any).assignment_type === 'secondary' && (
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                                        Cedida
+                                                    </span>
+                                                )}
                                             </h3>
                                             <div className="flex items-center gap-1.5 text-xs text-zinc-400">
                                                 <span className="font-mono">

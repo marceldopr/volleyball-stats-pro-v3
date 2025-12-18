@@ -18,66 +18,127 @@ export interface PlayerTeamSeasonDB {
     created_at: string
     updated_at: string
     player?: PlayerDB
+    // NEW: Assignment Type
+    assignment_type?: 'primary' | 'secondary'
+    secondary_id?: string // ID from player_secondary_assignments if applicable
 }
 
 
 export const playerTeamSeasonService = {
+    // UPDATED: Now fetches PRIMARY + SECONDARY assignments
     getRosterByTeamAndSeason: async (teamId: string, seasonId: string): Promise<PlayerTeamSeasonDB[]> => {
-        // 1. Fetch the roster links
-        const { data: rosterData, error: rosterError } = await supabase
+        // 1. Fetch PRIMARY roster
+        const { data: primaryData, error: primaryError } = await supabase
             .from('player_team_season')
-            .select('*')
+            .select(`
+                *,
+                player:club_players(*)
+            `)
             .eq('team_id', teamId)
             .eq('season_id', seasonId)
 
-        if (rosterError) {
-            console.error('Error fetching roster links:', rosterError)
-            throw rosterError
-        }
+        if (primaryError) throw primaryError
 
-        if (!rosterData || rosterData.length === 0) return []
+        // 2. Fetch SECONDARY roster (Doubling)
+        const { data: secondaryData, error: secondaryError } = await supabase
+            .from('player_secondary_assignments')
+            .select(`
+                *,
+                player:club_players(*)
+            `)
+            .eq('team_id', teamId)
+            .eq('season_id', seasonId)
 
-        // 2. Extract player IDs
-        const playerIds = rosterData.map(item => item.player_id)
+        // Note: We ignore secondary errors or treat as empty to avoid blocking
+        if (secondaryError) console.error('Error fetching secondary assignments:', secondaryError)
 
-        // 3. Fetch player details from club_players table
-        const { data: playersData, error: playersError } = await supabase
-            .from('club_players')
-            .select('*')
-            .in('id', playerIds)
-
-        if (playersError) {
-            console.error('Error fetching player details:', playersError)
-            // Fallback: return roster without player details rather than failing completely
-            return rosterData
-        }
-
-        // 4. Map player details to roster items
-        const playersMap = new Map(playersData?.map(p => [p.id, p]))
-
-        return rosterData.map(item => ({
+        const primaries = (primaryData || []).map((item: any) => ({
             ...item,
-            player: playersMap.get(item.player_id)
+            assignment_type: 'primary' as const
         }))
+
+        const secondaries = (secondaryData || []).map((item: any) => ({
+            // Map secondary structure to PlayerTeamSeasonDB structure
+            id: item.id, // This ID is from secondary table, OK for display
+            player_id: item.player_id,
+            team_id: item.team_id,
+            season_id: item.season_id,
+            jersey_number: item.jersey_number,
+            role: null,
+            position: null,
+            expected_category: null,
+            current_category: null,
+            status: 'active', // Assume active if assignment exists
+            has_injury: false,
+            notes: item.notes,
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+            assignment_type: 'secondary' as const,
+            secondary_id: item.id,
+            player: item.player // Include joined player data
+        }))
+
+        // Return merged list - player data already included from joins
+        return [...primaries, ...secondaries]
     },
 
-    // Get only ACTIVE players for a team in a season (excludes inactive)
+    // UPDATED: Also fetching PRIMARY + SECONDARY for Active Roster
     getActiveRosterByTeamAndSeason: async (teamId: string, seasonId: string): Promise<PlayerTeamSeasonDB[]> => {
-        const { data: rosterData, error: rosterError } = await supabase
+        // 1. Fetch PRIMARY roster (Active only)
+        const { data: primaryData, error: primaryError } = await supabase
             .from('player_team_season')
             .select('*')
             .eq('team_id', teamId)
             .eq('season_id', seasonId)
-            .eq('status', 'active')  // Only active players
+            .eq('status', 'active')
 
-        if (rosterError) {
-            console.error('Error fetching active roster:', rosterError)
-            throw rosterError
-        }
+        if (primaryError) throw primaryError
 
-        if (!rosterData || rosterData.length === 0) return []
+        // 2. Fetch SECONDARY roster (Doubling)
+        // Check dates for validity
+        const today = new Date().toISOString().split('T')[0]
+        const { data: secondaryData, error: secondaryError } = await supabase
+            .from('player_secondary_assignments')
+            .select('*')
+            .eq('team_id', teamId)
+            .eq('season_id', seasonId)
+        // Ideally filter by dates in SQL, but for now simple fetch
 
-        const playerIds = rosterData.map(item => item.player_id)
+        if (secondaryError) console.error('Error fetching secondary assignments:', secondaryError)
+
+        const primaries = (primaryData || []).map((item: any) => ({
+            ...item,
+            assignment_type: 'primary' as const
+        }))
+
+        // Filter valid secondaries
+        const validSecondaries = (secondaryData || []).filter((item: any) => {
+            if (item.valid_from && item.valid_from > today) return false
+            if (item.valid_to && item.valid_to < today) return false
+            return true
+        }).map((item: any) => ({
+            id: item.id,
+            player_id: item.player_id,
+            team_id: item.team_id,
+            season_id: item.season_id,
+            jersey_number: item.jersey_number,
+            role: null,
+            position: null,
+            expected_category: null,
+            current_category: null,
+            status: 'active',
+            has_injury: false,
+            notes: item.notes,
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+            assignment_type: 'secondary' as const,
+            secondary_id: item.id
+        }))
+
+        const allRoster = [...primaries, ...validSecondaries]
+        if (allRoster.length === 0) return []
+
+        const playerIds = allRoster.map(item => item.player_id)
 
         const { data: playersData, error: playersError } = await supabase
             .from('club_players')
@@ -86,12 +147,12 @@ export const playerTeamSeasonService = {
 
         if (playersError) {
             console.error('Error fetching player details:', playersError)
-            return rosterData
+            return allRoster
         }
 
         const playersMap = new Map(playersData?.map(p => [p.id, p]))
 
-        return rosterData.map(item => ({
+        return allRoster.map(item => ({
             ...item,
             player: playersMap.get(item.player_id)
         }))
@@ -249,6 +310,44 @@ export const playerTeamSeasonService = {
 
         if (error) {
             console.error('Error bulk upserting assignments:', error)
+            throw error
+        }
+    },
+
+    // NEW: Secondary Assignment Management
+    addSecondaryAssignment: async (params: {
+        player_id: string
+        team_id: string
+        season_id: string
+        club_id: string
+        jersey_number?: string
+        notes?: string
+    }): Promise<void> => {
+        const { error } = await supabase
+            .from('player_secondary_assignments')
+            .insert({
+                player_id: params.player_id,
+                team_id: params.team_id,
+                season_id: params.season_id,
+                club_id: params.club_id,
+                jersey_number: params.jersey_number,
+                notes: params.notes
+            })
+
+        if (error) {
+            console.error('Error adding secondary assignment:', error)
+            throw error
+        }
+    },
+
+    removeSecondaryAssignment: async (secondaryId: string): Promise<void> => {
+        const { error } = await supabase
+            .from('player_secondary_assignments')
+            .delete()
+            .eq('id', secondaryId)
+
+        if (error) {
+            console.error('Error removing secondary assignment:', error)
             throw error
         }
     },
