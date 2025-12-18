@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Calendar, Clock, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useAuthStore } from '@/stores/authStore'
+import { useRoleScope } from '@/hooks/useRoleScope'
 import { seasonService } from '@/services/seasonService'
 import { teamService } from '@/services/teamService'
 import { matchServiceV2 } from '@/services/matchServiceV2'
@@ -12,6 +13,7 @@ import { toast } from 'sonner'
 export function MatchWizardV2() {
     const navigate = useNavigate()
     const { profile } = useAuthStore()
+    const { isCoach, assignedTeamIds, loading: roleLoading } = useRoleScope()
 
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -51,10 +53,10 @@ export function MatchWizardV2() {
         }
     })
 
-    // Replicate V1 team loading pattern
+    // Replicate V1 team loading pattern with role-based filtering
     useEffect(() => {
         const fetchData = async () => {
-            if (!profile?.club_id) return
+            if (!profile?.club_id || roleLoading) return
 
             try {
                 setLoading(true)
@@ -66,11 +68,20 @@ export function MatchWizardV2() {
                 }
                 setCurrentSeason(season)
 
-                const teams = await teamService.getTeamsByClubAndSeason(profile.club_id, season.id)
+                // Load teams based on role
+                let teams
+                if (isCoach && assignedTeamIds.length > 0) {
+                    // Coach: only assigned teams
+                    teams = await teamService.getTeamsByIds(assignedTeamIds)
+                } else {
+                    // DT: all club teams
+                    teams = await teamService.getTeamsByClubAndSeason(profile.club_id, season.id)
+                }
+
                 setAvailableTeams(teams)
 
                 if (teams.length === 0) {
-                    toast.error('No hay equipos en esta temporada')
+                    toast.error(isCoach ? 'No tienes equipos asignados' : 'No hay equipos en esta temporada')
                 }
             } catch (error) {
                 console.error('Error loading data:', error)
@@ -81,7 +92,7 @@ export function MatchWizardV2() {
         }
 
         fetchData()
-    }, [profile?.club_id])
+    }, [profile?.club_id, isCoach, assignedTeamIds, roleLoading])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()

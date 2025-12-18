@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
+import { sortTeamsBySportsCategory } from '@/utils/teamSorting'
 
 export interface TeamDB {
     id: string
@@ -25,6 +26,7 @@ export interface TeamDB {
         type: 'letter' | 'color'
         code: string | null
         color_hex: string | null
+        sort_order?: number  // Added for proper ordering
     } | null
 }
 
@@ -41,28 +43,30 @@ export const teamService = {
     getTeamsByClub: async (clubId: string): Promise<TeamDB[]> => {
         const { data, error } = await supabase
             .from('teams')
-            .select('id, club_id, season_id, custom_name, category, category_stage, division_name, team_suffix, gender, competition_level, head_coach_id, assistant_coach_id, identifier_id, notes, created_at, updated_at, identifier:club_identifiers(id, name, type, code, color_hex)')
+            .select('id, club_id, season_id, custom_name, category, category_stage, division_name, team_suffix, gender, competition_level, head_coach_id, assistant_coach_id, identifier_id, notes, created_at, updated_at, identifier:club_identifiers(id, name, type, code, color_hex, sort_order)')
             .eq('club_id', clubId)
-            .order('custom_name', { ascending: true, nullsFirst: false })
+        // NO .order() here - sorting is done in-memory by sortTeamsBySportsCategory
 
         if (error) throw error
-        return (data || []).map(teamService._normalizeIdentifier)
+        const normalizedTeams = (data || []).map(teamService._normalizeIdentifier)
+        return sortTeamsBySportsCategory(normalizedTeams)
     },
 
     // Fetch teams for a club in a specific season
     getTeamsByClubAndSeason: async (clubId: string, seasonId: string): Promise<TeamDB[]> => {
         const { data, error } = await supabase
             .from('teams')
-            .select('id, club_id, season_id, custom_name, category, category_stage, division_name, team_suffix, gender, competition_level, head_coach_id, assistant_coach_id, identifier_id, notes, created_at, updated_at, player_team_season(id), identifier:club_identifiers(id, name, type, code, color_hex)')
+            .select('id, club_id, season_id, custom_name, category, category_stage, division_name, team_suffix, gender, competition_level, head_coach_id, assistant_coach_id, identifier_id, notes, created_at, updated_at, player_team_season(id), identifier:club_identifiers(id, name, type, code, color_hex, sort_order)')
             .eq('club_id', clubId)
             .eq('season_id', seasonId)
-            .order('custom_name', { ascending: true, nullsFirst: false })
+        // NO .order() here - sorting is done in-memory by sortTeamsBySportsCategory
 
         if (error) {
             console.error('Error fetching teams:', error)
             throw error
         }
-        return (data || []).map(teamService._normalizeIdentifier)
+        const normalizedTeams = (data || []).map(teamService._normalizeIdentifier)
+        return sortTeamsBySportsCategory(normalizedTeams)
     },
 
     // Fetch specific teams by their IDs
@@ -71,15 +75,16 @@ export const teamService = {
 
         const { data, error } = await supabase
             .from('teams')
-            .select('id, club_id, season_id, custom_name, category, category_stage, division_name, team_suffix, gender, competition_level, head_coach_id, assistant_coach_id, identifier_id, notes, created_at, updated_at')
+            .select('id, club_id, season_id, custom_name, category, category_stage, division_name, team_suffix, gender, competition_level, head_coach_id, assistant_coach_id, identifier_id, notes, created_at, updated_at, identifier:club_identifiers(id, name, type, code, color_hex, sort_order)')
             .in('id', teamIds)
-            .order('custom_name', { ascending: true, nullsFirst: false })
+        // NO .order() here - sorting is done in-memory by sortTeamsBySportsCategory
 
         if (error) {
             console.error('Error fetching teams by IDs:', error)
             throw error
         }
-        return data || []
+        const normalizedTeams = (data || []).map(teamService._normalizeIdentifier)
+        return sortTeamsBySportsCategory(normalizedTeams)
     },
 
     // Create a new team for a club/season

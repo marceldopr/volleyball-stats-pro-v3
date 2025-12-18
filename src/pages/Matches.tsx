@@ -294,16 +294,14 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
             {currentSeason && <span className="text-xs text-gray-400 ml-2">· Temporada: {currentSeason.name}</span>}
           </p>
         </div>
-        {!isCoach && (
-          <Button
-            variant="primary"
-            size="md"
-            icon={Plus}
-            onClick={() => navigate('/matches/create-v2')}
-          >
-            Nuevo Partido
-          </Button>
-        )}
+        <Button
+          variant="primary"
+          size="md"
+          icon={Plus}
+          onClick={() => navigate('/matches/create-v2')}
+        >
+          Nuevo Partido
+        </Button>
       </div>
 
       {/* Loading state */}

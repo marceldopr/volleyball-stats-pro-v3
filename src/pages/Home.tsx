@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
     Users,
     Calendar,
-    Trophy,
     AlertTriangle,
     Activity,
     ClipboardList,
@@ -31,7 +30,7 @@ export function Home() {
     const { isDT, isCoach, assignedTeamIds, loading: roleLoading } = useRoleScope()
 
     const [teams, setTeams] = useState<TeamDB[]>([])
-    const [activeTab, setActiveTab] = useState<HomeTab>('club'); // Default to club view
+    const [activeTab, setActiveTab] = useState<HomeTab | null>(null); // Start as null, will be set based on role
 
     const [summary, setSummary] = useState<TeamHomeSummary | null>(null)
     const [loading, setLoading] = useState(true)
@@ -42,7 +41,6 @@ export function Home() {
     // Load teams and set initial tab - wait for role data to be ready
     useEffect(() => {
         async function loadTeams() {
-            // Wait until role loading is complete before fetching
             if (roleLoading || !profile?.club_id) return
 
             try {
@@ -52,14 +50,14 @@ export function Home() {
                 if (isDT) {
                     // DT sees all teams
                     loadedTeams = await teamService.getTeamsByClub(profile.club_id)
-                    // Set default tab for DT if not already set (e.g., from URL param)
-                    if (activeTab === null) { // Check if it's still null, otherwise 'club' is already set
+                    // Set default tab for DT to 'club' view
+                    if (activeTab === null) {
                         setActiveTab('club')
                     }
                 } else if (isCoach && assignedTeamIds.length > 0) {
                     // Coach sees only assigned teams
                     loadedTeams = await teamService.getTeamsByIds(assignedTeamIds)
-                    // Set default tab for Coach if not already set
+                    // Set default tab for Coach to first assigned team
                     if (activeTab === null && loadedTeams.length > 0) {
                         setActiveTab(loadedTeams[0].id)
                     }
@@ -210,31 +208,6 @@ export function Home() {
                     {/* Team View Content */}
                     {activeTab !== 'club' && activeTab && (
                         <>
-                            {/* Quick Actions - Only for non-DT roles (DT uses header buttons) */}
-                            {!isDT && (
-                                <div className="flex flex-wrap gap-3">
-                                    <Button
-                                        variant="primary"
-                                        size="md"
-                                        icon={Activity}
-                                        disabled={!activeTab}
-                                        onClick={() => setIsCreateModalOpen(true)}
-                                    >
-                                        Crear entrenamiento
-                                    </Button>
-
-                                    <Button
-                                        variant="secondary"
-                                        size="md"
-                                        icon={Trophy}
-                                        disabled={!activeTab}
-                                        onClick={() => activeTab && navigate(`/matches/create-v2?teamId=${activeTab}`)}
-                                    >
-                                        Crear partido
-                                    </Button>
-                                </div>
-                            )}
-
                             {/* Content Area */}
                             {loadingSummary ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-pulse">
