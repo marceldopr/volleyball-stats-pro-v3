@@ -6,7 +6,6 @@ import { teamService, TeamDB } from '@/services/teamService'
 import { seasonService, SeasonDB } from '@/services/seasonService'
 import { TeamHomePage } from '@/pages/TeamHomePage'
 import { TeamRosterManager } from '@/components/teams/TeamRosterManager'
-import { SecondaryAssignmentsManager } from '@/components/teams/SecondaryAssignmentsManager'
 import { TeamSeasonContext } from '@/pages/TeamSeasonContext'
 import { TeamSeasonPlanPage } from '@/pages/TeamSeasonPlanPage'
 import { Matches } from '@/pages/Matches'
@@ -208,23 +207,12 @@ export function TeamDashboardPage() {
                 )}
 
                 {activeTab === 'roster' && (
-                    <div className="space-y-6">
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                            <TeamRosterManager
-                                team={team}
-                                season={currentSeason}
-                                onClose={() => { }} // No-op as it's not a modal here
-                            />
-                        </div>
-
-                        {/* Secondary Assignments (Doubling) Section */}
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                            <SecondaryAssignmentsManager
-                                teamId={team.id}
-                                seasonId={currentSeason.id}
-                                clubId={profile?.club_id || ''}
-                            />
-                        </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                        <TeamRosterManager
+                            team={team}
+                            season={currentSeason}
+                            onClose={() => { }} // No-op as it's not a modal here
+                        />
                     </div>
                 )}
 

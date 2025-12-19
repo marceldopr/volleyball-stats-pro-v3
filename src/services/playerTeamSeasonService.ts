@@ -377,5 +377,21 @@ export const playerTeamSeasonService = {
             .eq('id', pts.id)
 
         if (error) throw error
+    },
+
+    // Get primary team assignments for given player IDs
+    getPrimaryAssignmentsByPlayerIds: async (playerIds: string[], seasonId: string) => {
+        const { data, error } = await supabase
+            .from('player_team_season')
+            .select('player_id, jersey_number, position')
+            .in('player_id', playerIds)
+            .eq('season_id', seasonId)
+
+        if (error) {
+            console.error('Error fetching primary assignments:', error)
+            return { data: null, error }
+        }
+
+        return { data, error: null }
     }
 }

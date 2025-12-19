@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Trash2, X, Search, UserPlus, Eye, AlertTriangle, Filter } from 'lucide-react'
+import { Trash2, X, Search, UserPlus, Eye, AlertTriangle, Filter, Users } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 import { TeamDB } from '@/services/teamService'
@@ -10,9 +10,11 @@ import { playerEvaluationService, PlayerEvaluationDB, PlayerEvaluationInput } fr
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { EvaluationChips } from './EvaluationChips'
 import { PlayerEvaluationModal } from './PlayerEvaluationModal'
+import { SecondaryAssignmentsManager } from './SecondaryAssignmentsManager'
 import { toast } from 'sonner'
 import { POSITION_NAMES } from '@/constants'
 import { getCategoryStageFromBirthDate, getStageIndex } from '@/utils/categoryStage'
+// import { Tooltip } from '@/components/ui/tooltip' // Tooltip not used
 
 interface TeamRosterManagerProps {
     team: TeamDB
@@ -27,6 +29,11 @@ interface RosterItem extends PlayerTeamSeasonDB {
         mid?: PlayerEvaluationDB
         end?: PlayerEvaluationDB
     }
+    // New fields for secondary assignments
+    isSecondary?: boolean
+    originTeamName?: string
+    primaryJerseyNumber?: string | null
+    primaryPosition?: string | null
 }
 
 // Helper function to calculate age from birth date
@@ -64,6 +71,9 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
     // Removed addFormData as per request (adding with defaults)
     const [adding, setAdding] = useState(false)
 
+    // Doblatges Management Modal State
+    const [showDoblatgesModal, setShowDoblatgesModal] = useState(false)
+
     // Inline Jersey Edit State
     const [editingJerseyId, setEditingJerseyId] = useState<string | null>(null)
     const [editingJerseyValue, setEditingJerseyValue] = useState('')
@@ -95,7 +105,7 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
         if (!profile?.club_id) return
         setLoading(true)
         try {
-            // 1. Get roster links for THIS team
+            // 1. Get roster links for THIS team (includes primary & secondary)
             const rosterData = await playerTeamSeasonService.getRosterByTeamAndSeason(team.id, season.id)
 
             // 2. Get ALL assignments for the season (to exclude players already in other teams)
@@ -114,6 +124,10 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                 const player = allPlayers.find(p => p.id === item.player_id)
                 const playerEvals = evaluations.filter(e => e.player_id === item.player_id)
 
+                // @ts-ignore: item.team may not exist on type
+                const isSec = item.assignment_type === 'secondary'
+                const originName = isSec && (item as any).team ? getTeamDisplayName((item as any).team) : undefined
+
                 return {
                     ...item,
                     player,
@@ -121,9 +135,45 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                         start: playerEvals.find(e => e.phase === 'start'),
                         mid: playerEvals.find(e => e.phase === 'mid'),
                         end: playerEvals.find(e => e.phase === 'end')
-                    }
+                    },
+                    isSecondary: isSec,
+                    originTeamName: originName,
+                    primaryJerseyNumber: undefined,
+                    primaryPosition: undefined,
                 }
             })
+
+
+            // 6. For secondary assignments, fetch primary team data
+            const secondaryPlayers = fullRoster.filter(r => r.isSecondary)
+            if (secondaryPlayers.length > 0) {
+                try {
+                    const secondaryPlayerIds = secondaryPlayers.map(r => r.player_id)
+                    const { data: primaryData, error: primaryError } = await playerTeamSeasonService.getPrimaryAssignmentsByPlayerIds(
+                        secondaryPlayerIds,
+                        season.id
+                    )
+
+                    if (primaryError) {
+                        console.error('Error fetching primary assignments:', primaryError)
+                    }
+
+                    if (primaryData && Array.isArray(primaryData) && primaryData.length > 0) {
+                        fullRoster.forEach(item => {
+                            if (item.isSecondary) {
+                                const primaryInfo = primaryData.find((p: any) => p.player_id === item.player_id)
+                                if (primaryInfo) {
+                                    item.primaryJerseyNumber = primaryInfo.jersey_number
+                                    item.primaryPosition = primaryInfo.position
+                                }
+                            }
+                        })
+                    }
+                } catch (error) {
+                    console.error('Error processing primary assignments:', error)
+                }
+            }
+
 
             setRoster(fullRoster)
             setAvailablePlayers(allPlayers)
@@ -220,6 +270,7 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
 
     // Handle inline jersey number edit
     const handleStartEditJersey = (item: RosterItem) => {
+        if (item.isSecondary) return // Cannot edit secondary assignments
         setEditingJerseyId(item.id)
         setEditingJerseyValue(item.jersey_number || '')
     }
@@ -256,6 +307,7 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
 
     // Handle inline position edit
     const handleStartEditPosition = (item: RosterItem) => {
+        if (item.isSecondary) return // Cannot edit secondary assignments
         setEditingPositionId(item.id)
         setEditingPositionValue(item.position || '')
     }
@@ -287,6 +339,7 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
 
     // Handle inline status edit
     const handleStartEditStatus = (item: RosterItem) => {
+        if (item.isSecondary) return // Cannot edit secondary assignments
         setEditingStatusId(item.id)
         setEditingStatusValue((item.status as 'active' | 'inactive') || 'active')
     }
@@ -404,13 +457,24 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                 </div>
                 <div className="flex gap-2">
                     {!isReadOnly && (
-                        <button
-                            onClick={() => setShowAddModal(true)}
-                            className="btn-primary flex items-center gap-2"
-                        >
-                            <UserPlus className="w-4 h-4" />
-                            <span>Añadir Jugadora</span>
-                        </button>
+                        <>
+                            <button
+                                onClick={() => setShowAddModal(true)}
+                                className="btn-primary flex items-center gap-2"
+                            >
+                                <UserPlus className="w-4 h-4" />
+                                <span>Añadir Jugadora</span>
+                            </button>
+                            {canEditAllFields && (
+                                <button
+                                    onClick={() => setShowDoblatgesModal(true)}
+                                    className="btn-secondary flex items-center gap-2"
+                                >
+                                    <Users className="w-4 h-4" />
+                                    <span>Doblajes</span>
+                                </button>
+                            )}
+                        </>
                     )}
                     {onClose && (
                         <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded-lg">
@@ -431,6 +495,7 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                         <table className="w-full">
                             <thead className="bg-gray-900/50 border-b border-gray-700">
                                 <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Origen</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Dorsal</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Nombre</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Edad</th>
@@ -451,51 +516,65 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                             : 'hover:bg-gray-700/50'
                                             }`}
                                     >
-                                        <td className="px-6 py-2.5 whitespace-nowrap font-medium text-white">
-                                            {editingJerseyId === item.id ? (
-                                                <div className="flex items-center gap-2">
-                                                    <input
-                                                        type="text"
-                                                        value={editingJerseyValue}
-                                                        onChange={(e) => setEditingJerseyValue(e.target.value)}
-                                                        className={`w-16 bg-gray-900 border rounded px-2 py-1 text-sm text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${editingJerseyValue && isJerseyDuplicate(editingJerseyValue, item.id)
-                                                            ? 'border-red-500'
-                                                            : 'border-gray-600'
-                                                            }`}
-                                                        placeholder="#"
-                                                        autoFocus
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') handleSaveJersey()
-                                                            if (e.key === 'Escape') handleCancelEditJersey()
-                                                        }}
-                                                    />
-                                                    <button
-                                                        onClick={handleSaveJersey}
-                                                        disabled={savingJersey || !!(editingJerseyValue && isJerseyDuplicate(editingJerseyValue, item.id))}
-                                                        className="text-green-400 hover:text-green-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        title="Guardar"
-                                                    >
-                                                        ✓
-                                                    </button>
-                                                    <button
-                                                        onClick={handleCancelEditJersey}
-                                                        className="text-gray-400 hover:text-gray-300"
-                                                        title="Cancelar"
-                                                    >
-                                                        ✕
-                                                    </button>
+                                        {/* Origen */}
+                                        <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-300">
+                                            {item.isSecondary ? (
+                                                <div className="flex items-center gap-1">
+                                                    <span className="bg-purple-800/30 text-purple-200 px-2 py-0.5 rounded text-xs">Doblaje</span>
+                                                    {item.originTeamName && <span>{item.originTeamName}</span>}
                                                 </div>
+                                            ) : '-'}
+                                        </td>
+                                        {/* Dorsal */}
+                                        <td className="px-6 py-2.5 whitespace-nowrap font-medium text-white">
+                                            {item.isSecondary ? (
+                                                <span className="text-gray-400">{item.primaryJerseyNumber || '-'}</span>
                                             ) : (
-                                                <button
-                                                    onClick={() => !isReadOnly && handleStartEditJersey(item)}
-                                                    className={`group flex items-center gap-2 ${!isReadOnly ? 'hover:text-blue-400 cursor-pointer' : ''}`}
-                                                    disabled={isReadOnly}
-                                                >
-                                                    <span>{item.jersey_number || '-'}</span>
-                                                    {!isReadOnly && (
-                                                        <span className="opacity-0 group-hover:opacity-100 text-gray-500 text-sm">✎</span>
-                                                    )}
-                                                </button>
+                                                editingJerseyId === item.id ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={editingJerseyValue}
+                                                            onChange={(e) => setEditingJerseyValue(e.target.value)}
+                                                            className={`w-16 bg-gray-900 border rounded px-2 py-1 text-sm text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${editingJerseyValue && isJerseyDuplicate(editingJerseyValue, item.id)
+                                                                ? 'border-red-500'
+                                                                : 'border-gray-600'
+                                                                }`}
+                                                            placeholder="#"
+                                                            autoFocus
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') handleSaveJersey()
+                                                                if (e.key === 'Escape') handleCancelEditJersey()
+                                                            }}
+                                                        />
+                                                        <button
+                                                            onClick={handleSaveJersey}
+                                                            disabled={savingJersey || !!(editingJerseyValue && isJerseyDuplicate(editingJerseyValue, item.id))}
+                                                            className="text-green-400 hover:text-green-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            title="Guardar"
+                                                        >
+                                                            ✓
+                                                        </button>
+                                                        <button
+                                                            onClick={handleCancelEditJersey}
+                                                            className="text-gray-400 hover:text-gray-300"
+                                                            title="Cancelar"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => !isReadOnly && handleStartEditJersey(item)}
+                                                        className={`group flex items-center gap-2 ${!isReadOnly ? 'hover:text-blue-400 cursor-pointer' : ''}`}
+                                                        disabled={isReadOnly}
+                                                    >
+                                                        <span>{item.jersey_number || '-'}</span>
+                                                        {!isReadOnly && (
+                                                            <span className="opacity-0 group-hover:opacity-100 text-gray-500 text-sm">✎</span>
+                                                        )}
+                                                    </button>
+                                                )
                                             )}
                                         </td>
                                         <td className="px-6 py-2.5 whitespace-nowrap text-gray-200">
@@ -510,12 +589,14 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                             {item.player?.birth_date ? calculateAge(item.player.birth_date) : '-'}
                                         </td>
                                         <td className="px-6 py-2.5 whitespace-nowrap">
-                                            {editingPositionId === item.id ? (
+                                            {item.isSecondary ? (
+                                                <span className="text-gray-400">{item.primaryPosition ? POSITION_NAMES[item.primaryPosition as keyof typeof POSITION_NAMES] : '-'}</span>
+                                            ) : editingPositionId === item.id ? (
                                                 <div className="flex items-center gap-2">
                                                     <select
                                                         value={editingPositionValue}
                                                         onChange={(e) => setEditingPositionValue(e.target.value)}
-                                                        className="w-32 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                                        className="w-28 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none"
                                                         autoFocus
                                                         onKeyDown={(e) => {
                                                             if (e.key === 'Enter') handleSavePosition()
@@ -523,41 +604,37 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                                         }}
                                                     >
                                                         <option value="">Sin asignar</option>
-                                                        {Object.entries(POSITION_NAMES).map(([key, label]) => (
-                                                            <option key={key} value={key}>{label}</option>
+                                                        {Object.entries(POSITION_NAMES).map(([key, name]) => (
+                                                            <option key={key} value={key}>{name}</option>
                                                         ))}
                                                     </select>
                                                     <button
                                                         onClick={handleSavePosition}
                                                         disabled={savingPosition}
                                                         className="text-green-400 hover:text-green-300 disabled:opacity-50"
+                                                        title="Guardar"
                                                     >
                                                         ✓
                                                     </button>
                                                     <button
                                                         onClick={handleCancelEditPosition}
                                                         className="text-gray-400 hover:text-gray-300"
+                                                        title="Cancelar"
                                                     >
                                                         ✕
                                                     </button>
                                                 </div>
                                             ) : (
-                                                <div
+                                                <button
                                                     onClick={() => !isReadOnly && handleStartEditPosition(item)}
-                                                    className={`cursor-pointer group flex items-center gap-2 ${!isReadOnly ? 'hover:bg-gray-700/50 rounded px-2 py-1 -ml-2' : ''}`}
+                                                    className={`group flex items-center gap-2 ${!isReadOnly ? 'hover:text-blue-400 cursor-pointer' : ''}`}
+                                                    disabled={isReadOnly}
                                                 >
-                                                    {item.position ? (
-                                                        <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${item.position === 'L' ? 'bg-yellow-900/30 text-yellow-200 border border-yellow-700/30' : 'bg-blue-900/30 text-blue-200 border border-blue-700/30'
-                                                            }`}>
-                                                            {POSITION_NAMES[item.position as keyof typeof POSITION_NAMES]}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-gray-500 text-xs italic">Sin asignar</span>
-                                                    )}
+                                                    <span>{item.position ? POSITION_NAMES[item.position as keyof typeof POSITION_NAMES] : '-'}</span>
                                                     {!isReadOnly && (
-                                                        <span className="text-gray-500 opacity-0 group-hover:opacity-100 text-sm">✎</span>
+                                                        <span className="opacity-0 group-hover:opacity-100 text-gray-500 text-sm">✎</span>
                                                     )}
-                                                </div>
+                                                </button>
                                             )}
                                         </td>
                                         <td className="px-6 py-2.5 whitespace-nowrap">
@@ -650,8 +727,9 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                             </tbody>
                         </table>
                     </div>
-                )}
-            </div>
+                )
+                }
+            </div >
 
             {/* Add Player Modal */}
             {
@@ -792,6 +870,35 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                         onSave={handleSaveEvaluation}
                         mode="edit"
                     />
+                )
+            }
+
+            {/* Doblatges Management Modal */}
+            {
+                showDoblatgesModal && profile?.club_id && (
+                    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                        <div className="bg-gray-800 rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-gray-700">
+                            <div className="flex items-center justify-between p-6 border-b border-gray-700">
+                                <h2 className="text-xl font-semibold text-white">Doblajes</h2>
+                                <button
+                                    onClick={() => {
+                                        setShowDoblatgesModal(false)
+                                        loadRoster() // Reload roster to reflect any changes
+                                    }}
+                                    className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                                >
+                                    <X className="w-5 h-5 text-gray-400" />
+                                </button>
+                            </div>
+                            <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+                                <SecondaryAssignmentsManager
+                                    teamId={team.id}
+                                    seasonId={season.id}
+                                    clubId={profile.club_id}
+                                />
+                            </div>
+                        </div>
+                    </div>
                 )
             }
         </div >
