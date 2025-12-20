@@ -174,8 +174,8 @@ export function NextSeasonPage() {
                                     <Button
                                         variant="primary"
                                         onClick={() => {
-                                            if (activeSeasonId && draftSeason) {
-                                                cloneSchedulesToSeason(activeSeasonId, draftSeason.id)
+                                            if (activeSeasonId && draftSeason && profile?.club_id) {
+                                                cloneSchedulesToSeason(activeSeasonId, draftSeason.id, profile.club_id)
                                                 toast.success(`Horarios clonados desde ${activeSeason?.name}`)
                                             }
                                         }}
