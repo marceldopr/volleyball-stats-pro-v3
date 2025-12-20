@@ -17,23 +17,25 @@ export function SpaceModal({ isOpen, onClose, space, onSave }: SpaceModalProps) 
     const [notes, setNotes] = useState(space?.notes || '')
     const [isActive, setIsActive] = useState(space?.isActive ?? true)
 
-    // Update form state when space prop changes
+    // Update form state when space prop changes or when modal opens/closes
     useEffect(() => {
-        if (space) {
-            setName(space.name || '')
-            setType(space.type || 'interior')
-            setCapacity(space.capacity?.toString() || '')
-            setNotes(space.notes || '')
-            setIsActive(space.isActive ?? true)
-        } else {
-            // Reset form for new space
-            setName('')
-            setType('interior')
-            setCapacity('')
-            setNotes('')
-            setIsActive(true)
+        if (isOpen) {
+            if (space) {
+                setName(space.name || '')
+                setType(space.type || 'interior')
+                setCapacity(space.capacity?.toString() || '')
+                setNotes(space.notes || '')
+                setIsActive(space.isActive ?? true)
+            } else {
+                // Reset form for new space
+                setName('')
+                setType('interior')
+                setCapacity('')
+                setNotes('')
+                setIsActive(true)
+            }
         }
-    }, [space])
+    }, [space, isOpen])
 
     if (!isOpen) return null
 
@@ -96,21 +98,19 @@ export function SpaceModal({ isOpen, onClose, space, onSave }: SpaceModalProps) 
                         <div className="flex gap-2 bg-gray-900 rounded-lg p-1">
                             <button
                                 onClick={() => setType('interior')}
-                                className={`flex - 1 px - 4 py - 2 rounded - md font - medium transition - colors ${
-    type === 'interior'
-    ? 'bg-primary-600 text-white'
-    : 'text-gray-400 hover:text-white'
-} `}
+                                className={`flex - 1 px - 4 py - 2 rounded - md font - medium transition - colors ${type === 'interior'
+                                        ? 'bg-primary-600 text-white'
+                                        : 'text-gray-400 hover:text-white'
+                                    } `}
                             >
                                 Interior
                             </button>
                             <button
                                 onClick={() => setType('exterior')}
-                                className={`flex - 1 px - 4 py - 2 rounded - md font - medium transition - colors ${
-    type === 'exterior'
-    ? 'bg-primary-600 text-white'
-    : 'text-gray-400 hover:text-white'
-} `}
+                                className={`flex - 1 px - 4 py - 2 rounded - md font - medium transition - colors ${type === 'exterior'
+                                        ? 'bg-primary-600 text-white'
+                                        : 'text-gray-400 hover:text-white'
+                                    } `}
                             >
                                 Exterior
                             </button>
@@ -152,14 +152,12 @@ export function SpaceModal({ isOpen, onClose, space, onSave }: SpaceModalProps) 
                         </label>
                         <button
                             onClick={() => setIsActive(!isActive)}
-                            className={`relative inline - flex h - 6 w - 11 items - center rounded - full transition - colors ${
-    isActive ? 'bg-primary-500' : 'bg-gray-600'
-} `}
+                            className={`relative inline - flex h - 6 w - 11 items - center rounded - full transition - colors ${isActive ? 'bg-primary-500' : 'bg-gray-600'
+                                } `}
                         >
                             <span
-                                className={`inline - block h - 4 w - 4 transform rounded - full bg - white transition - transform ${
-    isActive ? 'translate-x-6' : 'translate-x-1'
-} `}
+                                className={`inline - block h - 4 w - 4 transform rounded - full bg - white transition - transform ${isActive ? 'translate-x-6' : 'translate-x-1'
+                                    } `}
                             />
                         </button>
                     </div>

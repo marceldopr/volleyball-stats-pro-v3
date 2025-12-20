@@ -1,5 +1,6 @@
 export interface TrainingSchedule {
     id: string
+    clubId: string
     seasonId: string
     teamId: string
     teamName: string
@@ -12,6 +13,8 @@ export interface TrainingSchedule {
     customStartDate?: string
     customEndDate?: string
     isActive: boolean
+    createdAt?: string
+    updatedAt?: string
 }
 
 // Mock data for demo purposes (deprecated - use Supabase)

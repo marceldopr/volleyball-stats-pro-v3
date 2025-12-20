@@ -56,7 +56,7 @@ export function SettingsPage() {
   const { setSeasonRange, seasons, activeSeasonId, selectedSeasonId, setSelectedSeasonId, loadSeasons } = useSeasonStore()
 
   // Spaces Config State (from Store)
-  const { spaces, addSpace, updateSpace, toggleSpaceActive } = useSpacesStore()
+  const { spaces, loadSpaces, addSpace, updateSpace, toggleSpaceActive } = useSpacesStore()
   const [isSpaceModalOpen, setIsSpaceModalOpen] = useState(false)
   const [editingSpace, setEditingSpace] = useState<Space | undefined>(undefined)
 
@@ -67,7 +67,7 @@ export function SettingsPage() {
 
 
   // Training Schedules Config State (from Store)
-  const { schedules, addSchedule, updateSchedule, toggleScheduleActive } = useTrainingStore()
+  const { schedules, loadSchedules, addSchedule, updateSchedule, toggleScheduleActive } = useTrainingStore()
   const [teamsForSchedules, setTeamsForSchedules] = useState<TeamDB[]>([])
   const [loadingTeams, setLoadingTeams] = useState(false)
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false)
@@ -78,11 +78,13 @@ export function SettingsPage() {
   const highlightSeason = true
 
 
-  // Load club data and seasons
+  // Load club data, seasons, spaces, and schedules
   useEffect(() => {
     if (isDT && profile?.club_id) {
       loadClubData()
       loadSeasons(profile.club_id)
+      loadSpaces(profile.club_id)
+      loadSchedules(profile.club_id)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDT, profile?.club_id])
@@ -624,14 +626,18 @@ export function SettingsPage() {
                   ))}
                 </select>
                 {/* Clone button for draft seasons */}
-                {selectedSeasonId && selectedSeasonId !== activeSeasonId && activeSeasonId && (
+                {selectedSeasonId && selectedSeasonId !== activeSeasonId && activeSeasonId && profile?.club_id && (
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => {
+                    onClick={async () => {
                       const { cloneSchedulesToSeason } = useTrainingStore.getState()
-                      cloneSchedulesToSeason(activeSeasonId, selectedSeasonId)
-                      toast.success('Horarios clonados desde temporada activa')
+                      try {
+                        await cloneSchedulesToSeason(activeSeasonId, selectedSeasonId, profile.club_id)
+                        toast.success('Horarios clonados desde temporada activa')
+                      } catch (error) {
+                        toast.error('Error al clonar horarios')
+                      }
                     }}
                   >
                     Clonar desde activa
@@ -1024,23 +1030,29 @@ export function SettingsPage() {
           setEditingSpace(undefined)
         }}
         space={editingSpace}
-        onSave={(spaceData) => {
-          if (editingSpace) {
-            // Edit existing
-            updateSpace(editingSpace.id, spaceData)
-            toast.success('Espacio actualizado')
-          } else {
-            // Add new
-            const newSpace: Space = {
-              id: Date.now().toString(),
-              name: spaceData.name!,
-              type: spaceData.type!,
-              capacity: spaceData.capacity,
-              notes: spaceData.notes,
-              isActive: spaceData.isActive ?? true
+        onSave={async (spaceData) => {
+          if (!profile?.club_id) return
+
+          try {
+            if (editingSpace) {
+              // Edit existing
+              await updateSpace(editingSpace.id, spaceData)
+              toast.success('Espacio actualizado')
+            } else {
+              // Add new
+              await addSpace({
+                clubId: profile.club_id,
+                name: spaceData.name!,
+                type: spaceData.type!,
+                capacity: spaceData.capacity,
+                notes: spaceData.notes,
+                isActive: spaceData.isActive ?? true
+              })
+              toast.success('Espacio creado')
             }
-            addSpace(newSpace)
-            toast.success('Espacio creado')
+          } catch (error) {
+            console.error('Error saving space:', error)
+            toast.error('Error al guardar el espacio')
           }
         }}
       />
@@ -1055,28 +1067,34 @@ export function SettingsPage() {
         schedule={editingSchedule}
         preselectedTeam={preselectedTeam}
         spaces={spaces.filter(s => s.isActive).map(s => ({ id: s.id, name: s.name }))}
-        onSave={(scheduleData) => {
-          if (editingSchedule) {
-            // Edit existing
-            updateSchedule(editingSchedule.id, scheduleData)
-            toast.success('Horario actualizado')
-          } else {
-            // Add new
-            const newSchedule: TrainingSchedule = {
-              id: Date.now().toString(),
-              seasonId: selectedSeasonId || activeSeasonId || 'unknown-season',
-              teamId: preselectedTeam?.id || 'unknown',
-              teamName: preselectedTeam?.name || scheduleData.teamName || 'Equipo',
-              days: scheduleData.days || [],
-              startTime: scheduleData.startTime || '18:00',
-              endTime: scheduleData.endTime || '19:30',
-              preferredSpace: scheduleData.preferredSpace!,
-              alternativeSpaces: scheduleData.alternativeSpaces || [],
-              period: scheduleData.period || 'season',
-              isActive: scheduleData.isActive ?? true
+        onSave={async (scheduleData) => {
+          if (!profile?.club_id) return
+
+          try {
+            if (editingSchedule) {
+              // Edit existing
+              await updateSchedule(editingSchedule.id, scheduleData)
+              toast.success('Horario actualizado')
+            } else {
+              // Add new
+              await addSchedule({
+                clubId: profile.club_id,
+                seasonId: selectedSeasonId || activeSeasonId || 'unknown-season',
+                teamId: preselectedTeam?.id || 'unknown',
+                teamName: preselectedTeam?.name || scheduleData.teamName || 'Equipo',
+                days: scheduleData.days || [],
+                startTime: scheduleData.startTime || '18:00',
+                endTime: scheduleData.endTime || '19:30',
+                preferredSpace: scheduleData.preferredSpace!,
+                alternativeSpaces: scheduleData.alternativeSpaces || [],
+                period: scheduleData.period || 'season',
+                isActive: scheduleData.isActive ?? true
+              })
+              toast.success('Horario creado')
             }
-            addSchedule(newSchedule)
-            toast.success('Horario creado')
+          } catch (error) {
+            console.error('Error saving schedule:', error)
+            toast.error('Error al guardar el horario')
           }
         }}
       />
