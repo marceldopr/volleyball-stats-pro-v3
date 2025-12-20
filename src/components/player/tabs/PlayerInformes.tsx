@@ -3,7 +3,7 @@ import { playerEvaluationService, PlayerEvaluationDB } from '@/services/playerEv
 import { supabase } from '@/lib/supabaseClient'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { getRatingLabel } from '@/constants/evaluationScale'
-import { Calendar, Users, Award, TrendingUp, MessageSquare } from 'lucide-react'
+import { Calendar, Award, TrendingUp, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react'
 
 interface PlayerInformesProps {
     playerId: string
@@ -18,6 +18,7 @@ interface EvaluationWithDetails extends PlayerEvaluationDB {
 export function PlayerInformes({ playerId }: PlayerInformesProps) {
     const [evaluations, setEvaluations] = useState<EvaluationWithDetails[]>([])
     const [loading, setLoading] = useState(true)
+    const [expandedReports, setExpandedReports] = useState<Set<string>>(new Set())
 
     useEffect(() => {
         loadEvaluations()
@@ -106,6 +107,16 @@ export function PlayerInformes({ playerId }: PlayerInformesProps) {
         }
     }
 
+    const toggleExpand = (reportId: string) => {
+        const newExpanded = new Set(expandedReports)
+        if (newExpanded.has(reportId)) {
+            newExpanded.delete(reportId)
+        } else {
+            newExpanded.add(reportId)
+        }
+        setExpandedReports(newExpanded)
+    }
+
     const getPhaseLabel = (phase: string) => {
         const labels: Record<string, string> = {
             start: 'Inicio',
@@ -123,6 +134,16 @@ export function PlayerInformes({ playerId }: PlayerInformesProps) {
             development: 'Desarrollo'
         }
         return role ? labels[role] || role : '—'
+    }
+
+    const getRatingColor = (rating: number | null | undefined) => {
+        if (rating === null || rating === undefined) return 'bg-gray-600'
+        const roundedRating = Math.round(rating)
+        if (roundedRating <= 1) return 'bg-red-500'
+        if (roundedRating === 2) return 'bg-orange-500'
+        if (roundedRating === 3) return 'bg-yellow-500'
+        if (roundedRating === 4) return 'bg-lime-500'
+        return 'bg-green-600' // 5 - darker green
     }
 
     const getRatingStars = (rating?: number | null) => {
@@ -189,185 +210,234 @@ export function PlayerInformes({ playerId }: PlayerInformesProps) {
     }
 
     return (
-        <div className="space-y-6">
-            {/* Header Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-gray-800 dark border border-gray-700 rounded-xl p-4">
-                    <div className="flex items-center gap-3 mb-2">
-                        <Award className="w-5 h-5 text-blue-400" />
-                        <h3 className="font-semibold text-white">Total Evaluaciones</h3>
+        <div className="space-y-4">
+            {/* Header Stats - More Compact */}
+            <div className="grid grid-cols-3 gap-3">
+                <div className="bg-gray-800 dark border border-gray-700 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Award className="w-4 h-4 text-blue-400" />
+                        <h3 className="text-xs font-semibold text-gray-400">TOTAL</h3>
                     </div>
-                    <p className="text-3xl font-bold text-white">{evaluations.length}</p>
+                    <p className="text-2xl font-bold text-white">{evaluations.length}</p>
                 </div>
 
-                <div className="bg-gray-800 dark border border-gray-700 rounded-xl p-4">
-                    <div className="flex items-center gap-3 mb-2">
-                        <Calendar className="w-5 h-5 text-green-400" />
-                        <h3 className="font-semibold text-white">Temporadas</h3>
+                <div className="bg-gray-800 dark border border-gray-700 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Calendar className="w-4 h-4 text-green-400" />
+                        <h3 className="text-xs font-semibold text-gray-400">TEMPORADAS</h3>
                     </div>
-                    <p className="text-3xl font-bold text-white">
+                    <p className="text-2xl font-bold text-white">
                         {new Set(evaluations.map(e => e.season_id)).size}
                     </p>
                 </div>
 
-                <div className="bg-gray-800 dark border border-gray-700 rounded-xl p-4">
-                    <div className="flex items-center gap-3 mb-2">
-                        <TrendingUp className="w-5 h-5 text-purple-400" />
-                        <h3 className="font-semibold text-white">Última Evaluación</h3>
+                <div className="bg-gray-800 dark border border-gray-700 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                        <TrendingUp className="w-4 h-4 text-purple-400" />
+                        <h3 className="text-xs font-semibold text-gray-400">ÚLTIMA</h3>
                     </div>
-                    <p className="text-sm font-medium text-white">
+                    <p className="text-xs font-medium text-white">
                         {new Date(evaluations[0].created_at).toLocaleDateString('es-ES', {
                             day: 'numeric',
                             month: 'short',
-                            year: 'numeric'
+                            year: '2-digit'
                         })}
                     </p>
                 </div>
             </div>
 
-            {/* Evaluations by Season/Team */}
-            {Object.values(groupedBySeasonTeam).map(({ season, team, coachName, evaluations: groupEvals }) => (
-                <div key={`${season}-${team}`} className="bg-gray-800 dark border border-gray-700 rounded-xl p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                        <Users className="w-5 h-5 text-primary-400" />
-                        <div className="flex-1">
-                            <h2 className="text-lg font-bold text-white">{team}</h2>
-                            <p className="text-sm text-gray-400">
-                                {coachName} • {season}
-                            </p>
-                        </div>
-                    </div>
+            {/* Compact Evaluation Cards */}
+            <div className="space-y-2">
+                {Object.values(groupedBySeasonTeam).flatMap(({ season, team, evaluations: groupEvals }) =>
+                    groupEvals.sort((a, b) => {
+                        const phaseOrder: Record<string, number> = { start: 1, mid: 2, end: 3 }
+                        return phaseOrder[a.phase] - phaseOrder[b.phase]
+                    }).map((evaluation) => {
+                        const isExpanded = expandedReports.has(evaluation.id)
+                        const avgRating = getAverageRating(evaluation)
 
-                    {/* Phases */}
-                    <div className="space-y-4">
-                        {groupEvals.sort((a, b) => {
-                            const phaseOrder: Record<string, number> = { start: 1, mid: 2, end: 3 }
-                            return phaseOrder[a.phase] - phaseOrder[b.phase]
-                        }).map((evaluation) => (
+                        return (
                             <div
                                 key={evaluation.id}
-                                className="bg-gray-700/30 border border-gray-600/30 rounded-lg p-4"
+                                className="bg-gray-800 dark border border-gray-700 rounded-lg overflow-hidden transition-all"
                             >
-                                {/* Phase Header */}
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="flex items-center gap-2">
-                                        <span className="px-3 py-1 bg-primary-500/20 text-primary-300 rounded-full text-sm font-medium border border-primary-500/30">
-                                            {getPhaseLabel(evaluation.phase)}
-                                        </span>
-                                        <span className="text-sm text-gray-400">
-                                            {new Date(evaluation.created_at).toLocaleDateString('es-ES')}
-                                        </span>
+                                {/* Compact Header - Always Visible */}
+                                <button
+                                    onClick={() => toggleExpand(evaluation.id)}
+                                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-700/30 transition-colors text-left"
+                                >
+                                    {/* Team Badge */}
+                                    <div className="flex-shrink-0">
+                                        <div className="text-xs font-semibold text-primary-400">{team}</div>
+                                        <div className="text-xs text-gray-500">{season}</div>
                                     </div>
-                                    <div className="text-sm">
-                                        <span className="text-gray-400">Promedio: </span>
-                                        <span className="font-semibold text-white">
-                                            {getAverageRating(evaluation).toFixed(1)}/5
-                                        </span>
-                                    </div>
-                                </div>
 
-                                {/* Ratings Grid */}
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-                                    <div className="bg-gray-800/50 rounded p-2">
-                                        <div className="text-xs text-gray-400 mb-1">Servicio</div>
-                                        <div className="text-sm font-medium text-white">
-                                            {getRatingStars(evaluation.service_rating)}
-                                        </div>
-                                        {evaluation.service_rating && (
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                {getRatingLabel(evaluation.service_rating)}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="bg-gray-800/50 rounded p-2">
-                                        <div className="text-xs text-gray-400 mb-1">Recepción</div>
-                                        <div className="text-sm font-medium text-white">
-                                            {getRatingStars(evaluation.reception_rating)}
-                                        </div>
-                                        {evaluation.reception_rating && (
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                {getRatingLabel(evaluation.reception_rating)}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="bg-gray-800/50 rounded p-2">
-                                        <div className="text-xs text-gray-400 mb-1">Ataque</div>
-                                        <div className="text-sm font-medium text-white">
-                                            {getRatingStars(evaluation.attack_rating)}
-                                        </div>
-                                        {evaluation.attack_rating && (
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                {getRatingLabel(evaluation.attack_rating)}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="bg-gray-800/50 rounded p-2">
-                                        <div className="text-xs text-gray-400 mb-1">Bloqueo</div>
-                                        <div className="text-sm font-medium text-white">
-                                            {getRatingStars(evaluation.block_rating)}
-                                        </div>
-                                        {evaluation.block_rating && (
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                {getRatingLabel(evaluation.block_rating)}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="bg-gray-800/50 rounded p-2">
-                                        <div className="text-xs text-gray-400 mb-1">Defensa</div>
-                                        <div className="text-sm font-medium text-white">
-                                            {getRatingStars(evaluation.defense_rating)}
-                                        </div>
-                                        {evaluation.defense_rating && (
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                {getRatingLabel(evaluation.defense_rating)}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="bg-gray-800/50 rounded p-2">
-                                        <div className="text-xs text-gray-400 mb-1">Imp. Errores</div>
-                                        <div className="text-sm font-medium text-white">
-                                            {getRatingStars(evaluation.error_impact_rating)}
-                                        </div>
-                                        {evaluation.error_impact_rating && (
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                {getRatingLabel(evaluation.error_impact_rating)}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
+                                    {/* Phase Badge */}
+                                    <span className="flex-shrink-0 px-2 py-1 bg-primary-500/20 text-primary-300 rounded text-xs font-medium border border-primary-500/30">
+                                        {getPhaseLabel(evaluation.phase)}
+                                    </span>
 
-                                {/* Role & Text Fields */}
-                                {evaluation.role_in_team && (
-                                    <div className="mb-3">
-                                        <span className="text-xs text-gray-400">Rol en equipo: </span>
-                                        <span className="text-sm font-medium text-white">
-                                            {getRoleLabel(evaluation.role_in_team)}
-                                        </span>
+                                    {/* Date */}
+                                    <div className="flex-shrink-0 text-xs text-gray-400 w-20">
+                                        {new Date(evaluation.created_at).toLocaleDateString('es-ES', {
+                                            day: '2-digit',
+                                            month: '2-digit',
+                                            year: '2-digit'
+                                        })}
                                     </div>
-                                )}
 
-                                {evaluation.competitive_mindset && (
-                                    <div className="mb-3">
-                                        <div className="text-xs text-gray-400 mb-1">Mentalidad Competitiva</div>
-                                        <p className="text-sm text-gray-300 italic">
-                                            "{evaluation.competitive_mindset}"
-                                        </p>
+                                    {/* Role */}
+                                    <div className="flex-shrink-0 text-xs text-gray-300 w-24">
+                                        {getRoleLabel(evaluation.role_in_team)}
                                     </div>
-                                )}
 
-                                {evaluation.coach_recommendation && (
-                                    <div>
-                                        <div className="text-xs text-gray-400 mb-1">Recomendación del Coach</div>
-                                        <p className="text-sm text-gray-300 italic">
-                                            "{evaluation.coach_recommendation}"
-                                        </p>
+                                    {/* Average */}
+                                    <div className="flex-shrink-0 text-sm font-semibold text-white w-12">
+                                        {avgRating.toFixed(1)}/5
+                                    </div>
+
+                                    {/* Mini Skill Indicators - Labeled Badges */}
+                                    <div className="flex gap-1 flex-1 flex-wrap">
+                                        <div
+                                            className={`px-1.5 py-0.5 rounded text-white text-xs font-semibold ${getRatingColor(evaluation.service_rating)}`}
+                                            title={`Servicio: ${evaluation.service_rating || 0}/5 - ${getRatingLabel(evaluation.service_rating || 0)}`}
+                                        >
+                                            Servicio
+                                        </div>
+                                        <div
+                                            className={`px-1.5 py-0.5 rounded text-white text-xs font-semibold ${getRatingColor(evaluation.reception_rating)}`}
+                                            title={`Recepción: ${evaluation.reception_rating || 0}/5 - ${getRatingLabel(evaluation.reception_rating || 0)}`}
+                                        >
+                                            Recepción
+                                        </div>
+                                        <div
+                                            className={`px-1.5 py-0.5 rounded text-white text-xs font-semibold ${getRatingColor(evaluation.attack_rating)}`}
+                                            title={`Ataque: ${evaluation.attack_rating || 0}/5 - ${getRatingLabel(evaluation.attack_rating || 0)}`}
+                                        >
+                                            Ataque
+                                        </div>
+                                        <div
+                                            className={`px-1.5 py-0.5 rounded text-white text-xs font-semibold ${getRatingColor(evaluation.block_rating)}`}
+                                            title={`Bloqueo: ${evaluation.block_rating || 0}/5 - ${getRatingLabel(evaluation.block_rating || 0)}`}
+                                        >
+                                            Bloqueo
+                                        </div>
+                                        <div
+                                            className={`px-1.5 py-0.5 rounded text-white text-xs font-semibold ${getRatingColor(evaluation.defense_rating)}`}
+                                            title={`Defensa: ${evaluation.defense_rating || 0}/5 - ${getRatingLabel(evaluation.defense_rating || 0)}`}
+                                        >
+                                            Defensa
+                                        </div>
+                                        <div
+                                            className={`px-1.5 py-0.5 rounded text-white text-xs font-semibold ${getRatingColor(evaluation.error_impact_rating)}`}
+                                            title={`Imp. Errores: ${evaluation.error_impact_rating || 0}/5 - ${getRatingLabel(evaluation.error_impact_rating || 0)}`}
+                                        >
+                                            Errores
+                                        </div>
+                                    </div>
+
+                                    {/* Expand Icon */}
+                                    <div className="flex-shrink-0 text-gray-400">
+                                        {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                                    </div>
+                                </button>
+
+                                {/* Expanded Details */}
+                                {isExpanded && (
+                                    <div className="px-4 py-2 border-t border-gray-700 bg-gray-700/20">
+                                        {/* Compact Inline Ratings Grid - 3 columns */}
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-1 mb-2">
+                                            {/* Servicio */}
+                                            <div className="flex items-center gap-2 text-xs">
+                                                <span className="text-gray-400 w-16 flex-shrink-0">Servicio</span>
+                                                <span className="text-white text-sm">{getRatingStars(evaluation.service_rating)}</span>
+                                                {evaluation.service_rating && (
+                                                    <span className="text-gray-500 text-xs truncate">
+                                                        {getRatingLabel(evaluation.service_rating)}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* Recepción */}
+                                            <div className="flex items-center gap-2 text-xs">
+                                                <span className="text-gray-400 w-16 flex-shrink-0">Recepción</span>
+                                                <span className="text-white text-sm">{getRatingStars(evaluation.reception_rating)}</span>
+                                                {evaluation.reception_rating && (
+                                                    <span className="text-gray-500 text-xs truncate">
+                                                        {getRatingLabel(evaluation.reception_rating)}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* Ataque */}
+                                            <div className="flex items-center gap-2 text-xs">
+                                                <span className="text-gray-400 w-16 flex-shrink-0">Ataque</span>
+                                                <span className="text-white text-sm">{getRatingStars(evaluation.attack_rating)}</span>
+                                                {evaluation.attack_rating && (
+                                                    <span className="text-gray-500 text-xs truncate">
+                                                        {getRatingLabel(evaluation.attack_rating)}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* Bloqueo */}
+                                            <div className="flex items-center gap-2 text-xs">
+                                                <span className="text-gray-400 w-16 flex-shrink-0">Bloqueo</span>
+                                                <span className="text-white text-sm">{getRatingStars(evaluation.block_rating)}</span>
+                                                {evaluation.block_rating && (
+                                                    <span className="text-gray-500 text-xs truncate">
+                                                        {getRatingLabel(evaluation.block_rating)}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* Defensa */}
+                                            <div className="flex items-center gap-2 text-xs">
+                                                <span className="text-gray-400 w-16 flex-shrink-0">Defensa</span>
+                                                <span className="text-white text-sm">{getRatingStars(evaluation.defense_rating)}</span>
+                                                {evaluation.defense_rating && (
+                                                    <span className="text-gray-500 text-xs truncate">
+                                                        {getRatingLabel(evaluation.defense_rating)}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* Imp. Errores */}
+                                            <div className="flex items-center gap-2 text-xs">
+                                                <span className="text-gray-400 w-16 flex-shrink-0">Imp. Err.</span>
+                                                <span className="text-white text-sm">{getRatingStars(evaluation.error_impact_rating)}</span>
+                                                {evaluation.error_impact_rating && (
+                                                    <span className="text-gray-500 text-xs truncate">
+                                                        {getRatingLabel(evaluation.error_impact_rating)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Unified Comments Block */}
+                                        {(evaluation.competitive_mindset || evaluation.coach_recommendation) && (
+                                            <div className="space-y-1 pt-2 border-t border-gray-700/50">
+                                                {evaluation.competitive_mindset && (
+                                                    <div className="flex gap-2">
+                                                        <span className="text-xs text-gray-400 flex-shrink-0">Mentalidad:</span>
+                                                        <p className="text-xs text-gray-300 italic">"{evaluation.competitive_mindset}"</p>
+                                                    </div>
+                                                )}
+                                                {evaluation.coach_recommendation && (
+                                                    <div className="flex gap-2">
+                                                        <span className="text-xs text-gray-400 flex-shrink-0">Coach:</span>
+                                                        <p className="text-xs text-gray-300 italic">"{evaluation.coach_recommendation}"</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
-                        ))}
-                    </div>
-                </div>
-            ))}
+                        )
+                    })
+                )}
+            </div>
         </div>
     )
 }

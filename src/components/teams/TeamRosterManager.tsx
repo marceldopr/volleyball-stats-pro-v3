@@ -495,7 +495,6 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                         <table className="w-full">
                             <thead className="bg-gray-900/50 border-b border-gray-700">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Origen</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Dorsal</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Nombre</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Edad</th>
@@ -516,15 +515,6 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                             : 'hover:bg-gray-700/50'
                                             }`}
                                     >
-                                        {/* Origen */}
-                                        <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-300">
-                                            {item.isSecondary ? (
-                                                <div className="flex items-center gap-1">
-                                                    <span className="bg-purple-800/30 text-purple-200 px-2 py-0.5 rounded text-xs">Doblaje</span>
-                                                    {item.originTeamName && <span>{item.originTeamName}</span>}
-                                                </div>
-                                            ) : '-'}
-                                        </td>
                                         {/* Dorsal */}
                                         <td className="px-6 py-2.5 whitespace-nowrap font-medium text-white">
                                             {item.isSecondary ? (
@@ -577,9 +567,18 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                                 )
                                             )}
                                         </td>
+                                        {/* Nombre */}
                                         <td className="px-6 py-2.5 whitespace-nowrap text-gray-200">
                                             <div className="flex items-center gap-2">
                                                 <span>{item.player ? `${item.player.first_name} ${item.player.last_name}` : 'Jugadora desconocida'}</span>
+                                                {item.isSecondary && (
+                                                    <span
+                                                        className="bg-purple-800/30 text-purple-200 px-2 py-0.5 rounded text-xs font-semibold"
+                                                        title={item.originTeamName ? `Doblaje desde: ${item.originTeamName}` : 'Doblaje'}
+                                                    >
+                                                        Doblaje
+                                                    </span>
+                                                )}
                                                 {item.status === 'lesionada' && (
                                                     <span className="text-red-400 text-sm font-bold" title="Lesionada">✖</span>
                                                 )}
