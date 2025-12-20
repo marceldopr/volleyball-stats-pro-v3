@@ -1,34 +1,139 @@
-import { Calendar, AlertCircle, ChevronLeft, ChevronRight, CheckCircle2, Clock } from 'lucide-react'
-import { useState } from 'react'
+import { Calendar, AlertCircle, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { DayDetailModal } from '@/components/calendar/DayDetailModal'
+import { DayOperationalView } from '@/components/calendar/DayOperationalView'
 import { useSeasonStore } from '@/stores/seasonStore'
-import { useTrainingStore } from '@/stores/trainingStore'
 import { getWeekId, isWeekInRange } from '@/utils/weekUtils'
-import { TrainingSchedule } from '@/types/trainingScheduleTypes'
+import { useCalendarEvents } from '@/hooks/useCalendarEvents'
+import { CalendarEvent } from '@/services/calendarService'
+import { useAuthStore } from '@/stores/authStore'
+import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
+import { parseISO, isSameDay as isSameDayFn, format, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns'
+import { es } from 'date-fns/locale'
+import { supabase } from '@/lib/supabaseClient'
 
 type ViewMode = 'month' | 'week'
 
 export function CalendarioPage() {
     const [viewMode, setViewMode] = useState<ViewMode>('month')
     const [currentDate, setCurrentDate] = useState(new Date())
-    const { startWeek, endWeek, seasons, activeSeasonId, selectedSeasonId, setSelectedSeasonId } = useSeasonStore()
-    const { schedules } = useTrainingStore()
+    const {
+        startWeek,
+        endWeek,
+        seasons,
+        activeSeasonId,
+        selectedSeasonId,
+        setSelectedSeasonId,
+        loadSeasons
+    } = useSeasonStore()
+    const { profile } = useAuthStore()
+    const { isDT } = useCurrentUserRole()
+    const [coachTeamId, setCoachTeamId] = useState<string | null>(null)
+    const [spaces, setSpaces] = useState<{ id: string, name: string }[]>([])
+    const [selectedDetailDay, setSelectedDetailDay] = useState<Date | null>(null) // V3: Modal State
+
+    // Fetch coach's assigned team
+    useEffect(() => {
+        if (!isDT && profile?.id) {
+            supabase
+                .from('coach_team_assignments')
+                .select('team_id')
+                .eq('user_id', profile.id)
+                .limit(1)
+                .single()
+                .then(({ data }) => {
+                    if (data) {
+                        setCoachTeamId(data.team_id)
+                        console.log('[Calendar] Coach team loaded:', data.team_id)
+                    }
+                })
+        }
+    }, [isDT, profile?.id])
+
+    // Fetch club spaces for DT view
+    useEffect(() => {
+        if (isDT && profile?.club_id) {
+            supabase
+                .from('spaces')
+                .select('id, name')
+                .eq('club_id', profile.club_id)
+                .eq('is_active', true)
+                .order('name')
+                .then(({ data }) => {
+                    if (data) {
+                        setSpaces(data)
+                        console.log('[Calendar] Spaces loaded:', data.length)
+                    }
+                })
+        }
+    }, [isDT, profile?.club_id])
+
+    // Load seasons if not loaded (critical for direct navigation or refresh)
+    useEffect(() => {
+        if (profile?.club_id && seasons.length === 0) {
+            console.log('[Calendar] Loading seasons for club:', profile.club_id)
+            loadSeasons(profile.club_id)
+        }
+    }, [profile?.club_id, seasons.length, loadSeasons])
 
     // Get selectable seasons (active + drafts)
     const selectableSeasons = seasons.filter(s => s.status === 'active' || s.status === 'draft')
     const currentSeasonId = selectedSeasonId || activeSeasonId
 
-    // Filter schedules by selected season
-    const filteredSchedules = currentSeasonId
-        ? schedules.filter(s => s.seasonId === currentSeasonId)
-        : schedules
+    // DEBUG: Log season info
+    console.log('[Calendar Debug - Season]', {
+        activeSeasonId,
+        selectedSeasonId,
+        currentSeasonId,
+        hasProfile: !!profile,
+        clubId: profile?.club_id,
+        isDT
+    })
 
-    // Helper to check if a schedule matches a specific date (sorted by time)
-    const getSchedulesForDate = (date: Date): TrainingSchedule[] => {
-        const dayOfWeek = (date.getDay() + 6) % 7 // Convert Sunday=0 to Monday=0, Sunday=6
-        // Filter active schedules that match the day of week, then sort by start time
-        return filteredSchedules
-            .filter(s => s.isActive && s.days.includes(dayOfWeek))
-            .sort((a, b) => a.startTime.localeCompare(b.startTime))
+    // Use unified calendar events
+    const { events, loadEvents } = useCalendarEvents({
+        viewType: isDT ? 'club' : 'team',
+        teamId: isDT ? undefined : (coachTeamId || undefined),
+        clubId: profile?.club_id
+    })
+
+    // Load events when date range changes
+    useEffect(() => {
+        if (!profile?.club_id) {
+            console.warn('[Calendar] No club_id in profile')
+            return
+        }
+
+        if (!currentSeasonId) {
+            console.warn('[Calendar] No season selected - skipping load')
+            return
+        }
+
+        // FIXED: Expand range to cover full calendar grid (including gray days)
+        const start = viewMode === 'month'
+            ? startOfWeek(startOfMonth(currentDate), { weekStartsOn: 1 })
+            : startOfWeek(currentDate, { weekStartsOn: 1 })
+
+        const end = viewMode === 'month'
+            ? endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 })
+            : endOfWeek(currentDate, { weekStartsOn: 1 })
+
+        console.log('[Calendar] Loading events', {
+            viewMode,
+            currentDate: format(currentDate, 'yyyy-MM-dd'),
+            start: format(start, 'yyyy-MM-dd'),
+            end: format(end, 'yyyy-MM-dd'),
+            seasonId: currentSeasonId
+        })
+
+        loadEvents(start, end)
+    }, [currentDate, viewMode, loadEvents, profile?.club_id, currentSeasonId])
+
+    // Helper to get events for a specific date
+    const getEventsForDate = (date: Date): CalendarEvent[] => {
+        return events
+            .filter(event => isSameDayFn(parseISO(event.startAt), date))
+            .sort((a, b) => a.startAt.localeCompare(b.startAt))
     }
 
     // Get month/week info
@@ -166,9 +271,25 @@ export function CalendarioPage() {
                         <h1 className="text-3xl font-bold text-white">Calendario</h1>
                     </div>
                     <p className="text-gray-400">
-                        Visualización de horarios de entrenamiento (próximamente eventos)
+                        Agenda unificada con partidos, entrenamientos y horarios
                     </p>
                 </div>
+
+                {/* CSS Styles for event types */}
+                <style>{`
+                    .event {
+                        @apply px-2 py-1 rounded border text-xs;
+                    }
+                    .event--match {
+                        @apply bg-red-600/20 border-red-600/30 text-red-200;
+                    }
+                    .event--training {
+                        @apply bg-green-600/20 border-green-600/30 text-green-200;
+                    }
+                    .event--schedule {
+                        @apply bg-blue-600/20 border-blue-600/30 text-blue-200;
+                    }
+                `}</style>
 
                 {/* Controls (same) */}
                 <div className="bg-gray-900 rounded-lg p-6 mb-6">
@@ -259,9 +380,9 @@ export function CalendarioPage() {
 
                 {/* Calendar Grid */}
                 {viewMode === 'month' ? (
-                    <div className="bg-gray-900 rounded-lg overflow-hidden mb-6 border border-gray-800">
-                        {/* Day Headers */}
-                        <div className="grid grid-cols-7 bg-gray-800">
+                    <div className="bg-gray-900 rounded-lg overflow-hidden mb-6 border border-gray-800 flex flex-col">
+                        {/* Calendar Grid Header - Mon-Sun */}
+                        <div className="grid grid-cols-7 bg-gray-800 border-b border-gray-700">
                             {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
                                 <div key={day} className="text-center font-semibold text-gray-400 py-3 border-r border-gray-700 last:border-r-0">
                                     {day}
@@ -270,54 +391,62 @@ export function CalendarioPage() {
                         </div>
 
                         {/* Calendar Weeks - Row by Row */}
-                        <div>
+                        <div className="flex flex-col">
                             {calendarWeeks.map((week, weekIndex) => {
                                 const monday = week[0].date
                                 const weekId = getWeekId(monday)
                                 const isInSeason = isWeekInRange(weekId, startWeek, endWeek)
 
                                 return (
-                                    <div key={weekIndex} className="grid grid-cols-7">
+                                    <div key={weekIndex} className="grid grid-cols-7 border-b border-gray-800 last:border-b-0">
                                         {week.map((dayInfo, dayIndex) => {
                                             const today = isToday(dayInfo.date)
                                             const globalIndex = weekIndex * 7 + dayIndex
-                                            const daySchedules = getSchedulesForDate(dayInfo.date)
+                                            const dayEvents = getEventsForDate(dayInfo.date)
+
+                                            // Count Types
+                                            const matchCount = dayEvents.filter(e => e.type === 'match').length
+                                            const trainingCount = dayEvents.filter(e => e.type === 'training' || e.type === 'schedule').length
 
                                             return (
                                                 <div
                                                     key={globalIndex}
+                                                    onClick={() => {
+                                                        if (dayEvents.length > 0) {
+                                                            setSelectedDetailDay(dayInfo.date)
+                                                        }
+                                                    }}
                                                     className={`
-                            relative min-h-[120px] p-2 border-r border-b border-gray-800
-                            ${dayIndex === 6 ? 'border-r-0' : ''}
-                            ${weekIndex === 5 ? 'border-b-0' : ''}
-                            ${!dayInfo.isCurrentMonth ? 'bg-gray-950' : 'bg-gray-900'}
-                            ${isInSeason && !today ? 'bg-blue-500/5' : ''}
-                            ${today ? 'bg-primary-900/10' : ''}
-                            hover:bg-gray-800 transition-colors
-                          `}
+                                                        relative min-h-[100px] border-r border-gray-800 last:border-r-0 p-2
+                                                        ${!dayInfo.isCurrentMonth ? 'bg-gray-950/50' : 'bg-gray-900'}
+                                                        ${isInSeason && !today ? 'bg-blue-500/5' : ''}
+                                                        ${today ? 'bg-primary-900/10' : ''}
+                                                        ${dayEvents.length > 0 ? 'cursor-pointer hover:bg-gray-800 transition-colors' : ''}
+                                                    `}
                                                 >
+                                                    {/* Day Header */}
                                                     <div className={`
-                            text-sm font-medium mb-1
-                            ${!dayInfo.isCurrentMonth ? 'text-gray-700' : 'text-gray-300'}
-                            ${today ? 'text-primary-400 font-bold' : ''}
-                          `}>
-                                                        {dayInfo.day}
+                                                        text-sm font-medium mb-2 flex justify-between items-center
+                                                        ${!dayInfo.isCurrentMonth ? 'text-gray-700' : 'text-gray-300'}
+                                                        ${today ? 'text-primary-400 font-bold' : ''}
+                                                    `}>
+                                                        <span>{dayInfo.day}</span>
                                                     </div>
 
-                                                    {/* Events */}
-                                                    <div className="space-y-1">
-                                                        {daySchedules.map((schedule) => (
-                                                            <div
-                                                                key={schedule.id}
-                                                                className="px-2 py-1 rounded bg-blue-600/20 border border-blue-600/30 text-xs text-blue-200 truncate"
-                                                            >
-                                                                <div className="font-semibold truncate">{schedule.teamName}</div>
-                                                                <div className="opacity-75 flex items-center gap-1">
-                                                                    <Clock className="w-3 h-3" />
-                                                                    {schedule.startTime} · {schedule.preferredSpace}
-                                                                </div>
+                                                    {/* Summary Counters */}
+                                                    <div className="flex flex-col gap-1.5">
+                                                        {matchCount > 0 && (
+                                                            <div className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 px-2 py-1 rounded text-xs text-red-300 font-medium">
+                                                                <div className="w-2 h-2 rounded-full bg-red-500" />
+                                                                <span>{matchCount} Partidos</span>
                                                             </div>
-                                                        ))}
+                                                        )}
+                                                        {trainingCount > 0 && (
+                                                            <div className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 px-2 py-1 rounded text-xs text-blue-300 font-medium">
+                                                                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                                                <span>{trainingCount} Entrenos</span>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             )
@@ -328,60 +457,45 @@ export function CalendarioPage() {
                         </div>
                     </div>
                 ) : (
-                    <div className="bg-gray-900 rounded-lg overflow-hidden mb-6 border border-gray-800">
-                        {/* Week Headers */}
-                        <div className="grid grid-cols-7 bg-gray-800">
-                            {weekDays.map((date, i) => {
-                                const today = isToday(date)
-                                return (
-                                    <div key={i} className="text-center py-4 border-r border-gray-700 last:border-r-0">
-                                        <div className="text-xs font-semibold text-gray-400 mb-1">
-                                            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][i]}
+                    <div className="space-y-4 mb-6">
+                        {weekDays.map((date, i) => {
+                            const today = isToday(date)
+                            const dayEvents = getEventsForDate(date)
+
+                            return (
+                                <div key={i} className={`rounded-lg border overflow-hidden ${today ? 'border-primary-500/30' : 'border-gray-800'}`}>
+                                    {/* Day Header */}
+                                    <div className={`
+                                        px-4 py-3 flex items-center justify-between
+                                        ${today ? 'bg-primary-900/10' : 'bg-gray-900'}
+                                        border-b border-gray-800
+                                     `}>
+                                        <div className="flex items-center gap-3">
+                                            <span className={`text-lg font-bold capitalize ${today ? 'text-primary-400' : 'text-white'}`}>
+                                                {format(date, 'EEEE d', { locale: es })}
+                                            </span>
+                                            {today && (
+                                                <span className="text-xs font-medium bg-primary-500/20 text-primary-300 px-2 py-0.5 rounded-full">
+                                                    Hoy
+                                                </span>
+                                            )}
                                         </div>
-                                        <div className={`text-lg font-bold ${today ? 'text-primary-400' : 'text-white'}`}>
-                                            {date.getDate()}
+                                        <div className="text-sm text-gray-500">
+                                            {dayEvents.length} eventos
                                         </div>
                                     </div>
-                                )
-                            })}
-                        </div>
 
-                        {/* Week Day Columns */}
-                        <div className="grid grid-cols-7" style={{ minHeight: '500px' }}>
-                            {weekDays.map((date, i) => {
-                                const today = isToday(date)
-                                const daySchedules = getSchedulesForDate(date)
-                                    // Sort by start time
-                                    .sort((a, b) => a.startTime.localeCompare(b.startTime))
-
-                                return (
-                                    <div
-                                        key={i}
-                                        className={`
-                      border-r border-gray-800 last:border-r-0 p-2 space-y-2
-                      ${today ? 'bg-primary-900/10' : 'bg-gray-900'}
-                    `}
-                                    >
-                                        {/* Events */}
-                                        {daySchedules.map((schedule) => (
-                                            <div
-                                                key={schedule.id}
-                                                className="p-2 rounded-lg bg-blue-600/20 border border-blue-600/30 text-xs text-blue-200"
-                                            >
-                                                <div className="font-semibold text-sm mb-0.5">{schedule.teamName}</div>
-                                                <div className="flex items-center gap-1 opacity-75 mb-1">
-                                                    <Clock className="w-3 h-3" />
-                                                    {schedule.startTime} – {schedule.endTime}
-                                                </div>
-                                                <div className="opacity-60 bg-black/20 rounded px-1.5 py-0.5 inline-block">
-                                                    {schedule.preferredSpace}
-                                                </div>
-                                            </div>
-                                        ))}
+                                    {/* Operational View */}
+                                    <div className="bg-gray-900/50 p-4">
+                                        <DayOperationalView
+                                            date={date}
+                                            events={dayEvents}
+                                            spaces={spaces}
+                                        />
                                     </div>
-                                )
-                            })}
-                        </div>
+                                </div>
+                            )
+                        })}
                     </div>
                 )}
 
@@ -415,6 +529,16 @@ export function CalendarioPage() {
                     </div>
                 </div>
             </div>
+            {/* Day Detail Modal */}
+            {selectedDetailDay && (
+                <DayDetailModal
+                    isOpen={!!selectedDetailDay}
+                    onClose={() => setSelectedDetailDay(null)}
+                    date={selectedDetailDay}
+                    events={getEventsForDate(selectedDetailDay)}
+                    spaces={spaces}
+                />
+            )}
         </div>
     )
 }

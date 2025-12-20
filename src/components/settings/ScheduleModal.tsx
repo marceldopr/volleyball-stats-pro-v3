@@ -25,7 +25,7 @@ export function ScheduleModal({ isOpen, onClose, schedule, preselectedTeam, spac
     const [startTime, setStartTime] = useState(schedule?.startTime || '18:00')
     const [endTime, setEndTime] = useState(schedule?.endTime || '19:30')
     const [preferredSpace, setPreferredSpace] = useState(schedule?.preferredSpace || '')
-    const [alternativeSpaces, setAlternativeSpaces] = useState<string[]>(schedule?.alternativeSpaces || [])
+    // const [alternativeSpaces, setAlternativeSpaces] = useState<string[]>(schedule?.alternativeSpaces || []) // Removed
     const [period, setPeriod] = useState<'season' | 'custom'>(schedule?.period || 'season')
     const [isActive, setIsActive] = useState(schedule?.isActive ?? true)
 
@@ -37,7 +37,7 @@ export function ScheduleModal({ isOpen, onClose, schedule, preselectedTeam, spac
             setStartTime(schedule.startTime || '18:00')
             setEndTime(schedule.endTime || '19:30')
             setPreferredSpace(schedule.preferredSpace || '')
-            setAlternativeSpaces(schedule.alternativeSpaces || [])
+
             setPeriod(schedule.period || 'season')
             setIsActive(schedule.isActive ?? true)
         } else if (preselectedTeam) {
@@ -47,7 +47,7 @@ export function ScheduleModal({ isOpen, onClose, schedule, preselectedTeam, spac
             setStartTime('18:00')
             setEndTime('19:30')
             setPreferredSpace('')
-            setAlternativeSpaces([])
+
             setPeriod('season')
             setIsActive(true)
         } else {
@@ -57,7 +57,7 @@ export function ScheduleModal({ isOpen, onClose, schedule, preselectedTeam, spac
             setStartTime('18:00')
             setEndTime('19:30')
             setPreferredSpace('')
-            setAlternativeSpaces([])
+
             setPeriod('season')
             setIsActive(true)
         }
@@ -73,13 +73,7 @@ export function ScheduleModal({ isOpen, onClose, schedule, preselectedTeam, spac
         }
     }
 
-    const handleAlternativeSpaceToggle = (space: string) => {
-        if (alternativeSpaces.includes(space)) {
-            setAlternativeSpaces(alternativeSpaces.filter(s => s !== space))
-        } else {
-            setAlternativeSpaces([...alternativeSpaces, space])
-        }
-    }
+    // Removed handleAlternativeSpaceToggle
 
     const handleSave = () => {
         if (onSave) {
@@ -89,7 +83,7 @@ export function ScheduleModal({ isOpen, onClose, schedule, preselectedTeam, spac
                 startTime,
                 endTime,
                 preferredSpace,
-                alternativeSpaces,
+                // alternativeSpaces,
                 period,
                 isActive
             })
@@ -197,31 +191,14 @@ export function ScheduleModal({ isOpen, onClose, schedule, preselectedTeam, spac
                         <label className="block text-sm font-medium text-gray-300 mb-2">
                             Espacio preferido *
                         </label>
-                        <select
-                            value={preferredSpace}
-                            onChange={(e) => setPreferredSpace(e.target.value)}
-                            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-                        >
-                            <option value="">Selecciona un espacio</option>
-                            {availableSpaces.map((space) => (
-                                <option key={space} value={space}>{space}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Alternative Spaces */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Espacios alternativos (opcional)
-                        </label>
                         <div className="flex flex-wrap gap-2">
-                            {availableSpaces.filter(s => s !== preferredSpace).map((space) => (
+                            {availableSpaces.map((space) => (
                                 <button
                                     key={space}
                                     type="button"
-                                    onClick={() => handleAlternativeSpaceToggle(space)}
-                                    className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${alternativeSpaces.includes(space)
-                                        ? 'bg-blue-600 text-white'
+                                    onClick={() => setPreferredSpace(space)}
+                                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${preferredSpace === space
+                                        ? 'bg-primary-600 text-white'
                                         : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                                         }`}
                                 >
@@ -230,6 +207,8 @@ export function ScheduleModal({ isOpen, onClose, schedule, preselectedTeam, spac
                             ))}
                         </div>
                     </div>
+
+                    {/* Removed Alternative Spaces section */}
 
                     {/* Period */}
                     <div>
