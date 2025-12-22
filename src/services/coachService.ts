@@ -15,6 +15,7 @@ export const coachService = {
             .from('coaches')
             .select('*')
             .eq('club_id', clubId)
+            .eq('approval_status', 'approved')
             .order('last_name', { ascending: true })
 
         if (error) {

@@ -73,7 +73,7 @@ export function GenerateSignupLinkModal({ onClose }: GenerateSignupLinkModalProp
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-3">
                         <LinkIcon className="w-5 h-5 text-primary-600" />
                         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -88,12 +88,12 @@ export function GenerateSignupLinkModal({ onClose }: GenerateSignupLinkModalProp
                     </button>
                 </div>
 
-                <div className="p-6 space-y-6">
+                <div className="p-4 space-y-4">
                     {/* Configuration */}
                     {!generatedLink && (
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Expiración (días)
                                 </label>
                                 <input
@@ -107,7 +107,7 @@ export function GenerateSignupLinkModal({ onClose }: GenerateSignupLinkModalProp
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Usos máximos
                                 </label>
                                 <input
@@ -138,7 +138,7 @@ export function GenerateSignupLinkModal({ onClose }: GenerateSignupLinkModalProp
                     {/* Generated Link Display */}
                     {generatedLink && (
                         <div className="space-y-4">
-                            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4">
+                            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-3">
                                 <p className="text-sm font-medium text-green-800 dark:text-green-200 mb-2">
                                     ✅ Enlace generado correctamente
                                 </p>
@@ -188,7 +188,7 @@ export function GenerateSignupLinkModal({ onClose }: GenerateSignupLinkModalProp
 
                     {/* Active Tokens List */}
                     {activeTokens.length > 0 && (
-                        <div className="mt-6">
+                        <div className="mt-4">
                             <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
                                 Enlaces Activos
                             </h3>

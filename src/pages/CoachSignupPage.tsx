@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CheckCircle, XCircle, AlertCircle, Loader } from 'lucide-react'
 import { coachSignupTokenService } from '@/services/coachSignupTokenService'
+import { supabase } from '@/lib/supabaseClient'
 import { Button } from '@/components/ui/Button'
 import type { TokenValidationResult } from '@/types/CoachSignupToken'
 
@@ -85,12 +86,37 @@ export function CoachSignupPage() {
 
         setSubmitting(true)
         try {
-            const result = await coachSignupTokenService.consumeToken(token, {
+            // 1. Create User in Auth
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email: formData.email.trim(),
+                password: formData.password,
+                options: {
+                    data: {
+                        first_name: formData.firstName.trim(),
+                        last_name: formData.lastName.trim()
+                    }
+                }
+            })
+
+            if (authError) {
+                if (authError.message.includes('already registered')) {
+                    setErrors({ email: 'Este email ya está registrado' })
+                    setSubmitting(false)
+                    return
+                }
+                throw authError
+            }
+
+            if (!authData.user) {
+                throw new Error('No se pudo crear el usuario')
+            }
+
+            // 2. Consume Token and Create Profile/Coach
+            const result = await coachSignupTokenService.consumeToken(token, authData.user.id, {
                 firstName: formData.firstName.trim(),
                 lastName: formData.lastName.trim(),
                 email: formData.email.trim(),
-                phone: formData.phone.trim(),
-                password: formData.password
+                phone: formData.phone.trim()
             })
 
             if (result.success) {
@@ -103,15 +129,20 @@ export function CoachSignupPage() {
                     })
                 }, 3000)
             } else {
-                // Handle errors
-                if (result.error === 'EMAIL_EXISTS') {
-                    setErrors({ email: 'Este email ya está registrado' })
-                } else if (result.error === 'TOKEN_EXPIRED') {
+                // Handle token errors - User is created but profile creation failed
+                //Ideally we should delete the user here, but we can't from client.
+                console.error('Token consumption failed:', result.error)
+
+                if (result.error === 'TOKEN_EXPIRED') {
                     setTokenInfo({ isValid: false, error: 'TOKEN_EXPIRED' })
                 } else if (result.error === 'TOKEN_MAX_USES') {
                     setTokenInfo({ isValid: false, error: 'TOKEN_MAX_USES' })
+                } else if (result.error === 'PROFILE_EXISTS') {
+                    // This implies auth.signUp succeeded but profile creation failed (duplicate ID?)
+                    // Should be rare
+                    setErrors({ submit: 'Error interno de perfil. Contacta con soporte.' })
                 } else {
-                    setErrors({ submit: 'Error al crear la cuenta. Inténtalo de nuevo.' })
+                    setErrors({ submit: 'Error al vincular tu cuenta con el club. Contacta con el DT.' })
                 }
             }
         } catch (error) {

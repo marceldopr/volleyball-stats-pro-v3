@@ -162,17 +162,20 @@ export const coachSignupTokenService = {
      * Consume token and create coach (atomic)
      * Calls SQL function that handles everything
      */
+    /**
+     * Consume token and create profile/coach (after auth.signUp)
+     */
     consumeToken: async (
         token: string,
-        coachData: CoachSignupData
+        userId: string,
+        coachData: Omit<CoachSignupData, 'password'>
     ): Promise<SignupResult> => {
         const { data, error } = await supabase.rpc('consume_signup_token', {
             p_token: token,
+            p_user_id: userId,
             p_first_name: coachData.firstName,
             p_last_name: coachData.lastName,
-            p_email: coachData.email,
-            p_phone: coachData.phone,
-            p_password: coachData.password
+            p_phone: coachData.phone
         })
 
         if (error) {
