@@ -23,7 +23,8 @@ import { TeamPlansListPage } from '@/pages/TeamPlansListPage'
 import { TeamDashboardPage } from '@/pages/TeamDashboardPage'
 import { CoachReportsPage } from './pages/CoachReportsPage'
 import { TrainingAttendancePage } from '@/pages/TrainingAttendancePage'
-import { CoachAssignments } from './pages/CoachAssignments'
+import { Coaches } from './pages/Coaches'
+import { CoachDetail } from './pages/CoachDetail'
 import { ClubDashboardPage } from '@/pages/ClubDashboardPage'
 import { StatsPage } from '@/pages/StatsPage'
 import { ProtectedRoute } from '@/components/routing/ProtectedRoute'
@@ -34,6 +35,7 @@ import { Home } from './pages/Home'
 import { CalendarioPage } from './pages/CalendarioPage'
 import { SaludDisponibilidadPage } from './pages/SaludDisponibilidadPage'
 import { NextSeasonPage } from './pages/NextSeasonPage'
+import { CoachSignupPage } from './pages/CoachSignupPage'
 
 function App() {
   const { isDarkMode } = useThemeStore()
@@ -43,6 +45,7 @@ function App() {
       <>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/signup/coach" element={<CoachSignupPage />} />
         <Route
           path="*"
           element={
@@ -170,9 +173,15 @@ function App() {
                   } />
 
                   {/* Admin Routes */}
-                  <Route path="/coach-assignments" element={
+
+                  <Route path="/coaches" element={
                     <RoleGuard allowedForDT>
-                      <CoachAssignments />
+                      <Coaches />
+                    </RoleGuard>
+                  } />
+                  <Route path="/coaches/:id" element={
+                    <RoleGuard allowedForDT>
+                      <CoachDetail />
                     </RoleGuard>
                   } />
                   <Route path="/settings" element={

@@ -29,7 +29,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         if (pathname.startsWith('/club')) return 'Club'
         if (pathname.startsWith('/reports')) return 'Informes'
         if (pathname.startsWith('/trainings')) return 'Entrenamientos'
-        if (pathname.startsWith('/coach-assignments')) return 'Entrenadores'
+        if (pathname.startsWith('/coaches')) return 'Entrenadores'
         if (pathname.startsWith('/exports')) return 'Exportar Datos'
         if (pathname.startsWith('/next-season')) return 'Próxima Temporada'
         return 'Volleyball Stats'

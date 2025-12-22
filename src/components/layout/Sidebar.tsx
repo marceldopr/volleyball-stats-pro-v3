@@ -79,7 +79,7 @@ export function Sidebar() {
       // LEVEL 2 - Main Entities (no duplications)
       { id: 'equipos', title: 'Equipos', href: '/teams', icon: Users, level: 2 },
       { id: 'jugadores', title: 'Jugadores', href: '/players', icon: Users, level: 2 },
-      { id: 'entrenadores', title: 'Entrenadores', href: '/coach-assignments', icon: UserCog, level: 2 },
+      { id: 'entrenadores', title: 'Entrenadores', href: '/coaches', icon: UserCog, level: 2 },
       { id: 'partidos', title: 'Partidos', href: '/matches', icon: Trophy, level: 2 },
 
       // LEVEL 3 - Analytics & Tracking
@@ -107,7 +107,7 @@ export function Sidebar() {
           { name: 'Próxima temporada', href: '/next-season' }
         ]
       },
-      { id: 'estructura', title: 'Estructura Deportiva', href: '/settings?section=categorias', icon: Settings, level: 4 },
+
       { id: 'temporadas', title: 'Temporadas', href: '/settings?section=temporada', icon: Calendar, level: 4 },
       { id: 'ajustes', title: 'Ajustes del club', href: '/settings', icon: Settings, level: 4 }
     ]
