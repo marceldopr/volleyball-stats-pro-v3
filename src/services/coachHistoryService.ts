@@ -10,32 +10,15 @@ export const coachHistoryService = {
      * Get all team assignments for a coach across all seasons
      */
     getCoachHistory: async (coachId: string): Promise<CoachSeasonHistory[]> => {
-        // First, get the coach's profile_id
-        const { data: coach, error: coachError } = await supabase
-            .from('coaches')
-            .select('profile_id')
-            .eq('id', coachId)
-            .single()
-
-        if (coachError) {
-            console.error('Error fetching coach:', coachError)
-            throw coachError
-        }
-
-        if (!coach?.profile_id) {
-            console.warn('Coach has no profile_id:', coachId)
-            return []
-        }
-
-        // Get assignments from the correct table
+        // Get assignments directly from coach_team_season using coach_id
         const { data, error } = await supabase
-            .from('coach_team_assignments')
+            .from('coach_team_season')
             .select(`
-        *,
-        teams(id, custom_name, category, gender),
-        seasons(id, name)
-      `)
-            .eq('user_id', coach.profile_id)
+                *,
+                teams(id, custom_name, category, gender, category_stage),
+                seasons(id, name)
+            `)
+            .eq('coach_id', coachId)
             .order('created_at', { ascending: false })
 
         if (error) {
@@ -61,11 +44,14 @@ export const coachHistoryService = {
             }
 
             const season = seasonMap.get(seasonId)!
-            const genderLabel = assignment.teams?.gender === 'male' ? 'Masculino' : assignment.teams?.gender === 'female' ? 'Femenino' : assignment.teams?.gender || ''
+            const genderLabel = assignment.teams?.gender === 'male' ? 'Masculino' :
+                assignment.teams?.gender === 'female' ? 'Femenino' :
+                    assignment.teams?.gender || ''
+
             season.teams.push({
                 team_id: assignment.team_id,
                 team_name: assignment.teams?.custom_name ||
-                    `${assignment.teams?.category || ''} ${genderLabel}`.trim(),
+                    `${assignment.teams?.category_stage || assignment.teams?.category || ''} ${genderLabel}`.trim(),
                 role_in_team: assignment.role_in_team,
                 date_from: assignment.date_from || null,
                 date_to: assignment.date_to || null
@@ -82,28 +68,11 @@ export const coachHistoryService = {
         coachId: string,
         seasonId: string
     ): Promise<CoachTeamSeasonDB[]> => {
-        // First, get the coach's profile_id
-        const { data: coach, error: coachError } = await supabase
-            .from('coaches')
-            .select('profile_id')
-            .eq('id', coachId)
-            .single()
-
-        if (coachError) {
-            console.error('Error fetching coach:', coachError)
-            throw coachError
-        }
-
-        if (!coach?.profile_id) {
-            console.warn('Coach has no profile_id:', coachId)
-            return []
-        }
-
-        // Then get assignments from the correct table
+        // Query directly from coach_team_season using coach_id
         const { data, error } = await supabase
-            .from('coach_team_assignments')
+            .from('coach_team_season')
             .select('*')
-            .eq('user_id', coach.profile_id)
+            .eq('coach_id', coachId)
             .eq('season_id', seasonId)
 
         if (error) {
@@ -111,19 +80,7 @@ export const coachHistoryService = {
             throw error
         }
 
-        // Map to the expected format
-        return (data || []).map(assignment => ({
-            id: assignment.id,
-            coach_id: coachId, // Keep for compatibility
-            team_id: assignment.team_id,
-            season_id: assignment.season_id,
-            role_in_team: assignment.role_in_team || 'other',
-            start_date: null,
-            end_date: null,
-            date_from: null,
-            date_to: null,
-            created_at: assignment.created_at
-        }))
+        return data || []
     },
 
     /**
@@ -157,7 +114,7 @@ export const coachHistoryService = {
         role: 'head' | 'assistant' | 'pf' | 'other'
     ): Promise<CoachTeamSeasonDB> => {
         const { data, error } = await supabase
-            .from('coach_team_assignments')
+            .from('coach_team_season')
             .update({ role_in_team: role })
             .eq('id', assignmentId)
             .select()
@@ -176,7 +133,7 @@ export const coachHistoryService = {
      */
     removeCoachFromTeamSeason: async (assignmentId: string): Promise<void> => {
         const { error } = await supabase
-            .from('coach_team_assignments')
+            .from('coach_team_season')
             .delete()
             .eq('id', assignmentId)
 
@@ -195,7 +152,7 @@ export const coachHistoryService = {
         dateTo: string | null
     ): Promise<CoachTeamSeasonDB> => {
         const { data, error } = await supabase
-            .from('coach_team_assignments')
+            .from('coach_team_season')
             .update({
                 date_from: dateFrom,
                 date_to: dateTo

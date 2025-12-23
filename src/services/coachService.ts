@@ -51,10 +51,10 @@ export const coachService = {
         // Get all approved coaches
         const coaches = await coachService.getCoachesByClub(clubId)
 
-        // Get team assignments for current season from the correct table
+        // Get team assignments for current season from coach_team_season
         const { data: assignments, error: assignmentsError } = await supabase
-            .from('coach_team_assignments')
-            .select('id, user_id, team_id, role_in_team, teams(id, custom_name, category, gender)')
+            .from('coach_team_season')
+            .select('id, coach_id, team_id, role_in_team, teams(id, custom_name, category, gender, category_stage)')
             .eq('season_id', seasonId)
 
         if (assignmentsError) {
@@ -62,18 +62,21 @@ export const coachService = {
             // Continue without assignments
         }
 
-        // Combine data - match by profile_id (user_id in assignments)
+        // Combine data - match by coach.id (coach_id in assignments)
         return coaches.map(coach => ({
             ...coach,
             current_teams: (assignments || [])
-                .filter(a => a.user_id === coach.profile_id)
+                .filter(a => a.coach_id === coach.id)
                 .map(a => {
                     const team = Array.isArray(a.teams) ? a.teams[0] : a.teams
-                    const genderLabel = team?.gender === 'male' ? 'Masculino' : team?.gender === 'female' ? 'Femenino' : team?.gender || ''
+                    const genderLabel = team?.gender === 'male' ? 'Masculino' :
+                        team?.gender === 'female' ? 'Femenino' :
+                            team?.gender || ''
                     return {
                         id: a.id,
                         team_id: a.team_id,
-                        team_name: team?.custom_name || `${team?.category || ''} ${genderLabel}`.trim(),
+                        team_name: team?.custom_name ||
+                            `${team?.category_stage || team?.category || ''} ${genderLabel}`.trim(),
                         role_in_team: a.role_in_team
                     }
                 })
