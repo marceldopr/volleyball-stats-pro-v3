@@ -137,11 +137,8 @@ export function CoachSignupPage() {
                     setTokenInfo({ isValid: false, error: 'TOKEN_EXPIRED' })
                 } else if (result.error === 'TOKEN_MAX_USES') {
                     setTokenInfo({ isValid: false, error: 'TOKEN_MAX_USES' })
-                } else if (result.error === 'PROFILE_EXISTS') {
-                    // This implies auth.signUp succeeded but profile creation failed (duplicate ID?)
-                    // Should be rare
-                    setErrors({ submit: 'Error interno de perfil. Contacta con soporte.' })
                 } else {
+                    // Handle INTERNAL_ERROR, EMAIL_EXISTS, or any other error
                     setErrors({ submit: 'Error al vincular tu cuenta con el club. Contacta con el DT.' })
                 }
             }
