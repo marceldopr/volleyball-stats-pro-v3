@@ -8,10 +8,12 @@ import { Button } from '@/components/ui/Button'
 import { toast } from 'sonner'
 import type { TeamDB } from '@/services/teamService'
 import type { CoachTeamSeasonDB } from '@/types/Coach'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 
 interface AssignTeamModalProps {
     coachId: string
     existingAssignment?: CoachTeamSeasonDB
+    assignedTeamIds?: string[]  // IDs of teams already assigned to this coach
     onClose: () => void
     onSuccess: () => void
 }
@@ -19,6 +21,7 @@ interface AssignTeamModalProps {
 export function AssignTeamModal({
     coachId,
     existingAssignment,
+    assignedTeamIds = [],
     onClose,
     onSuccess
 }: AssignTeamModalProps) {
@@ -30,9 +33,7 @@ export function AssignTeamModal({
 
     const [formData, setFormData] = useState({
         teamId: existingAssignment?.team_id || '',
-        role: existingAssignment?.role_in_team || 'head',
-        startDate: existingAssignment?.start_date ? existingAssignment.start_date.split('T')[0] : '',
-        endDate: existingAssignment?.end_date ? existingAssignment.end_date.split('T')[0] : ''
+        role: existingAssignment?.role_in_team || 'head'
     })
 
     useEffect(() => {
@@ -40,14 +41,25 @@ export function AssignTeamModal({
     }, [])
 
     const loadTeams = async () => {
-        if (!profile?.club_id) return
+        if (!profile?.club_id) {
+            setLoading(false)
+            return
+        }
 
+        setLoading(true)
         try {
             const allTeams = await teamService.getTeamsByClub(profile.club_id)
-            setTeams(allTeams)
+
+            // Filter out already assigned teams (unless editing existing assignment)
+            const availableTeams = existingAssignment
+                ? allTeams
+                : allTeams.filter(t => !assignedTeamIds.includes(t.id))
+
+            setTeams(availableTeams || [])
         } catch (error) {
             console.error('Error loading teams:', error)
             toast.error('Error al cargar equipos')
+            setTeams([])
         } finally {
             setLoading(false)
         }
@@ -76,9 +88,7 @@ export function AssignTeamModal({
                     coach_id: coachId,
                     team_id: formData.teamId,
                     season_id: activeSeasonId,
-                    role_in_team: formData.role as 'head' | 'assistant' | 'pf' | 'other',
-                    start_date: formData.startDate || undefined,
-                    end_date: formData.endDate || undefined
+                    role_in_team: formData.role as 'head' | 'assistant' | 'pf' | 'other'
                 })
                 toast.success('Equipo asignado correctamente')
             }
@@ -86,7 +96,15 @@ export function AssignTeamModal({
             onSuccess()
         } catch (error: any) {
             console.error('Error assigning team:', error)
-            toast.error(error.message || 'Error al asignar equipo')
+
+            // Check for duplicate key constraint violation
+            if (error.code === '23505' ||
+                error.message?.includes('duplicate key') ||
+                error.message?.includes('coach_team_season_coach_id_team_id_season_id_key')) {
+                toast.error('Este entrenador ya está asignado a este equipo en esta temporada')
+            } else {
+                toast.error(error.message || 'Error al asignar equipo')
+            }
         } finally {
             setSubmitting(false)
         }
@@ -123,7 +141,7 @@ export function AssignTeamModal({
                             <option value="">Selecciona un equipo</option>
                             {teams.map((team) => (
                                 <option key={team.id} value={team.id}>
-                                    {team.custom_name || `${team.category} ${team.gender}`}
+                                    {getTeamDisplayName(team)}
                                 </option>
                             ))}
                         </select>
@@ -152,34 +170,7 @@ export function AssignTeamModal({
                         </select>
                     </div>
 
-                    {/* Start Date */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Fecha de Inicio
-                        </label>
-                        <input
-                            type="date"
-                            value={formData.startDate}
-                            onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                            className="input w-full"
-                        />
-                    </div>
 
-                    {/* End Date */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Fecha de Fin
-                        </label>
-                        <input
-                            type="date"
-                            value={formData.endDate}
-                            onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                            className="input w-full"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                            Dejar vacío si la asignación sigue activa
-                        </p>
-                    </div>
 
                     {/* Actions */}
                     <div className="flex gap-3 pt-4">

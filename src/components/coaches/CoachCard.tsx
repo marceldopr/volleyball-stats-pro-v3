@@ -1,4 +1,4 @@
-import { User, Award } from 'lucide-react'
+import { User, Award, Star, Users } from 'lucide-react'
 import { clsx } from 'clsx'
 import type { CoachWithTeams } from '@/types/Coach'
 import { Button } from '@/components/ui/Button'
@@ -104,16 +104,48 @@ export function CoachCard({ coach, onViewProfile, onAssignTeam }: CoachCardProps
                         </div>
                     ) : (
                         <div className="flex flex-wrap justify-center gap-2 mb-4 content-start">
-                            {coach.current_teams.map(team => (
-                                <div
-                                    key={team.id}
-                                    className="flex items-center gap-1.5 bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-800/30 rounded-md px-2 py-1"
-                                >
-                                    <span className="text-xs font-medium text-gray-900 dark:text-gray-100">
-                                        {team.team_name}
-                                    </span>
-                                </div>
-                            ))}
+                            {coach.current_teams.map(team => {
+                                const isHeadCoach = team.role_in_team === 'head'
+                                const roleLabel = isHeadCoach ? '1er Entrenador' :
+                                    team.role_in_team === 'assistant' ? 'Asistente' :
+                                        team.role_in_team === 'pf' ? 'Preparador Físico' : 'Otro'
+
+                                return (
+                                    <div
+                                        key={team.id}
+                                        className={clsx(
+                                            'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 border transition-all',
+                                            isHeadCoach
+                                                ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700/40'
+                                                : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700/40'
+                                        )}
+                                    >
+                                        {isHeadCoach ? (
+                                            <Star className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 fill-amber-600 dark:fill-amber-400" />
+                                        ) : (
+                                            <Users className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                                        )}
+                                        <div className="flex flex-col gap-0.5">
+                                            <span className={clsx(
+                                                'text-xs font-semibold leading-none',
+                                                isHeadCoach
+                                                    ? 'text-amber-900 dark:text-amber-100'
+                                                    : 'text-blue-900 dark:text-blue-100'
+                                            )}>
+                                                {team.team_name}
+                                            </span>
+                                            <span className={clsx(
+                                                'text-[10px] font-medium leading-none',
+                                                isHeadCoach
+                                                    ? 'text-amber-600 dark:text-amber-300'
+                                                    : 'text-blue-600 dark:text-blue-300'
+                                            )}>
+                                                {roleLabel}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )
+                            })}
                         </div>
                     )}
                 </div>

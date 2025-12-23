@@ -19,6 +19,7 @@
  */
 export function getTeamDisplayName(team: {
     category_stage?: string
+    category?: string  // Legacy fallback
     custom_name?: string | null
     gender?: string
     identifier?: {
@@ -47,14 +48,17 @@ export function getTeamDisplayName(team: {
             : team.identifier.name
     }
 
-    // Always include category_stage first
+    // Use category_stage, fallback to category if needed
+    const categoryDisplay = team.category_stage || team.category
+
+    // Always include category first (if available)
     return [
-        team.category_stage,
+        categoryDisplay,
         suffix,
         genderDisplay
     ]
         .filter(Boolean)
-        .join(' ')
+        .join(' ') || 'Sin nombre'  // Fallback if all fields are empty
 }
 
 /**

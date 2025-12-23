@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabaseClient'
 
+// Legacy interface for backward compatibility
 export interface CoachTeamAssignmentDB {
     id: string
     user_id: string
@@ -26,25 +27,20 @@ export interface CoachWithAssignments {
 export const coachAssignmentService = {
     /**
      * Get all coaches with their team assignments for a specific club and season
-     * @param clubId - The club ID
-     * @param seasonId - The season ID
-     * @returns Array of coaches with their assignments
+     * Uses new coach_team_season table
      */
     getCoachesWithAssignments: async (clubId: string, seasonId: string): Promise<CoachWithAssignments[]> => {
         console.log('[getCoachesWithAssignments] Starting query with:', { clubId, seasonId })
 
-        // 1. Get all coaches AND DT from the club
-        // NOTE: Removed 'email' from select as it likely doesn't exist in profiles table and causes 400 error
-        // NOTE: Including both 'coach' and 'dt' roles - DT can also be assigned as coach to teams
+        // 1. Get all coaches from the club
         const { data: coaches, error: coachesError } = await supabase
-            .from('profiles')
-            .select('id, full_name, role, club_id')
+            .from('coaches')
+            .select('id, first_name, last_name, profile_id, email')
             .eq('club_id', clubId)
-            .in('role', ['coach', 'dt'])
+            .eq('status', 'active')
 
         console.log('[getCoachesWithAssignments] Coaches query result:', {
             count: coaches?.length || 0,
-            coaches: coaches?.map(c => ({ id: c.id, name: c.full_name, role: c.role })),
             error: coachesError
         })
 
@@ -63,38 +59,29 @@ export const coachAssignmentService = {
         console.log('[getCoachesWithAssignments] Fetching assignments for coach IDs:', coachIds)
 
         const { data: assignments, error: assignmentsError } = await supabase
-            .from('coach_team_assignments')
-            .select('id, user_id, team_id, season_id')
-            .in('user_id', coachIds)
+            .from('coach_team_season')
+            .select('id, coach_id, team_id, season_id')
+            .in('coach_id', coachIds)
             .eq('season_id', seasonId)
 
         console.log('[getCoachesWithAssignments] Assignments query result:', {
             count: assignments?.length || 0,
-            assignments: assignments?.map(a => ({ id: a.id, user_id: a.user_id, team_id: a.team_id })),
             error: assignmentsError
         })
 
         if (assignmentsError) {
             console.error('[getCoachesWithAssignments] Error fetching assignments:', assignmentsError)
-            // Don't throw - continue with empty assignments
         }
 
-        // 3. Get team data for assignments (separate query to avoid join issues)
+        // 3. Get team data
         let teamsMap: Record<string, { custom_name: string | null; category: string; gender: string }> = {}
         if (assignments && assignments.length > 0) {
             const teamIds = [...new Set(assignments.map(a => a.team_id))]
-            console.log('[getCoachesWithAssignments] Fetching team data for IDs:', teamIds)
 
             const { data: teams, error: teamsError } = await supabase
                 .from('teams')
                 .select('id, custom_name, category, gender')
                 .in('id', teamIds)
-
-            console.log('[getCoachesWithAssignments] Teams query result:', {
-                count: teams?.length || 0,
-                teams: teams?.map(t => ({ id: t.id, custom_name: t.custom_name, category: t.category, gender: t.gender })),
-                error: teamsError
-            })
 
             if (!teamsError && teams) {
                 teamsMap = teams.reduce((acc, team) => {
@@ -106,28 +93,23 @@ export const coachAssignmentService = {
 
         // 4. Combine data
         const result = coaches.map(coach => ({
-            id: coach.id,
-            full_name: coach.full_name,
-            email: '', // Email not available in profiles table
-            role: coach.role || 'coach',
+            id: coach.profile_id || coach.id, // Return profile_id for compatibility with old system
+            full_name: `${coach.first_name} ${coach.last_name}`,
+            email: coach.email || '',
+            role: 'coach',
             assignments: (assignments || [])
-                .filter(a => a.user_id === coach.id)
+                .filter(a => a.coach_id === coach.id)
                 .map(a => {
                     const team = teamsMap[a.team_id]
                     let teamName = 'Equipo desconocido'
 
                     if (team) {
                         if (team.custom_name) {
-                            // If team has explicit name, use it
                             teamName = team.custom_name
                         } else {
-                            // Generate name from category and gender
                             const genderLabel = team.gender === 'male' ? 'Masculino' :
-                                team.gender === 'female' ? 'Femenino' :
-                                    'Mixto'
-                            teamName = team.category
-                                ? `${team.category} ${genderLabel}`
-                                : genderLabel
+                                team.gender === 'female' ? 'Femenino' : 'Mixto'
+                            teamName = team.category ? `${team.category} ${genderLabel}` : genderLabel
                         }
                     }
 
@@ -142,8 +124,7 @@ export const coachAssignmentService = {
 
         console.log('[getCoachesWithAssignments] Final result:', {
             totalCoaches: result.length,
-            coachesWithAssignments: result.filter(c => c.assignments.length > 0).length,
-            coachesWithoutAssignments: result.filter(c => c.assignments.length === 0).length
+            coachesWithAssignments: result.filter(c => c.assignments.length > 0).length
         })
 
         return result
@@ -151,25 +132,33 @@ export const coachAssignmentService = {
 
     /**
      * Get all teams assigned to a specific user (coach)
-     * @param userId - The user's ID
-     * @param seasonId - Optional season ID to filter by
-     * @returns Array of team IDs assigned to the coach
+     * Converts user_id to coach_id internally
      */
     getAssignedTeamsByUser: async (userId: string, seasonId?: string): Promise<string[]> => {
         console.log('[coachAssignmentService] getAssignedTeamsByUser called with:', { userId, seasonId })
 
+        // Find coach by profile_id
+        const { data: coach } = await supabase
+            .from('coaches')
+            .select('id')
+            .eq('profile_id', userId)
+            .single()
+
+        if (!coach) {
+            console.warn('[coachAssignmentService] No coach found for user:', userId)
+            return []
+        }
+
         let query = supabase
-            .from('coach_team_assignments')
+            .from('coach_team_season')
             .select('team_id')
-            .eq('user_id', userId)
+            .eq('coach_id', coach.id)
 
         if (seasonId) {
             query = query.eq('season_id', seasonId)
         }
 
         const { data, error } = await query
-
-        console.log('[coachAssignmentService] Query result:', { data, error, dataLength: data?.length })
 
         if (error) {
             console.error('[coachAssignmentService] Error fetching coach assignments:', error)
@@ -182,28 +171,8 @@ export const coachAssignmentService = {
     },
 
     /**
-     * Get all assignments for a specific user
-     * @param userId - The user's ID
-     * @returns Array of full assignment records
-     */
-    getAssignmentsByUser: async (userId: string): Promise<CoachTeamAssignmentDB[]> => {
-        const { data, error } = await supabase
-            .from('coach_team_assignments')
-            .select('*')
-            .eq('user_id', userId)
-
-        if (error) {
-            console.error('Error fetching coach assignments:', error)
-            throw error
-        }
-
-        return data || []
-    },
-
-    /**
      * Assign a coach to a team
-     * @param params - Assignment parameters
-     * @returns The created assignment record
+     * Converts user_id to coach_id internally
      */
     assignCoachToTeam: async (params: {
         user_id: string
@@ -211,9 +180,55 @@ export const coachAssignmentService = {
         season_id: string
         role_in_team?: string
     }): Promise<CoachTeamAssignmentDB> => {
+        // Find or create coach from user_id
+        const { data: coachData, error: coachError } = await supabase
+            .from('coaches')
+            .select('id, profile_id')
+            .eq('profile_id', params.user_id)
+            .single()
+
+        let coachId: string
+
+        if (coachError || !coachData) {
+            // Coach doesn't exist, create from profile
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('full_name, club_id')
+                .eq('id', params.user_id)
+                .single()
+
+            if (!profile) {
+                throw new Error('Profile not found')
+            }
+
+            const names = profile.full_name.split(' ')
+            const { data: newCoach, error: createError } = await supabase
+                .from('coaches')
+                .insert({
+                    club_id: profile.club_id,
+                    profile_id: params.user_id,
+                    first_name: names[0] || 'Coach',
+                    last_name: names.slice(1).join(' ') || 'Sin Apellido',
+                    status: 'active'
+                })
+                .select()
+                .single()
+
+            if (createError || !newCoach) throw createError || new Error('Failed to create coach')
+            coachId = newCoach.id
+        } else {
+            coachId = coachData.id
+        }
+
+        // Create assignment
         const { data, error } = await supabase
-            .from('coach_team_assignments')
-            .insert(params)
+            .from('coach_team_season')
+            .insert({
+                coach_id: coachId,
+                team_id: params.team_id,
+                season_id: params.season_id,
+                role_in_team: params.role_in_team || 'head'
+            })
             .select()
             .single()
 
@@ -222,16 +237,24 @@ export const coachAssignmentService = {
             throw error
         }
 
-        return data
+        // Return in legacy format for compatibility
+        return {
+            id: data.id,
+            user_id: params.user_id,
+            team_id: data.team_id,
+            season_id: data.season_id,
+            role_in_team: data.role_in_team,
+            created_at: data.created_at,
+            updated_at: data.created_at // coach_team_season doesn't have updated_at
+        }
     },
 
     /**
      * Remove a coach-team assignment
-     * @param id - Assignment ID to delete
      */
     removeCoachAssignment: async (id: string): Promise<void> => {
         const { error } = await supabase
-            .from('coach_team_assignments')
+            .from('coach_team_season')
             .delete()
             .eq('id', id)
 
@@ -257,34 +280,26 @@ export const coachAssignmentService = {
 
     /**
      * Get the primary coach name for a team in a season
-     * @param teamId - The team ID
-     * @param seasonId - The season ID
-     * @returns Coach full name or null if no coach assigned
      */
     getPrimaryCoachForTeam: async (teamId: string, seasonId: string): Promise<string | null> => {
-        // Get assignment for this team
-        const { data: assignments, error: assignmentError } = await supabase
-            .from('coach_team_assignments')
-            .select('user_id')
+        const { data: assignment } = await supabase
+            .from('coach_team_season')
+            .select('coach_id')
             .eq('team_id', teamId)
             .eq('season_id', seasonId)
             .limit(1)
-
-        if (assignmentError || !assignments || assignments.length === 0) {
-            return null
-        }
-
-        // Get coach profile
-        const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', assignments[0].user_id)
             .single()
 
-        if (profileError || !profile) {
-            return null
-        }
+        if (!assignment) return null
 
-        return profile.full_name
+        const { data: coach } = await supabase
+            .from('coaches')
+            .select('first_name, last_name')
+            .eq('id', assignment.coach_id)
+            .single()
+
+        if (!coach) return null
+
+        return `${coach.first_name} ${coach.last_name}`
     }
 }

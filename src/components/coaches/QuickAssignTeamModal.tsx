@@ -5,6 +5,7 @@ import { teamService } from '@/services/teamService'
 import { coachAssignmentService } from '@/services/coachAssignmentService'
 import { toast } from 'sonner'
 import type { TeamDB } from '@/services/teamService'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 
 interface QuickAssignTeamModalProps {
     onClose: () => void
@@ -73,8 +74,10 @@ export function QuickAssignTeamModal({
         } catch (error: any) {
             console.error('Error assigning team:', error)
             // PostgreSQL error code 23505 = unique_violation (duplicate key)
-            if (error.code === '23505' || error.message?.includes('duplicate key')) {
-                toast.error('El entrenador ya está asignado a este equipo en esta temporada')
+            if (error.code === '23505' ||
+                error.message?.includes('duplicate key') ||
+                error.message?.includes('coach_team_season_coach_id_team_id_season_id_key')) {
+                toast.error('Este entrenador ya está asignado a este equipo en esta temporada')
             } else if (error.status === 409 || error.code === '409' || error.message?.includes('already assigned')) {
                 toast.error('El entrenador ya está asignado a este equipo')
             } else {
@@ -116,7 +119,7 @@ export function QuickAssignTeamModal({
                                 <option value="">Seleccionar equipo...</option>
                                 {teams.map(team => (
                                     <option key={team.id} value={team.id}>
-                                        {team.custom_name || `${team.category} ${team.gender === 'male' ? 'Masculino' : team.gender === 'female' ? 'Femenino' : team.gender}`}
+                                        {getTeamDisplayName(team)}
                                     </option>
                                 ))}
                             </select>

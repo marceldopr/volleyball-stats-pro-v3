@@ -12,6 +12,7 @@ Aquest document conté l'estructura completa de la base de dades Supabase del pr
 - **`club_players`** - Jugadores del club (birth_date, positions, height_cm, weight_kg, etc.)
 - **`teams`** - Equips (custom_name, category_stage, gender, identifier_id, etc.)
 - **`player_team_season`** - Relació jugadora-equip per temporada
+- **`player_secondary_assignments`** - Assignacions secundàries de jugadores (dobles fitxes)
 
 ### Matches & Stats
 - **`matches`** - Partits (opponent_name, match_date, status, actions [jsonb], etc.)
@@ -26,16 +27,20 @@ Aquest document conté l'estructura completa de la base de dades Supabase del pr
 ### Training
 - **`trainings`** - Sessions d'entrenament (title, date, notes)
 - **`training_attendance`** - Assistència als entrenaments
+- **`training_schedules`** - Horaris d'entrenament per equip (days, times, spaces)
 
 ### Structure & Organization
 - **`clubs`** - Clubs (name, acronym)
 - **`seasons`** - Temporades (reference_date, is_current)
 - **`club_categories`** - Categories del club (gender, min_age, max_age)
 - **`club_identifiers`** - Identificadors d'equips (A, B, C, etc.)
+- **`spaces`** - Espais/pistes del club (name, type, capacity)
 
 ### User Management
 - **`profiles`** - Usuaris (club_id, full_name, role)
-- **`coach_team_assignments`** - Assignacions entrenador-equip
+- **`coaches`** - Entrenadors (first_name, last_name, profile_id, status, approval_status, approved_at, approved_by_profile_id)
+- **`coach_team_season`** - Assignacions entrenador-equip-temporada (coach_id, team_id, season_id, role_in_team)
+- **`coach_team_assignments`** - ⚠️ DEPRECATED - Usar `coach_team_season` en su lugar
 
 ---
 
@@ -111,6 +116,29 @@ Aquest document conté l'estructura completa de la base de dades Supabase del pr
 | coach_reports | fecha | date | NOT NULL |
 | coach_reports | created_at | timestamp with time zone | NULL |
 | coach_reports | updated_at | timestamp with time zone | NULL |
+| coaches | id | uuid | NOT NULL |
+| coaches | club_id | uuid | NOT NULL |
+| coaches | profile_id | uuid | NULL |
+| coaches | first_name | text | NOT NULL |
+| coaches | last_name | text | NOT NULL |
+| coaches | status | text | NOT NULL |
+| coaches | photo_url | text | NULL |
+| coaches | phone | text | NULL |
+| coaches | email | text | NULL |
+| coaches | notes_internal | text | NULL |
+| coaches | created_at | timestamp with time zone | NOT NULL |
+| coaches | updated_at | timestamp with time zone | NOT NULL |
+| coaches | approval_status | text | NOT NULL |
+| coaches | approved_at | timestamp with time zone | NULL |
+| coaches | approved_by_profile_id | uuid | NULL |
+| coach_team_season | id | uuid | NOT NULL |
+| coach_team_season | coach_id | uuid | NOT NULL |
+| coach_team_season | team_id | uuid | NOT NULL |
+| coach_team_season | season_id | uuid | NOT NULL |
+| coach_team_season | role_in_team | text | NULL |
+| coach_team_season | date_from | date | NULL |
+| coach_team_season | date_to | date | NULL |
+| coach_team_season | created_at | timestamp with time zone | NOT NULL |
 | coach_team_assignments | id | uuid | NOT NULL |
 | coach_team_assignments | user_id | uuid | NOT NULL |
 | coach_team_assignments | team_id | uuid | NOT NULL |
@@ -231,6 +259,18 @@ Aquest document conté l'estructura completa de la base de dades Supabase del pr
 | player_team_season | updated_at | timestamp with time zone | NULL |
 | player_team_season | position | text | NULL |
 | player_team_season | has_injury | boolean | NULL |
+| player_secondary_assignments | id | uuid | NOT NULL |
+| player_secondary_assignments | club_id | uuid | NOT NULL |
+| player_secondary_assignments | season_id | uuid | NOT NULL |
+| player_secondary_assignments | player_id | uuid | NOT NULL |
+| player_secondary_assignments | team_id | uuid | NOT NULL |
+| player_secondary_assignments | jersey_number | text | NULL |
+| player_secondary_assignments | valid_from | date | NULL |
+| player_secondary_assignments | valid_to | date | NULL |
+| player_secondary_assignments | notes | text | NULL |
+| player_secondary_assignments | created_by | uuid | NULL |
+| player_secondary_assignments | created_at | timestamp with time zone | NULL |
+| player_secondary_assignments | updated_at | timestamp with time zone | NULL |
 | player_team_season_evaluations | id | uuid | NOT NULL |
 | player_team_season_evaluations | player_id | uuid | NOT NULL |
 | player_team_season_evaluations | team_id | uuid | NOT NULL |
@@ -272,6 +312,15 @@ Aquest document conté l'estructura completa de la base de dades Supabase del pr
 | seasons | updated_at | timestamp with time zone | NULL |
 | seasons | reference_date | date | NOT NULL |
 | seasons | status | text | NULL |
+| spaces | id | uuid | NOT NULL |
+| spaces | club_id | uuid | NOT NULL |
+| spaces | name | text | NOT NULL |
+| spaces | type | text | NOT NULL |
+| spaces | capacity | integer | NULL |
+| spaces | notes | text | NULL |
+| spaces | is_active | boolean | NULL |
+| spaces | created_at | timestamp with time zone | NULL |
+| spaces | updated_at | timestamp with time zone | NULL |
 | team_season_context | id | uuid | NOT NULL |
 | team_season_context | team_id | uuid | NOT NULL |
 | team_season_context | season_id | uuid | NOT NULL |
@@ -345,6 +394,22 @@ Aquest document conté l'estructura completa de la base de dades Supabase del pr
 | training_phase_evaluation | updated_at | timestamp with time zone | NULL |
 | training_phase_evaluation | dominant_weakness | text | NULL |
 | training_phase_evaluation | trend | text | NULL |
+| training_schedules | id | uuid | NOT NULL |
+| training_schedules | club_id | uuid | NOT NULL |
+| training_schedules | season_id | uuid | NOT NULL |
+| training_schedules | team_id | uuid | NOT NULL |
+| training_schedules | team_name | text | NOT NULL |
+| training_schedules | days | ARRAY | NOT NULL |
+| training_schedules | start_time | text | NOT NULL |
+| training_schedules | end_time | text | NOT NULL |
+| training_schedules | preferred_space | text | NOT NULL |
+| training_schedules | alternative_spaces | ARRAY | NULL |
+| training_schedules | period | text | NOT NULL |
+| training_schedules | custom_start_date | text | NULL |
+| training_schedules | custom_end_date | text | NULL |
+| training_schedules | is_active | boolean | NULL |
+| training_schedules | created_at | timestamp with time zone | NULL |
+| training_schedules | updated_at | timestamp with time zone | NULL |
 | trainings | id | uuid | NOT NULL |
 | trainings | team_id | uuid | NOT NULL |
 | trainings | date | timestamp with time zone | NOT NULL |
@@ -366,7 +431,8 @@ Aquest document conté l'estructura completa de la base de dades Supabase del pr
 
 ### Relacions Principals
 - Jugadores → Equips: `player_team_season`
-- Usuaris → Equips: `coach_team_assignments`
+- Entrenadors → Equips: `coach_team_season` (⚠️ nou sistema, reemplaza `coach_team_assignments`)
+- Usuaris → Entrenadors: `coaches.profile_id` → `profiles.id`
 - Partits → Estadístiques: `match_player_set_stats`
 
 ---

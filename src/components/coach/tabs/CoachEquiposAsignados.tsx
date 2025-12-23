@@ -202,6 +202,7 @@ export function CoachEquiposAsignados({ coachId }: CoachEquiposAsignadosProps) {
                 <AssignTeamModal
                     coachId={coachId}
                     existingAssignment={editingAssignment || undefined}
+                    assignedTeamIds={assignments.map(a => a.team_id)}
                     onClose={() => {
                         setShowAssignModal(false)
                         setEditingAssignment(null)
