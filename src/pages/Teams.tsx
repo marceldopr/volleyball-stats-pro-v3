@@ -18,6 +18,7 @@ import { identifierService, IdentifierDB } from '@/services/identifierService'
 
 interface EnrichedTeam extends TeamDB {
   coach_name?: string | null
+  assistant_coach_name?: string | null
   active_players_count?: number
   attendance_30d?: number | null
   wins?: number
@@ -88,8 +89,9 @@ export function Teams() {
       // Enriched teams with operational data
       const enrichedTeams = await Promise.all(
         teamsData.map(async (team) => {
-          const [coachName, activePlayers, attendance, winLoss] = await Promise.all([
+          const [coachName, assistantName, activePlayers, attendance, winLoss] = await Promise.all([
             coachAssignmentService.getPrimaryCoachForTeam(team.id, seasonId),
+            coachAssignmentService.getAssistantCoachForTeam(team.id, seasonId),
             teamStatsService.getActivePlayersCount(team.id, seasonId),
             teamStatsService.getAttendanceLast30Days(team.id, seasonId),
             teamStatsService.getWinLossRecord(team.id, seasonId)
@@ -98,6 +100,7 @@ export function Teams() {
           return {
             ...team,
             coach_name: coachName,
+            assistant_coach_name: assistantName,
             active_players_count: activePlayers,
             attendance_30d: attendance,
             ...winLoss
@@ -560,6 +563,9 @@ export function Teams() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Entrenador/a
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Asistente
+                      </th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Jugadoras
                       </th>
@@ -592,6 +598,9 @@ export function Teams() {
                         </td>
                         <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-400 dark:text-gray-500">
                           {team.coach_name || <span className="text-gray-400 dark:text-gray-600 italic">Sin asignar</span>}
+                        </td>
+                        <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-600">
+                          {team.assistant_coach_name || <span className="text-gray-600 dark:text-gray-700 italic">-</span>}
                         </td>
                         <td className="px-6 py-2.5 whitespace-nowrap text-center text-sm text-gray-400 dark:text-gray-500">
                           {team.active_players_count || 0}

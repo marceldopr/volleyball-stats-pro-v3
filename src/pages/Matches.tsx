@@ -221,15 +221,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
     setMatchToDelete(null)
   }
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'planned': return 'Próximo'
-      case 'in_progress': return 'En Vivo'
-      case 'finished': return 'Finalizado'
-      case 'completed': return 'Finalizado'
-      default: return 'Desconocido'
-    }
-  }
+
 
   const handleOpenConvocationManager = (match: any) => {
     if (match.status !== 'planned') {
@@ -563,28 +555,9 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                   })() : <div></div>}
 
                   {/* Badges */}
+                  {/* Badges removed as requested */}
                   <div className="flex items-center gap-2 flex-wrap justify-end">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold border ${match.engine === 'v2'
-                      ? 'bg-purple-500/10 border-purple-500/30 text-purple-400'
-                      : 'bg-gray-500/10 border-gray-500/30 text-gray-400'
-                      }`}>
-                      {match.engine === 'v2' ? 'V2' : 'V1'}
-                    </span>
-
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border ${match.home_away === 'home'
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                      : 'bg-blue-500/10 border-blue-500/30 text-blue-400'
-                      }`}>
-                      {match.home_away === 'home' ? 'LOCAL' : 'VISITANTE'}
-                    </span>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border ${match.status === 'planned'
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                      : match.status === 'in_progress'
-                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-                        : 'bg-slate-700/50 border-slate-600 text-gray-300'
-                      }`}>
-                      {getStatusText(match.status)}
-                    </span>
+                    {/* Tags removed */}
                   </div>
                 </div>
               </div>

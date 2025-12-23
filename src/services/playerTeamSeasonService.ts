@@ -116,26 +116,58 @@ export const playerTeamSeasonService = {
             if (item.valid_from && item.valid_from > today) return false
             if (item.valid_to && item.valid_to < today) return false
             return true
-        }).map((item: any) => ({
-            id: item.id,
-            player_id: item.player_id,
-            team_id: item.team_id,
-            season_id: item.season_id,
-            jersey_number: item.jersey_number,
-            role: null,
-            position: null,
-            expected_category: null,
-            current_category: null,
-            status: 'active',
-            has_injury: false,
-            notes: item.notes,
-            created_at: item.created_at,
-            updated_at: item.updated_at,
-            assignment_type: 'secondary' as const,
-            secondary_id: item.id
-        }))
+        })
 
-        const allRoster = [...primaries, ...validSecondaries]
+        // For secondary assignments, fetch their primary team's category
+        const secondaryPlayerIds = validSecondaries.map(s => s.player_id)
+        let primaryTeamsMap = new Map<string, any>()
+
+        if (secondaryPlayerIds.length > 0) {
+            const { data: primaryTeams } = await supabase
+                .from('player_team_season')
+                .select('player_id, team_id, jersey_number, teams(category_stage, category)')
+                .eq('season_id', seasonId)
+                .in('player_id', secondaryPlayerIds)
+                .eq('status', 'active')
+                .neq('team_id', teamId) // Exclude current team
+
+            if (primaryTeams) {
+                primaryTeams.forEach((pt: any) => {
+                    primaryTeamsMap.set(pt.player_id, {
+                        teams: pt.teams,
+                        jersey_number: pt.jersey_number
+                    })
+                })
+            }
+        }
+
+        const mappedSecondaries = validSecondaries.map((item: any) => {
+            const primaryInfo = primaryTeamsMap.get(item.player_id)
+            const originCategory = primaryInfo?.teams?.category_stage || primaryInfo?.teams?.category || null
+            // Use jersey number from secondary assignment, fallback to primary team's number
+            const jerseyNumber = item.jersey_number || primaryInfo?.jersey_number || null
+
+            return {
+                id: item.id,
+                player_id: item.player_id,
+                team_id: item.team_id,
+                season_id: item.season_id,
+                jersey_number: jerseyNumber,
+                role: null,
+                position: null,
+                expected_category: null,
+                current_category: originCategory, // Store origin category here
+                status: 'active',
+                has_injury: false,
+                notes: item.notes,
+                created_at: item.created_at,
+                updated_at: item.updated_at,
+                assignment_type: 'secondary' as const,
+                secondary_id: item.id
+            }
+        })
+
+        const allRoster = [...primaries, ...mappedSecondaries]
         if (allRoster.length === 0) return []
 
         const playerIds = allRoster.map(item => item.player_id)

@@ -287,6 +287,33 @@ export const coachAssignmentService = {
             .select('coach_id')
             .eq('team_id', teamId)
             .eq('season_id', seasonId)
+            .eq('role_in_team', 'head') // Only get head coach, not assistants
+            .limit(1)
+            .single()
+
+        if (!assignment) return null
+
+        const { data: coach } = await supabase
+            .from('coaches')
+            .select('first_name, last_name')
+            .eq('id', assignment.coach_id)
+            .single()
+
+        if (!coach) return null
+
+        return `${coach.first_name} ${coach.last_name}`
+    },
+
+    /**
+     * Get the assistant coach name for a team in a season
+     */
+    getAssistantCoachForTeam: async (teamId: string, seasonId: string): Promise<string | null> => {
+        const { data: assignment } = await supabase
+            .from('coach_team_season')
+            .select('coach_id')
+            .eq('team_id', teamId)
+            .eq('season_id', seasonId)
+            .eq('role_in_team', 'assistant') // Only get assistant coach
             .limit(1)
             .single()
 
