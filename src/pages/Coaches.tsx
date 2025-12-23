@@ -6,11 +6,12 @@ import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 import { useCoachStore } from '@/stores/coachStore'
 import { useSeasonStore } from '@/stores/seasonStore'
 import { coachService } from '@/services/coachService'
-import type { CoachDB } from '@/types/Coach'
+import type { CoachDB, CoachWithTeams } from '@/types/Coach'
 import { Button } from '@/components/ui/Button'
 import { CoachCard } from '@/components/coaches/CoachCard'
 import { PendingCoachCard } from '@/components/coaches/PendingCoachCard'
 import { GenerateSignupLinkModal } from '@/components/coaches/GenerateSignupLinkModal'
+import { QuickAssignTeamModal } from '@/components/coaches/QuickAssignTeamModal'
 import { toast } from 'sonner'
 
 export function Coaches() {
@@ -21,6 +22,7 @@ export function Coaches() {
     const { activeSeasonId } = useSeasonStore()
     const [showSignupLinkModal, setShowSignupLinkModal] = useState(false)
     const [pendingCoaches, setPendingCoaches] = useState<CoachDB[]>([])
+    const [assigningCoach, setAssigningCoach] = useState<CoachWithTeams | null>(null)
 
     // Access control
     useEffect(() => {
@@ -133,12 +135,13 @@ export function Coaches() {
                     ) : (
                         <div>
                             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Entrenadores Activos</h2>
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                                 {coachesWithTeams.map(coach => (
                                     <CoachCard
                                         key={coach.id}
                                         coach={coach}
                                         onViewProfile={() => handleViewCoach(coach.id)}
+                                        onAssignTeam={() => setAssigningCoach(coach)}
                                     />
                                 ))}
                             </div>
@@ -147,14 +150,32 @@ export function Coaches() {
                 </>
             )}
 
-
-
             {/* Generate Signup Link Modal */}
-            {showSignupLinkModal && (
-                <GenerateSignupLinkModal
-                    onClose={() => setShowSignupLinkModal(false)}
-                />
-            )}
-        </div>
+            {
+                showSignupLinkModal && (
+                    <GenerateSignupLinkModal
+                        onClose={() => setShowSignupLinkModal(false)}
+                    />
+                )
+            }
+
+            {/* Quick Assign Team Modal */}
+            {
+                assigningCoach && profile?.club_id && activeSeasonId && (
+                    <QuickAssignTeamModal
+                        onClose={() => setAssigningCoach(null)}
+                        onSuccess={async () => {
+                            await loadCoachesWithTeams(profile.club_id, activeSeasonId)
+                            setAssigningCoach(null)
+                        }}
+                        coachId={assigningCoach.profile_id || assigningCoach.id}
+                        coachName={`${assigningCoach.first_name} ${assigningCoach.last_name}`}
+                        clubId={profile.club_id}
+                        seasonId={activeSeasonId}
+                        assignedTeamIds={assigningCoach.current_teams.map(t => t.team_id)}
+                    />
+                )
+            }
+        </div >
     )
 }

@@ -44,20 +44,17 @@ export const coachService = {
         return data
     },
 
-    /**
-     * Get coaches with their current team assignments
-     */
     getCoachesWithCurrentTeams: async (
         clubId: string,
         seasonId: string
     ): Promise<CoachWithTeams[]> => {
-        // Get all coaches
+        // Get all approved coaches
         const coaches = await coachService.getCoachesByClub(clubId)
 
-        // Get team assignments for current season
+        // Get team assignments for current season from the correct table
         const { data: assignments, error: assignmentsError } = await supabase
-            .from('coach_team_season')
-            .select('id, coach_id, team_id, role_in_team, teams(id, custom_name, category, gender)')
+            .from('coach_team_assignments')
+            .select('id, user_id, team_id, role_in_team, teams(id, custom_name, category, gender)')
             .eq('season_id', seasonId)
 
         if (assignmentsError) {
@@ -65,17 +62,18 @@ export const coachService = {
             // Continue without assignments
         }
 
-        // Combine data
+        // Combine data - match by profile_id (user_id in assignments)
         return coaches.map(coach => ({
             ...coach,
             current_teams: (assignments || [])
-                .filter(a => a.coach_id === coach.id)
+                .filter(a => a.user_id === coach.profile_id)
                 .map(a => {
                     const team = Array.isArray(a.teams) ? a.teams[0] : a.teams
+                    const genderLabel = team?.gender === 'male' ? 'Masculino' : team?.gender === 'female' ? 'Femenino' : team?.gender || ''
                     return {
                         id: a.id,
                         team_id: a.team_id,
-                        team_name: team?.custom_name || `${team?.category || ''} ${team?.gender || ''}`.trim(),
+                        team_name: team?.custom_name || `${team?.category || ''} ${genderLabel}`.trim(),
                         role_in_team: a.role_in_team
                     }
                 })
