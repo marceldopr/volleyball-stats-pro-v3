@@ -77,7 +77,6 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        console.log('🔄 Page visible, refreshing matches...')
         setRefreshKey(prev => prev + 1)
       }
     }

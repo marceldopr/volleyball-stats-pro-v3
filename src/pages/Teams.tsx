@@ -73,7 +73,6 @@ export function Teams() {
   const loadTeams = async (clubId: string, seasonId: string) => {
     try {
       setLoading(true)
-      console.log('[Teams Debug] Loading teams for club:', clubId, 'season:', seasonId)
 
       let teamsData: TeamDB[] = []
 
@@ -108,7 +107,6 @@ export function Teams() {
         })
       )
 
-      console.log('[Teams Debug] Teams loaded:', enrichedTeams)
       return enrichedTeams
     } catch (error) {
       console.error('Error loading teams:', error)
@@ -281,14 +279,6 @@ export function Teams() {
 
 
 
-  console.log('[Teams Debug] Before filtering:', {
-    isCoach,
-    assignedTeamIds,
-    assignedTeamIdsType: typeof assignedTeamIds,
-    assignedTeamIdsIsArray: Array.isArray(assignedTeamIds),
-    teamsCount: teams.length
-  })
-
   const filteredTeams = teams.filter(team => {
     const matchesSearch = (team.custom_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       team.category_stage.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -299,19 +289,10 @@ export function Teams() {
 
     // Filter by role
     if (isCoach && !assignedTeamIds.includes(team.id)) {
-      console.log('[Teams Debug] Filtering out team:', team.custom_name, 'ID:', team.id, 'not in', assignedTeamIds)
       return false
     }
 
     return matchesSearch && matchesSeason
-  })
-
-  console.log('[Teams Debug] Filtering:', {
-    totalTeams: teams.length,
-    assignedIds: assignedTeamIds,
-    isCoach,
-    filteredCount: filteredTeams.length,
-    teamsInList: teams.map(t => ({ id: t.id, custom_name: t.custom_name }))
   })
 
   if (loading) {

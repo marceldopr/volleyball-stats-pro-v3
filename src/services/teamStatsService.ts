@@ -899,7 +899,6 @@ export const teamStatsService = {
                 throw statsError
             }
             if (!statsData || statsData.length === 0) {
-                console.log('[TeamStats] No stats data found')
                 return []
             }
 
@@ -944,14 +943,6 @@ export const teamStatsService = {
                     number: parseInt(jerseyMap.get(p.id) || '0'),
                     position: p.main_position || '?'
                 })
-            })
-
-            console.log('[TeamStats] Query results:', {
-                matchCount: matches.length,
-                matchIds: matchIds,
-                statsRecords: statsData.length,
-                playersFound: playersData?.length || 0,
-                sampleStats: statsData.slice(0, 3)
             })
 
             const playerStatsMap = new Map<string, PlayerAggregatedStats>()

@@ -100,7 +100,6 @@ export function useMatchModalsManager({
                 status: derivedState.isMatchFinished ? 'finished' : 'in_progress',
                 result: detailedResult
             })
-            console.log('✅ Match state saved (intermediate)')
         } catch (error) {
             console.error('❌ Error saving intermediate match state:', error)
         }

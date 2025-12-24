@@ -99,9 +99,7 @@ export function SettingsPage() {
       if (season) {
         const teamsData = await teamService.getTeamsByClubAndSeason(profile.club_id, season.id)
         setTeamsForSchedules(teamsData)
-        console.log('Teams loaded for schedules:', teamsData.length)
       } else {
-        console.log('No active season found')
         setTeamsForSchedules([])
       }
     } catch (error) {
@@ -588,8 +586,6 @@ export function SettingsPage() {
         const filteredSchedules = currentSeasonId
           ? schedules.filter(s => s.seasonId === currentSeasonId)
           : schedules
-
-        console.log('Render Horarios:', { teamsCount: teamsForSchedules.length, schedulesCount: filteredSchedules.length, selectedSeasonId, loadingTeams })
 
         // Merge teams with their schedules (for this season)
         const teamRows = teamsForSchedules.map(team => {

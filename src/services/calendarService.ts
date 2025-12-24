@@ -152,13 +152,6 @@ function filterDuplicates(events: CalendarEvent[]): CalendarEvent[] {
     const schedules = events.filter(e => e.type === 'schedule')
     const others = events.filter(e => e.type !== 'training' && e.type !== 'schedule')
 
-    // DEBUG: Log input counts
-    const inputCounts = {
-        match: events.filter(e => e.type === 'match').length,
-        training: trainings.length,
-        schedule: schedules.length
-    }
-
     // Filter schedules that have a training on the same team + day
     const dedupedSchedules = schedules.filter(schedule => {
         const scheduleDate = parseISO(schedule.startAt)
@@ -176,17 +169,6 @@ function filterDuplicates(events: CalendarEvent[]): CalendarEvent[] {
     })
 
     const result = [...others, ...trainings, ...dedupedSchedules]
-
-    // DEBUG: Log dedup results
-    console.log('[Calendar Service - Dedup]', {
-        inputCountsByType: inputCounts,
-        outputCountsByType: {
-            match: others.filter(e => e.type === 'match').length,
-            training: trainings.length,
-            schedule: dedupedSchedules.length
-        },
-        removedSchedules: schedules.length - dedupedSchedules.length
-    })
 
     return result
 }
@@ -301,12 +283,6 @@ export const calendarService = {
 
         const teamIds = Array.from(teamsMap.keys())
 
-        // DEBUG: Log teams found
-        console.log('[Calendar Service - Teams]', {
-            teamIdsCount: teamIds.length,
-            teamIdsSample: teamIds.slice(0, 3)
-        })
-
         if (teamIds.length === 0) return []
 
         // Fetch seasonal data in parallel with error handling
@@ -345,16 +321,6 @@ export const calendarService = {
         const trainings = trainingsResult.data || []
         const schedules = schedulesResult.data || []
 
-        // DEBUG: Log schedules fetch
-        console.log('[Calendar Service - Schedules]', {
-            seasonId,
-            teamIdsCount: teamIds.length,
-            schedulesCount: schedules.length,
-            sampleSchedule: schedules[0],
-            matchesCount: matches.length,
-            trainingsCount: trainings.length
-        })
-
         // Transform to events
         const matchEvents = (matches || []).map(m =>
             matchToEvent(m, teamsMap.get(m.team_id) || 'Equipo')
@@ -365,17 +331,6 @@ export const calendarService = {
         )
 
         const scheduleEvents = expandSchedulesToEvents(schedules || [], startDate, endDate, teamsMap)
-
-        // DEBUG: Log expansion results
-        console.log('[Calendar Service - Expansion]', {
-            schedulesCount: schedules?.length || 0,
-            expandedCount: scheduleEvents.length,
-            sampleEvent: scheduleEvents[0],
-            dateRange: {
-                start: startDate.toISOString(),
-                end: endDate.toISOString()
-            }
-        })
 
         // Combine and deduplicate
         const allEvents = [...matchEvents, ...trainingEvents, ...scheduleEvents]

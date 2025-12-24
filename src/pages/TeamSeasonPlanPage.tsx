@@ -236,19 +236,8 @@ export function TeamSeasonPlanPage() {
     }
 
     // Calculate permissions after role data is loaded
-    const canViewPlan = isDT || (isCoach && teamId && assignedTeamIds.includes(teamId))
     const canEditContent = isDT || (isCoach && teamId && assignedTeamIds.includes(teamId))
     const canEvaluate = isDT // Only DT can evaluate phases
-
-    console.log('[TeamSeasonPlanPage] Render permissions:', {
-        canViewPlan,
-        canEditContent,
-        canEvaluate,
-        isDT,
-        isCoach,
-        assignedTeamIds,
-        teamId
-    })
 
     return (
         <div className="min-h-screen bg-gray-900">

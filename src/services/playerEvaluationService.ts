@@ -156,12 +156,10 @@ export const playerEvaluationService = {
         }
 
         if (!teams || teams.length === 0) {
-            console.log('[playerEvaluationService] No teams found for club:', clubId)
             return []
         }
 
         const teamIds = teams.map(t => t.id)
-        console.log('[playerEvaluationService] Found teams:', teamIds.length)
 
         // Get evaluations for these teams
         const { data, error } = await supabase
@@ -176,17 +174,12 @@ export const playerEvaluationService = {
         }
 
         if (!data || data.length === 0) {
-            console.log('[playerEvaluationService] No evaluations found')
             return []
         }
-
-        console.log('[playerEvaluationService] Found evaluations:', data.length)
 
         // Get unique player, team, and season IDs
         const playerIds = [...new Set(data.map(e => e.player_id))]
         const seasonIds = [...new Set(data.map(e => e.season_id))]
-
-        console.log('[playerEvaluationService] Fetching data for:', { players: playerIds.length, teams: teamIds.length, seasons: seasonIds.length })
 
         // Fetch players
         const { data: players, error: playersError } = await supabase
@@ -218,18 +211,6 @@ export const playerEvaluationService = {
             console.error('[playerEvaluationService] Error fetching seasons:', seasonsError)
         }
 
-        console.log('[playerEvaluationService] Fetched related data:', {
-            players: players?.length || 0,
-            teams: teamsData?.length || 0,
-            seasons: seasons?.length || 0
-        })
-
-        console.log('[playerEvaluationService] Sample data:', {
-            player: players?.[0],
-            team: teamsData?.[0],
-            season: seasons?.[0]
-        })
-
         // Create lookup maps
         const playerMap = new Map(players?.map(p => [p.id, p]) || [])
         const teamMap = new Map(teamsData?.map(t => [t.id, t]) || [])
@@ -248,8 +229,6 @@ export const playerEvaluationService = {
                 season
             }
         })
-
-        console.log('[playerEvaluationService] Sample enriched evaluation:', enriched[0])
 
         return enriched
     },

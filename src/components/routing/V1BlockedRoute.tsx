@@ -15,21 +15,17 @@ export function V1BlockedRoute() {
         // Intelligent redirect based on route pattern
         if (currentPath === '/matches/new') {
             // Legacy "New Match" → Modern "Create Match"
-            console.log('🔀 Redirecting: /matches/new → /matches/create')
             navigate('/matches/create', { replace: true })
         } else if (params.id && currentPath.includes('/matches/') && currentPath.includes('/live')) {
             // Legacy "/matches/:id/live" → Modern "/live-match/:id"
             const matchId = params.id
-            console.log(`🔀 Redirecting: /matches/${matchId}/live → /live-match/${matchId}`)
             navigate(`/live-match/${matchId}`, { replace: true })
         } else if (params.id) {
             // Generic "/matches/:id" → assume they want live match
             const matchId = params.id
-            console.log(`🔀 Redirecting: /matches/${matchId} → /live-match/${matchId}`)
             navigate(`/live-match/${matchId}`, { replace: true })
         } else {
             // Fallback: go to matches list
-            console.log('🔀 Redirecting: Unknown legacy route → /matches')
             navigate('/matches', { replace: true })
         }
     }, [navigate, params])

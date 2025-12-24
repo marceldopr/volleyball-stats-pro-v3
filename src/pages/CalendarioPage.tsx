@@ -44,7 +44,6 @@ export function CalendarioPage() {
                 .then(({ data }) => {
                     if (data) {
                         setCoachTeamId(data.team_id)
-                        console.log('[Calendar] Coach team loaded:', data.team_id)
                     }
                 })
         }
@@ -62,7 +61,6 @@ export function CalendarioPage() {
                 .then(({ data }) => {
                     if (data) {
                         setSpaces(data)
-                        console.log('[Calendar] Spaces loaded:', data.length)
                     }
                 })
         }
@@ -71,7 +69,6 @@ export function CalendarioPage() {
     // Load seasons if not loaded (critical for direct navigation or refresh)
     useEffect(() => {
         if (profile?.club_id && seasons.length === 0) {
-            console.log('[Calendar] Loading seasons for club:', profile.club_id)
             loadSeasons(profile.club_id)
         }
     }, [profile?.club_id, seasons.length, loadSeasons])
@@ -79,16 +76,6 @@ export function CalendarioPage() {
     // Get selectable seasons (active + drafts)
     const selectableSeasons = seasons.filter(s => s.status === 'active' || s.status === 'draft')
     const currentSeasonId = selectedSeasonId || activeSeasonId
-
-    // DEBUG: Log season info
-    console.log('[Calendar Debug - Season]', {
-        activeSeasonId,
-        selectedSeasonId,
-        currentSeasonId,
-        hasProfile: !!profile,
-        clubId: profile?.club_id,
-        isDT
-    })
 
     // Use unified calendar events
     const { events, loadEvents } = useCalendarEvents({
@@ -117,14 +104,6 @@ export function CalendarioPage() {
         const end = viewMode === 'month'
             ? endOfWeek(endOfMonth(currentDate), { weekStartsOn: 1 })
             : endOfWeek(currentDate, { weekStartsOn: 1 })
-
-        console.log('[Calendar] Loading events', {
-            viewMode,
-            currentDate: format(currentDate, 'yyyy-MM-dd'),
-            start: format(start, 'yyyy-MM-dd'),
-            end: format(end, 'yyyy-MM-dd'),
-            seasonId: currentSeasonId
-        })
 
         loadEvents(start, end)
     }, [currentDate, viewMode, loadEvents, profile?.club_id, currentSeasonId])

@@ -92,8 +92,6 @@ export const teamService = {
         // Exclude any virtual fields that might have been passed
         const { identifier, player_team_season, ...insertData } = team as any
 
-        console.log('[teamService] Creating team with data:', insertData)
-
         const { data, error } = await supabase
             .from('teams')
             .insert(insertData)

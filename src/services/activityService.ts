@@ -29,9 +29,6 @@ async function getRecentEvaluations(clubId: string, limit: number): Promise<Acti
         `)
         .eq('club_id', clubId)
 
-    console.log('[Evaluations] Teams data:', clubTeams)
-    console.log('[Evaluations] First team identifier:', clubTeams?.[0]?.identifier)
-
     if (teamsError || !clubTeams) {
         console.error('[Evaluations] Teams error:', teamsError)
         return []

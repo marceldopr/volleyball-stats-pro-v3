@@ -110,8 +110,7 @@ export const playerService = {
             .eq('player_id', id)
 
         if (scoresError) {
-            // Ignore if table doesn't exist or other error, just log
-            console.log('Error deleting evaluation scores (might not exist):', scoresError)
+            // Ignore if table doesn't exist or other error
         }
 
         // 6. Delete player evaluations (Flux B) - inferred table name
@@ -122,7 +121,6 @@ export const playerService = {
 
         if (evalError) {
             // Ignore if table doesn't exist
-            console.log('Error deleting evaluations (might not exist):', evalError)
         }
 
         // finally delete player

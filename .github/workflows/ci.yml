@@ -58,8 +58,8 @@ jobs:
         run: npm run test:e2e
         timeout-minutes: 10
         env:
-          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
-          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+          E2E_TEST_EMAIL: test@test.com
+          E2E_TEST_PASSWORD: Test1234!
       
       - name: Upload test results
         uses: actions/upload-artifact@v3

@@ -53,8 +53,7 @@ export function Exports() {
     }
   ]
 
-  const handleExport = (format: string) => {
-    console.log(`Exportando en formato: ${format}`)
+  const handleExport = (_format: string) => {
     // Aquí iría la lógica de exportación real
   }
 

@@ -41,7 +41,6 @@ import { MobileTabNav, TabView } from '@/components/match/MobileTabNav'
 
 export function LiveMatchScouting() {
     const { matchId } = useParams<{ matchId: string }>()
-    console.log('[[LiveMatchScouting MOUNTED]]', { matchId }) // Debug log
     const navigate = useNavigate()
 
     // ... (rest of store selectors)
@@ -133,18 +132,6 @@ export function LiveMatchScouting() {
     }
 
     // DEV-ONLY: Performance timing for event processing
-    if (import.meta.env.DEV) {
-        const lastEventType = events[events.length - 1]?.type
-        if (lastEventType && events.length > 0) {
-            // Log compactly on every new event (throttled by events.length dependency)
-            const perfMark = `[DEV] event=${lastEventType} set=${derivedState.currentSet} events=${events.length}`
-            // Note: Actual derived state timing would require measuring in the store,
-            // but we can at least log the event flow
-            if (events.length % 5 === 0 || lastEventType === 'SET_END' || lastEventType === 'SET_START') {
-                console.log(perfMark)
-            }
-        }
-    }
 
     const handleGoToMatches = () => {
         navigate('/matches')
