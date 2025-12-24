@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { InjuryIcon } from '@/components/ui/InjuryIcon'
 import { Plus, Search, X, Loader2, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
@@ -175,7 +176,7 @@ export function Players() {
             player.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             player.last_name.toLowerCase().includes(searchTerm.toLowerCase())
 
-        const matchesPosition = positionFilter === 'all' || player.main_position === positionFilter
+        const matchesPosition = positionFilter === 'all' || (player as any).display_position === positionFilter
         const matchesActive = activeFilter === 'all' || (activeFilter === 'active' ? player.is_active : !player.is_active)
 
         return matchesSearch && matchesPosition && matchesActive
@@ -319,22 +320,17 @@ export function Players() {
                                                     <div className="text-sm font-medium text-gray-900 dark:text-white">
                                                         {player.first_name} {player.last_name}
                                                     </div>
-                                                    {player.has_injury && (
-                                                        <span
-                                                            className="text-orange-500"
-                                                            title="Lesión activa"
-                                                        >
-                                                            🩹
-                                                        </span>
+                                                    {(player as any).display_status === 'lesionada' && (
+                                                        <InjuryIcon className="w-4 h-4" />
                                                     )}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-2.5 whitespace-nowrap">
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${player.main_position === 'L'
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${(player as any).display_position === 'L'
                                                     ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                                                     : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
                                                     }`}>
-                                                    {POSITION_NAMES[player.main_position as keyof typeof POSITION_NAMES] || player.main_position}
+                                                    {POSITION_NAMES[(player as any).display_position as keyof typeof POSITION_NAMES] || '-'}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-2.5 whitespace-nowrap">
@@ -347,11 +343,13 @@ export function Players() {
                                                 )}
                                             </td>
                                             <td className="px-6 py-2.5 whitespace-nowrap text-center">
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${player.is_active
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${(player as any).display_status === 'active'
                                                     ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                                    : (player as any).display_status === 'lesionada'
+                                                        ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                                                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                                                     }`}>
-                                                    {player.is_active ? 'Activa' : 'Inactiva'}
+                                                    {(player as any).display_status === 'lesionada' ? 'Lesionada' : (player as any).display_status === 'active' ? 'Activa' : 'Inactiva'}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-2.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">

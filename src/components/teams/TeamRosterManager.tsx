@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Trash2, X, Search, UserPlus, Eye, AlertTriangle, Filter, Users } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
+import { InjuryIcon } from '@/components/ui/InjuryIcon'
 import { TeamDB } from '@/services/teamService'
 import { SeasonDB } from '@/services/seasonService'
 import { playerService, PlayerDB } from '@/services/playerService'
@@ -580,7 +581,7 @@ export function TeamRosterManager({ team, season, onClose }: TeamRosterManagerPr
                                                     </span>
                                                 )}
                                                 {item.status === 'lesionada' && (
-                                                    <span className="text-red-400 text-sm font-bold" title="Lesionada">✖</span>
+                                                    <InjuryIcon className="w-4 h-4" />
                                                 )}
                                             </div>
                                         </td>

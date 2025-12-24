@@ -36,7 +36,6 @@ import { SaludDisponibilidadPage } from './pages/SaludDisponibilidadPage'
 import { NextSeasonPage } from './pages/NextSeasonPage'
 import { CoachSignupPage } from './pages/CoachSignupPage'
 import { V1BlockedRoute } from '@/components/routing/V1BlockedRoute'
-import { useAuthStore } from './stores/authStore'
 
 
 function App() {

@@ -132,7 +132,7 @@ export const playerService = {
         if (error) throw error
     },
 
-    getPlayersWithTeam: async (clubId: string, seasonId: string | null): Promise<(PlayerDB & { team?: { id: string, name: string, category: string, gender: string } })[]> => {
+    getPlayersWithTeam: async (clubId: string, seasonId: string | null): Promise<(PlayerDB & { team?: { id: string, name: string, category: string, gender: string }, display_position?: string, display_status?: string })[]> => {
         // 1. Get all players
         const { data: players, error: playersError } = await supabase
             .from('club_players')
@@ -143,15 +143,22 @@ export const playerService = {
         if (playersError) throw playersError
 
         if (!seasonId || players.length === 0) {
-            return players
+            // No season context - use global position/status as display values
+            return players.map(p => ({
+                ...p,
+                display_position: p.main_position,
+                display_status: p.is_active ? 'active' : 'inactive'
+            }))
         }
 
         try {
-            // 2. Get assignments for the active season
+            // 2. Get assignments for the active season (includes position and status per team)
             const { data: assignments, error: assignmentsError } = await supabase
                 .from('player_team_season')
                 .select(`
                     player_id,
+                    position,
+                    status,
                     teams (
                         id,
                         custom_name,
@@ -163,7 +170,12 @@ export const playerService = {
 
             if (assignmentsError) {
                 console.error('Error fetching team assignments:', assignmentsError)
-                return players // Return players without team info if this fails
+                // Fallback: return players with global position/status
+                return players.map(p => ({
+                    ...p,
+                    display_position: p.main_position,
+                    display_status: p.is_active ? 'active' : 'inactive'
+                }))
             }
 
             // 3. Map assignments to players
@@ -175,19 +187,35 @@ export const playerService = {
                     const displayName = team.custom_name || `${team.category} ${team.gender === 'female' ? 'Femenino' : team.gender === 'male' ? 'Masculino' : 'Mixto'}`
 
                     assignmentMap.set(a.player_id, {
-                        ...team,
-                        name: displayName
+                        team: {
+                            ...team,
+                            name: displayName
+                        },
+                        position: a.position, // Position from player_team_season
+                        status: a.status // Status from player_team_season
                     })
                 }
             })
 
-            return players.map(p => ({
-                ...p,
-                team: assignmentMap.get(p.id)
-            }))
+            return players.map(p => {
+                const assignment = assignmentMap.get(p.id)
+                return {
+                    ...p,
+                    team: assignment?.team,
+                    // Priority: player_team_season.position > club_players.main_position
+                    display_position: assignment?.position || p.main_position,
+                    // Priority: player_team_season.status > club_players.is_active
+                    display_status: assignment?.status || (p.is_active ? 'active' : 'inactive')
+                }
+            })
         } catch (error) {
             console.error('Unexpected error fetching assignments:', error)
-            return players // Fallback: return players even if assignments fail
+            // Fallback: return players with global position/status
+            return players.map(p => ({
+                ...p,
+                display_position: p.main_position,
+                display_status: p.is_active ? 'active' : 'inactive'
+            }))
         }
     }
 }
