@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { NavigateFunction } from 'react-router-dom'
+import { NavigateFunction, Blocker } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useMatchStore, DerivedMatchState, MatchEvent } from '@/stores/matchStore'
 import { matchService } from '@/services/matchService'
@@ -17,6 +17,10 @@ export interface UseMatchModalsManagerV2Args {
     startersModal: any
     substitutionModal: any
     receptionModal: any
+    // Navigation blocker
+    blocker?: Blocker
+    allowNavigationRef?: React.MutableRefObject<boolean>
+    isConfirmingExitRef?: React.MutableRefObject<boolean>
 }
 
 // Interface for the return value
@@ -59,7 +63,10 @@ export function useMatchModalsManager({
     closeSetSummaryModal,
     startersModal,
     substitutionModal,
-    receptionModal
+    receptionModal,
+    blocker,
+    allowNavigationRef,
+    isConfirmingExitRef
 }: UseMatchModalsManagerV2Args) {
 
     // --- Local State for Modals that don't have their own hooks ---
@@ -167,8 +174,6 @@ export function useMatchModalsManager({
     const handleSaveAndExit = async () => {
         if (!matchId) return
 
-        setExitModalOpen(false)
-
         try {
             // Save current match state
             const setsWon = `${derivedState.setsWonHome}-${derivedState.setsWonAway}`
@@ -188,7 +193,44 @@ export function useMatchModalsManager({
             })
 
             toast.success('Partido guardado')
-            navigate('/matches')
+
+            // Close modal AFTER saving
+            // Close modal AFTER saving
+            setExitModalOpen(false)
+
+            // If blocker is active, use proceed() to continue blocked navigation
+            console.log(`[Exit] Confirming exit. Blocker state: ${blocker?.state}`)
+
+            if (blocker && blocker.state === "blocked") {
+                console.log('[Exit] Using blocker.proceed() to continue navigation')
+                if (allowNavigationRef) {
+                    allowNavigationRef.current = true
+                }
+                if (isConfirmingExitRef) {
+                    isConfirmingExitRef.current = true
+                }
+                blocker.proceed()
+
+                // Reset flag after navigation
+                setTimeout(() => {
+                    if (allowNavigationRef) {
+                        allowNavigationRef.current = false
+                    }
+                    if (isConfirmingExitRef) {
+                        isConfirmingExitRef.current = false
+                    }
+                }, 100)
+            } else {
+                // Fallback for when there's no active blocker
+                console.log('[Exit] No active blocker, using navigate() manually')
+                if (allowNavigationRef) {
+                    allowNavigationRef.current = true
+                }
+                if (isConfirmingExitRef) {
+                    isConfirmingExitRef.current = true
+                }
+                navigate('/matches')
+            }
         } catch (error) {
             console.error('Error saving match:', error)
             toast.error('Error al guardar')
@@ -197,8 +239,42 @@ export function useMatchModalsManager({
     }
 
     const handleExitWithoutSaving = () => {
+        // Close modal first
         setExitModalOpen(false)
-        navigate('/matches')
+
+        // If blocker is active, use proceed() to continue blocked navigation
+        console.log(`[Exit] Confirming exit without saving. Blocker state: ${blocker?.state}`)
+
+        if (blocker && blocker.state === "blocked") {
+            console.log('[Exit] Using blocker.proceed() without saving')
+            if (allowNavigationRef) {
+                allowNavigationRef.current = true
+            }
+            if (isConfirmingExitRef) {
+                isConfirmingExitRef.current = true
+            }
+            blocker.proceed()
+
+            // Reset flag after navigation
+            setTimeout(() => {
+                if (allowNavigationRef) {
+                    allowNavigationRef.current = false
+                }
+                if (isConfirmingExitRef) {
+                    isConfirmingExitRef.current = false
+                }
+            }, 100)
+        } else {
+            // Fallback for when there's no active blocker
+            console.log('[Exit] No active blocker, using navigate() manually')
+            if (allowNavigationRef) {
+                allowNavigationRef.current = true
+            }
+            if (isConfirmingExitRef) {
+                isConfirmingExitRef.current = true
+            }
+            navigate('/matches')
+        }
     }
 
     // --- Handlers: Starters Navigation ---
@@ -257,8 +333,23 @@ export function useMatchModalsManager({
         handlers: {
             openRotation: () => setShowRotationModal(true),
             closeRotation: () => setShowRotationModal(false),
-            openExit: () => setExitModalOpen(true),
-            closeExit: () => setExitModalOpen(false),
+            openExit: () => {
+                console.log('[Modal] Opening exit modal')
+                // Reset confirming flag when user initiates new exit
+                if (isConfirmingExitRef) {
+                    isConfirmingExitRef.current = false
+                }
+                setExitModalOpen(true)
+            },
+            closeExit: () => {
+                console.log('[Modal] Closing exit modal (Cancel)')
+                setExitModalOpen(false)
+                // If blocker is active and user cancels, reset it
+                if (blocker && blocker.state === "blocked") {
+                    console.log('[Modal] User cancelled, resetting blocker')
+                    blocker.reset()
+                }
+            },
             handleSaveAndExit,
             handleExitWithoutSaving,
             closeMatchFinished: () => setIsMatchFinishedModalOpen(false),

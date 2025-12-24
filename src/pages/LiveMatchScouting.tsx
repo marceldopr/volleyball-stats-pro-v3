@@ -1,5 +1,6 @@
-﻿import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+﻿import { useState, useEffect } from 'react'
+import * as React from 'react'
+import { useParams, useNavigate, useBlocker } from 'react-router-dom'
 import { clsx } from 'clsx'
 import { useMatchStore, validateFIVBSubstitution } from '@/stores/matchStore'
 import { toast } from 'sonner'
@@ -43,6 +44,12 @@ export function LiveMatchScouting() {
     const { matchId } = useParams<{ matchId: string }>()
     const navigate = useNavigate()
 
+    // Navigation control: Allow programmatic navigation after user confirms exit
+    const allowNavigationRef = React.useRef(false)
+
+    // Track when user is confirming exit (vs new navigation attempt)
+    const isConfirmingExitRef = React.useRef(false)
+
     // ... (rest of store selectors)
     // Store Selectors (Granular for performance and stability)
     const derivedState = useMatchStore(state => state.derivedState)
@@ -79,6 +86,22 @@ export function LiveMatchScouting() {
         addEvent
     })
 
+    // Navigation Blocker: Define blocker BEFORE using it in hooks
+    // Block navigation if match is in progress AND user hasn't confirmed exit
+    // Navigation Blocker: Define blocker BEFORE using it in hooks
+    // Block navigation if match is in progress AND user hasn't confirmed exit
+
+    const blocker = useBlocker(
+        ({ currentLocation, nextLocation }) => {
+            // Dynamic check inside callback to avoid stale closure issues
+            // MUST read allowNavigationRef.current here, not use a render-time const
+            const isMatchActive = !derivedState.isMatchFinished && events.length > 0
+            const shouldBlock = isMatchActive && !allowNavigationRef.current && !isConfirmingExitRef.current
+
+            return shouldBlock && currentLocation.pathname !== nextLocation.pathname
+        }
+    )
+
     // Custom Hooks - Modals Manager
     const { modals, handlers } = useMatchModalsManager({
         matchId,
@@ -89,7 +112,10 @@ export function LiveMatchScouting() {
         closeSetSummaryModal,
         startersModal,
         substitutionModal,
-        receptionModal
+        receptionModal,
+        blocker,
+        allowNavigationRef,
+        isConfirmingExitRef
     })
 
     // Custom Hooks - Timeouts
@@ -131,14 +157,25 @@ export function LiveMatchScouting() {
         }
     }
 
+    // Blocker Effect: Show exit modal when navigation is blocked (NOT during render!)
+    // Guard: Only open if modal is NOT already open
+    useEffect(() => {
+        if (blocker.state === "blocked" && !modals.exitModalOpen && !isConfirmingExitRef.current) {
+            console.log('[Blocker] Navigation blocked, opening exit modal')
+            handlers.openExit()
+        }
+    }, [blocker.state, modals.exitModalOpen]) // ✅ Removed 'handlers' to prevent re-triggers
+
     // DEV-ONLY: Performance timing for event processing
 
     const handleGoToMatches = () => {
+        // Just navigate and let the blocker intercept naturally if needed
         navigate('/matches')
     }
 
     const handleGoToAnalysis = () => {
         if (!matchData) return
+        // Just navigate and let the blocker intercept naturally if needed
         navigate(`/match-analysis/${matchData.id}`)
     }
 
