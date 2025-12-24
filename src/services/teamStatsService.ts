@@ -110,36 +110,38 @@ export const teamStatsService = {
     /**
      * Get comprehensive home page summary for a team
      */
-    async getTeamHomeSummary(teamId: string): Promise<TeamHomeSummary> {
-        // Try to get current season, with fallbacks
-        let seasonId = ''
+    async getTeamHomeSummary(teamId: string, seasonId?: string): Promise<TeamHomeSummary> {
+        // Use provided seasonId or try to get current season
+        let resolvedSeasonId = seasonId || ''
 
-        // Strategy 1: Try to get season marked as current
-        const { data: currentSeason } = await supabase
-            .from('seasons')
-            .select('id, name')
-            .eq('is_current', true)
-            .single()
-
-        if (currentSeason) {
-            seasonId = currentSeason.id
-        } else {
-            // Strategy 2: Get most recent season (by name descending, assuming format like "2025/2026")
-            const { data: recentSeason } = await supabase
+        if (!resolvedSeasonId) {
+            // Strategy 1: Try to get season marked as current
+            const { data: currentSeason } = await supabase
                 .from('seasons')
                 .select('id, name')
-                .order('name', { ascending: false })
-                .limit(1)
+                .eq('is_current', true)
                 .single()
 
-            if (recentSeason) {
-                seasonId = recentSeason.id
+            if (currentSeason) {
+                resolvedSeasonId = currentSeason.id
+            } else {
+                // Strategy 2: Get most recent season (by name descending, assuming format like "2025/2026")
+                const { data: recentSeason } = await supabase
+                    .from('seasons')
+                    .select('id, name')
+                    .order('name', { ascending: false })
+                    .limit(1)
+                    .single()
+
+                if (recentSeason) {
+                    resolvedSeasonId = recentSeason.id
+                }
             }
         }
 
         const [attendance, rosterCount, lastActivityDays, nextEvent, recentActivity, alerts] = await Promise.all([
             this.getTeamAttendance(teamId, 30),
-            this.getRosterCount(teamId, seasonId),
+            this.getRosterCount(teamId, resolvedSeasonId),
             this.getLastActivityDays(teamId),
             this.getNextEvent(teamId),
             this.getRecentActivity(teamId),

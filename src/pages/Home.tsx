@@ -9,6 +9,7 @@ import {
     Building2,
     Plus,
 } from 'lucide-react';
+import { useCurrentSeason } from '@/providers/SeasonCacheProvider';
 import { useAuthStore } from '@/stores/authStore';
 import { useRoleScope } from '@/hooks/useRoleScope';
 import { teamService, TeamDB } from '@/services/teamService';
@@ -28,6 +29,7 @@ export function Home() {
     const navigate = useNavigate()
     const { profile } = useAuthStore()
     const { isDT, isCoach, assignedTeamIds, loading: roleLoading } = useRoleScope()
+    const { currentSeason } = useCurrentSeason() // Use cached season
 
     const [teams, setTeams] = useState<TeamDB[]>([])
     const [activeTab, setActiveTab] = useState<HomeTab | null>(null); // Start as null, will be set based on role
@@ -73,7 +75,7 @@ export function Home() {
         }
 
         loadTeams()
-    }, [profile?.club_id, isDT, isCoach, assignedTeamIds, roleLoading, activeTab]) // Added activeTab to dependencies to re-evaluate initial tab setting
+    }, [profile?.club_id, isDT, isCoach, assignedTeamIds, roleLoading]) // Removed activeTab to prevent loop
 
     // Load team summary when activeTab is a team ID
     useEffect(() => {
@@ -85,7 +87,8 @@ export function Home() {
 
             try {
                 setLoadingSummary(true)
-                const data = await teamStatsService.getTeamHomeSummary(activeTab)
+                // Pass cached seasonId to avoid redundant query
+                const data = await teamStatsService.getTeamHomeSummary(activeTab, currentSeason?.id)
                 setSummary(data)
             } catch (error) {
                 console.error('Error loading team summary:', error)
@@ -95,7 +98,7 @@ export function Home() {
         }
 
         loadTeamSummary()
-    }, [activeTab])
+    }, [activeTab, currentSeason])
 
 
 

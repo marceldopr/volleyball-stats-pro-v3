@@ -130,18 +130,58 @@ export const clubStatsService = {
             const teamIds = teams.map(t => t.id)
             const totalTeams = teams.length
 
-            // 2. Attendance Global (30 days)
-            let attendanceGlobal = null
+            // OPTIMIZATION: Execute ALL queries in parallel
             const startDate30 = new Date()
             startDate30.setDate(startDate30.getDate() - 30)
+            const startDate7 = new Date()
+            startDate7.setDate(startDate7.getDate() - 7)
+            const now = new Date()
 
-            // Get trainings in last 30 days
-            const { data: trainingsLast30 } = await supabase
-                .from('trainings')
-                .select('id')
-                .in('team_id', teamIds)
-                .gte('date', startDate30.toISOString())
-                .lte('date', new Date().toISOString())
+            const [
+                trainingsLast30Result,
+                trainingsLast7Result,
+                imbalancedTeams,
+                allTrainingsWithAttendanceResult
+            ] = await Promise.all([
+                // Query 1: Trainings last 30 days (for attendance)
+                supabase
+                    .from('trainings')
+                    .select('id')
+                    .in('team_id', teamIds)
+                    .gte('date', startDate30.toISOString())
+                    .lte('date', now.toISOString()),
+
+                // Query 2: Trainings last 7 days (for unregistered)
+                supabase
+                    .from('trainings')
+                    .select('id, team_id, date, end_time')
+                    .in('team_id', teamIds)
+                    .gte('date', startDate7.toISOString())
+                    .lte('date', now.toISOString()),
+
+                // Query 3: Player counts per team (for imbalanced)
+                Promise.all(
+                    teamIds.map(async (teamId) => {
+                        const { count } = await supabase
+                            .from('players')
+                            .select('id', { count: 'exact', head: true })
+                            .eq('team_id', teamId)
+
+                        return { teamId, count: count || 0 }
+                    })
+                ),
+
+                // Query 4: All trainings with attendance (for inactive teams)
+                supabase
+                    .from('trainings')
+                    .select('team_id, date, training_attendance!inner(id)')
+                    .in('team_id', teamIds)
+                    .order('date', { ascending: false })
+            ])
+
+            // Process attendance (30 days)
+            let attendanceGlobal = null
+            const trainingsLast30 = trainingsLast30Result.data
 
             if (trainingsLast30 && trainingsLast30.length > 0) {
                 const tIds = trainingsLast30.map(t => t.id)
@@ -156,23 +196,11 @@ export const clubStatsService = {
                 }
             }
 
-            // 3. Unregistered Trainings (Last 7 days, end_time < now)
-            // Note: We need trainings that happened but have NO attendance records
-            const startDate7 = new Date()
-            startDate7.setDate(startDate7.getDate() - 7)
-            const now = new Date()
-
-            const { data: trainingsLast7 } = await supabase
-                .from('trainings')
-                .select('id, team_id, date, end_time') // Assuming end_time exists or we infer from date
-                .in('team_id', teamIds)
-                .gte('date', startDate7.toISOString())
-                .lte('date', now.toISOString())
-
+            // Process unregistered trainings (7 days)
             let unregisteredTrainingsCount = 0
+            const trainingsLast7 = trainingsLast7Result.data
 
             if (trainingsLast7 && trainingsLast7.length > 0) {
-                // Check which ones have attendance
                 const trainingIds7 = trainingsLast7.map(t => t.id)
                 const { data: attExists } = await supabase
                     .from('training_attendance')
@@ -181,8 +209,6 @@ export const clubStatsService = {
 
                 const trainingsWithAttendance = new Set(attExists?.map(a => a.training_id))
 
-                // Filter: Past trainings (already ended) without attendance
-                // Simplified: If date < now (ignoring time for now to include today's earlier trainings)
                 trainingsLast7.forEach(t => {
                     const tDate = new Date(t.date)
                     if (tDate < now && !trainingsWithAttendance.has(t.id)) {
@@ -191,42 +217,11 @@ export const clubStatsService = {
                 })
             }
 
-            // 4. Imbalanced Teams (< 9 players) - RED ONLY
-            // We need player count per team.
-            // Assuming table 'players' has 'team_id'
-            const { data: players } = await supabase
-                .from('players')
-                .select('team_id')
-                .in('team_id', teamIds)
+            // Process imbalanced teams
+            const imbalancedTeamsCount = imbalancedTeams.filter(t => t.count < 9).length
 
-            const teamPlayerCounts = new Map<string, number>()
-            players?.forEach(p => {
-                if (p.team_id) {
-                    teamPlayerCounts.set(p.team_id, (teamPlayerCounts.get(p.team_id) || 0) + 1)
-                }
-            })
-
-            let imbalancedTeamsCount = 0 // < 9 players
-            teamIds.forEach(id => {
-                const count = teamPlayerCounts.get(id) || 0
-                if (count < 9) {
-                    imbalancedTeamsCount++
-                }
-            })
-
-            // 5. Inactive Teams (No activity in last 7 days)
-            // Activity = Confirming attendance.
-            // We check the DATE of the latest training with attendance for each team.
-            // If latest training with attendance is > 7 days ago, team is inactive.
-
-            // Get latest training with attendance for each team
-            // We can fetch all trainings with attendance and group by team
-            const { data: allTrainingsWithAttendance } = await supabase
-                .from('trainings')
-                .select('team_id, date, training_attendance!inner(id)') // Inner join ensures attendance exists
-                .in('team_id', teamIds)
-                .order('date', { ascending: false })
-
+            // Process inactive teams
+            const allTrainingsWithAttendance = allTrainingsWithAttendanceResult.data
             const teamLatestActivity = new Map<string, Date>()
 
             allTrainingsWithAttendance?.forEach(t => {
@@ -313,7 +308,7 @@ export const clubStatsService = {
                 }
             })
 
-            // 1. Get all player assignments (roster size)
+            // 1. Get all player assignments (roster size) - ALREADY OPTIMIZED
             const { data: teamPlayers } = await supabase
                 .from('player_team_season')
                 .select('team_id')

@@ -28,6 +28,7 @@ import { ClubDashboardPage } from '@/pages/ClubDashboardPage'
 import { StatsPage } from '@/pages/StatsPage'
 import { ProtectedRoute } from '@/components/routing/ProtectedRoute'
 import { useThemeStore } from '@/stores/themeStore'
+import { SeasonCacheProvider } from './providers/SeasonCacheProvider'
 import { Toaster } from 'sonner'
 import { RoleGuard } from '@/components/routing/RoleGuard'
 import { Home } from './pages/Home'
@@ -228,9 +229,11 @@ function App() {
   )
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'dark' : ''}`}>
-      <RouterProvider router={router} />
-      <Toaster />
+    <div className={isDarkMode ? 'dark' : ''}>
+      <SeasonCacheProvider>
+        <RouterProvider router={router} />
+        <Toaster position="top-right" richColors />
+      </SeasonCacheProvider>
     </div>
   )
 }
