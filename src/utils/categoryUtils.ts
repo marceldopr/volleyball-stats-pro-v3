@@ -188,20 +188,6 @@ export function compareCategories(a: CategoryStage | string, b: CategoryStage | 
     return getCategoryIndex(a) - getCategoryIndex(b)
 }
 
-/**
- * Check if a category is below another (younger)
- */
-export function isCategoryBelow(category: CategoryStage | string, reference: CategoryStage | string): boolean {
-    return getCategoryIndex(category) < getCategoryIndex(reference)
-}
-
-/**
- * Check if a category is above another (older)
- */
-export function isCategoryAbove(category: CategoryStage | string, reference: CategoryStage | string): boolean {
-    return getCategoryIndex(category) > getCategoryIndex(reference)
-}
-
 // ============================================================================
 // DB-BASED CATEGORY FUNCTIONS
 // These use categories from club_categories table (source of truth)

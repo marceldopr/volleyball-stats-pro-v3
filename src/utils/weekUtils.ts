@@ -18,22 +18,16 @@ export function getISOWeek(date: Date): number {
     return 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
 }
 
-/**
- * Get ISO week year for a given date
- * The ISO year can differ from calendar year for dates near year boundaries
- */
-export function getISOWeekYear(date: Date): number {
-    const d = new Date(date.getTime())
-    d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7)
-    return d.getFullYear()
-}
 
 /**
  * Format date as ISO week string (YYYY-W##)
  * Example: "2024-W35"
  */
 export function getWeekId(date: Date): string {
-    const year = getISOWeekYear(date)
+    // Calculate ISO week year inline
+    const d = new Date(date.getTime())
+    d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7)
+    const year = d.getFullYear()
     const week = getISOWeek(date)
     return `${year}-W${week.toString().padStart(2, '0')}`
 }
@@ -72,17 +66,3 @@ export function isWeekInRange(weekId: string, startWeekId: string | null, endWee
     return weekNum >= startNum && weekNum <= endNum
 }
 
-/**
- * Validate that end week is not before start week
- */
-export function isValidWeekRange(startWeekId: string, endWeekId: string): boolean {
-    const start = parseWeekId(startWeekId)
-    const end = parseWeekId(endWeekId)
-
-    if (!start || !end) return false
-
-    const startNum = start.year * 100 + start.week
-    const endNum = end.year * 100 + end.week
-
-    return endNum >= startNum
-}
