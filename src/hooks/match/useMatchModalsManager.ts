@@ -94,10 +94,22 @@ export function useMatchModalsManager({
                 .join(', ')
             const detailedResult = `Sets: ${setsWon} (${setScores})`
 
-            // Save to Supabase with current status
+            // VALIDATION: Only mark as 'finished' if there are actual SET_END events
+            // This prevents matches from being incorrectly marked as finished without game data
+            const hasSetEndEvents = events.some(e => e.type === 'SET_END')
+            const shouldBeFinished = derivedState.isMatchFinished && hasSetEndEvents
+
+            if (derivedState.isMatchFinished && !hasSetEndEvents) {
+                console.warn(
+                    `⚠️ Match ${matchId} appears finished but has no SET_END events. ` +
+                    `Keeping status as 'in_progress' to prevent data corruption.`
+                )
+            }
+
+            // Save to Supabase with validated status
             await matchService.updateMatch(matchId, {
                 actions: events,
-                status: derivedState.isMatchFinished ? 'finished' : 'in_progress',
+                status: shouldBeFinished ? 'finished' : 'in_progress',
                 result: detailedResult
             })
         } catch (error) {
@@ -165,9 +177,13 @@ export function useMatchModalsManager({
                 .join(', ')
             const detailedResult = `Sets: ${setsWon} (${setScores})`
 
+            // VALIDATION: Only mark as 'finished' if there are actual SET_END events
+            const hasSetEndEvents = events.some(e => e.type === 'SET_END')
+            const shouldBeFinished = derivedState.isMatchFinished && hasSetEndEvents
+
             await matchService.updateMatch(matchId, {
                 actions: events,
-                status: derivedState.isMatchFinished ? 'finished' : 'in_progress',
+                status: shouldBeFinished ? 'finished' : 'in_progress',
                 result: detailedResult
             })
 
