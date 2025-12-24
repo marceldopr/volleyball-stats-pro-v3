@@ -251,7 +251,7 @@ export function ConvocationModal({ matchId, onClose, onSave }: { matchId: string
 
     return (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
-            <div className="w-full max-w-4xl max-h-[90vh] bg-zinc-950 border border-zinc-800 rounded-xl flex flex-col overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div data-testid="convocation-modal" className="w-full max-w-4xl max-h-[90vh] bg-zinc-950 border border-zinc-800 rounded-xl flex flex-col overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
 
                 {/* Header */}
                 <div className="border-b border-zinc-800 p-4 flex items-center justify-between text-white bg-zinc-900/50">
@@ -271,6 +271,8 @@ export function ConvocationModal({ matchId, onClose, onSave }: { matchId: string
                     {processedPlayers.map((p) => (
                         <div
                             key={p.id}
+                            data-testid="convocation-player-card"
+                            data-player-id={p.player_id}
                             className={`
                                 group flex items-center gap-3 p-2 rounded-lg border transition-all text-sm
                                 ${p.errorType === 'critical' ? 'bg-red-500/10 border-red-500/30 hover:border-red-500/50' :
@@ -384,6 +386,7 @@ export function ConvocationModal({ matchId, onClose, onSave }: { matchId: string
                         disabled={saving || totalErrors > 0}
                         className="flex-1"
                         icon={Save}
+                        data-testid="save-convocation-btn"
                     >
                         {saving ? 'Guardando...' : 'Guardar Convocatoria'}
                     </Button>

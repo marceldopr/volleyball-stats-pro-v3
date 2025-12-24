@@ -185,7 +185,7 @@ export function MatchAnalysis() {
                 </section>
 
                 {/* Block 3: Team Action Statistics */}
-                <section className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+                <section data-testid="executive-summary" className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
                     <h2 className="text-lg font-bold text-white mb-4">Estadísticas por Tipo de Acción</h2>
 
                     <div className="overflow-x-auto">
@@ -256,7 +256,7 @@ export function MatchAnalysis() {
                             Rendimiento por Jugadora
                         </h2>
 
-                        <div className="overflow-x-auto">
+                        <div data-testid="player-stats" className="overflow-x-auto">
                             <table className="w-full">
                                 <thead>
                                     <tr className="border-b border-zinc-800">

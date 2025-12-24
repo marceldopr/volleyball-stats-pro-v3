@@ -67,6 +67,7 @@ function TimelineRow({ entry, isLast }: TimelineRowProps) {
 
     return (
         <div
+            data-testid="timeline-entry"
             className={`
                 px-4 py-2.5 
                 border-l-2 ${borderColor}

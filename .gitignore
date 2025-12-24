@@ -17,6 +17,15 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .DS_Store
+
+# Playwright E2E
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/.auth/
+/tests/e2e/videos/
+/tests/e2e/screenshots/
+
 *.suo
 *.ntvs*
 *.njsproj

@@ -213,6 +213,7 @@ export function MatchWizard() {
                                 value={formData.opponentName}
                                 onChange={(e) => setFormData({ ...formData, opponentName: e.target.value })}
                                 placeholder="Nombre del equipo rival"
+                                data-testid="opponent-name-input"
                                 className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 required
                             />
@@ -242,6 +243,7 @@ export function MatchWizard() {
                                     type="date"
                                     value={formData.matchDate}
                                     onChange={(e) => setFormData({ ...formData, matchDate: e.target.value })}
+                                    data-testid="match-date-input"
                                     className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     required
                                 />
@@ -305,6 +307,7 @@ export function MatchWizard() {
                                 variant="danger"
                                 size="md"
                                 disabled={saving}
+                                data-testid="wizard-save-btn"
                             >
                                 {saving ? 'Creando...' : 'Crear Partido'}
                             </Button>

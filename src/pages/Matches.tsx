@@ -240,6 +240,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
           size="md"
           icon={Plus}
           onClick={() => navigate('/matches/create')}
+          data-testid="create-match-btn"
         >
           Nuevo Partido
         </Button>
@@ -312,6 +313,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
             {orderedMatches.map((match) => (
               <div
                 key={match.id}
+                data-testid="match-card"
                 className="bg-slate-900 border border-slate-800 rounded-xl px-5 py-4 flex flex-col gap-2 hover:border-slate-700 transition-colors"
               >
                 {/* ROW 1: Teams + Result + Buttons */}
@@ -375,6 +377,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                             size="sm"
                             icon={Users}
                             onClick={() => setConvocationModalMatchId(match.id)}
+                            data-testid="convocation-btn"
                           >
                             Convocatoria
                           </Button>
@@ -397,6 +400,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                                 alert('Error al iniciar el partido')
                               }
                             }}
+                            data-testid="start-match-btn"
                           >
                             Iniciar Partido
                           </Button>
@@ -412,6 +416,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                             icon={Play}
                             onClick={() => navigate(`/live-match/${match.id}`)}
                             className="animate-pulse"
+                            data-testid="view-live-btn"
                           >
                             Ver en Vivo
                           </Button>
@@ -428,6 +433,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                             onClick={() => {
                               navigate(`/match-analysis/${match.id}`)
                             }}
+                            data-testid="view-analysis-btn"
                           >
                             Ver Análisis
                           </Button>

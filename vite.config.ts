@@ -4,6 +4,9 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    'import.meta.env.VITE_E2E_BYPASS_AUTH': JSON.stringify(process.env.VITE_E2E_BYPASS_AUTH || 'false'),
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

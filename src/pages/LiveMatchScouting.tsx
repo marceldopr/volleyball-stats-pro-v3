@@ -489,7 +489,7 @@ export function LiveMatchScouting() {
 
                 {/* Desktop Timeline Content (Expands Below via BottomAction Toggle) */}
                 {showTimeline && (
-                    <div className="hidden lg:block border-t border-zinc-800">
+                    <div data-testid="timeline" className="hidden lg:block border-t border-zinc-800">
                         <MatchTimeline
                             events={formatTimeline(events, derivedState.ourSide, homeTeamName, awayTeamName)}
                             className=""
