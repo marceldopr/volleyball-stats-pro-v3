@@ -200,7 +200,7 @@ export const matchService = {
         try {
             const { data, error } = await supabase
                 .from('match_convocations')
-                .select('*, club_players!inner(*)')
+                .select('*, jersey_number_override, position_override, club_players!inner(*)')
                 .eq('match_id', matchId)
 
             if (error) throw error
@@ -211,9 +211,6 @@ export const matchService = {
         }
     },
 
-    /**
-     * Guardar convocatòria (reemplaça l'existent)
-     */
     /**
      * Guardar convocatòria (Atomic Diff via RPC)
      * Preserva overrides de jugadoras que se mantienen convocadas.
@@ -230,6 +227,24 @@ export const matchService = {
             if (error) throw error
         } catch (error) {
             console.error('Error saving convocation V2 (RPC):', error)
+            throw error
+        }
+    },
+
+    /**
+     * Update specific overrides for a convocation (Direct Update)
+     */
+    async updateConvocationOverride(matchId: string, playerId: string, updates: { jersey_number_override?: string | null, position_override?: string | null }): Promise<void> {
+        try {
+            const { error } = await supabase
+                .from('match_convocations')
+                .update(updates)
+                .eq('match_id', matchId)
+                .eq('player_id', playerId)
+
+            if (error) throw error
+        } catch (error) {
+            console.error('Error updating convocation override:', error)
             throw error
         }
     },

@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Check, Play, Save } from 'lucide-react'
+import { X, Check, Play, Save, AlertTriangle, User, Hash } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { matchService, MatchV2DB } from '@/services/matchService'
 import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
@@ -11,26 +11,28 @@ function getPlayerDisplayName(player: any): string {
     return `${player.first_name} ${player.last_name}`
 }
 
-interface ConvocationModalProps {
-    matchId: string
-    onClose: () => void
-    onSave?: () => void
-}
-
-export function ConvocationModal({ matchId, onClose, onSave }: ConvocationModalProps) {
+export function ConvocationModal({ matchId, onClose, onSave }: { matchId: string, onClose: () => void, onSave?: () => void }) {
     const navigate = useNavigate()
 
     const [loading, setLoading] = useState(true)
     const [match, setMatch] = useState<MatchV2DB | null>(null)
     const [availablePlayers, setAvailablePlayers] = useState<any[]>([])
     const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set())
+
+    // Store overrides locally: { [playerId]: { jersey?: string, position?: string } }
+    const [overrides, setOverrides] = useState<Record<string, { jersey?: string, position?: string }>>({})
+
     const [saving, setSaving] = useState(false)
+
+    // Editing states
+    const [editingJersey, setEditingJersey] = useState<string | null>(null) // playerId
+    const [editingPosition, setEditingPosition] = useState<string | null>(null) // playerId
+    const [tempValue, setTempValue] = useState('')
 
     useEffect(() => {
         const loadData = async () => {
             try {
                 setLoading(true)
-                // 1. Load Match
                 const matchData = await matchService.getMatch(matchId)
                 if (!matchData) {
                     toast.error('Partido no encontrado')
@@ -39,18 +41,31 @@ export function ConvocationModal({ matchId, onClose, onSave }: ConvocationModalP
                 }
                 setMatch(matchData)
 
-                // 2. Load Roster
                 const roster = await playerTeamSeasonService.getActiveRosterByTeamAndSeason(matchData.team_id, matchData.season_id)
                 setAvailablePlayers(roster)
 
-                // 3. Load Existing Convocations
                 const existingConvocations = await matchService.getConvocations(matchId)
+
+                // Initialize selection and overrides from DB
+                const initialSelected = new Set<string>()
+                const initialOverrides: Record<string, { jersey?: string, position?: string }> = {}
+
                 if (existingConvocations.length > 0) {
-                    setSelectedPlayerIds(new Set(existingConvocations.map(c => c.player_id)))
+                    existingConvocations.forEach(c => {
+                        initialSelected.add(c.player_id)
+                        if (c.jersey_number_override || c.position_override) {
+                            initialOverrides[c.player_id] = {
+                                jersey: c.jersey_number_override,
+                                position: c.position_override
+                            }
+                        }
+                    })
+                    setSelectedPlayerIds(initialSelected)
                 } else {
-                    // Pre-select ALL for convenience
+                    // Pre-select ALL if new
                     setSelectedPlayerIds(new Set(roster.map(p => p.player_id)))
                 }
+                setOverrides(initialOverrides)
 
             } catch (error) {
                 console.error('Error loading convocation data:', error)
@@ -59,9 +74,74 @@ export function ConvocationModal({ matchId, onClose, onSave }: ConvocationModalP
                 setLoading(false)
             }
         }
-
         loadData()
     }, [matchId, onClose])
+
+    // Derived State: Process players with effective values and errors
+    const processedPlayers = useMemo(() => {
+        const jerseyCounts: Record<string, number> = {}
+
+        // 1. Calculate effective values for SELECTED players only (for duplication check)
+        availablePlayers.forEach(p => {
+            if (!selectedPlayerIds.has(p.player_id)) return
+
+            const ovr = overrides[p.player_id]
+            const jersey = ovr?.jersey ?? p.jersey_number ?? ''
+            if (jersey) {
+                jerseyCounts[jersey] = (jerseyCounts[jersey] || 0) + 1
+            }
+        })
+
+        // 2. Map players
+        return availablePlayers.map(p => {
+            const isSelected = selectedPlayerIds.has(p.player_id)
+            const ovr = overrides[p.player_id]
+
+            // Effective values
+            const effectiveJersey = ovr?.jersey ?? p.jersey_number
+            const effectivePosition = ovr?.position ?? p.position ?? p.player?.main_position
+
+            // Error detection (Only if selected)
+            let errorType: 'critical' | 'warning' | null = null
+            let errorMsg = ''
+
+            if (isSelected) {
+                if (!effectiveJersey) {
+                    errorType = 'critical'
+                    errorMsg = 'Falta dorsal'
+                } else if (jerseyCounts[effectiveJersey] > 1) {
+                    errorType = 'critical'
+                    errorMsg = 'Dorsal duplicado'
+                } else if (!effectivePosition) {
+                    errorType = 'warning'
+                    errorMsg = 'Falta posición'
+                }
+            }
+
+            return {
+                ...p,
+                isSelected,
+                effectiveJersey,
+                effectivePosition,
+                errorType,
+                errorMsg,
+                hasOverride: !!ovr
+            }
+        }).sort((a, b) => {
+            // Sort: Errors First > Selected > Number
+            if (a.errorType === 'critical' && b.errorType !== 'critical') return -1
+            if (b.errorType === 'critical' && a.errorType !== 'critical') return 1
+            if (a.errorType === 'warning' && b.errorType !== 'warning') return -1
+            if (b.errorType === 'warning' && a.errorType !== 'warning') return 1
+
+            if (a.isSelected !== b.isSelected) return a.isSelected ? -1 : 1
+
+            return (parseInt(a.effectiveJersey) || 999) - (parseInt(b.effectiveJersey) || 999)
+        })
+    }, [availablePlayers, selectedPlayerIds, overrides])
+
+    const totalErrors = processedPlayers.filter(p => p.isSelected && p.errorType === 'critical').length
+    const totalWarnings = processedPlayers.filter(p => p.isSelected && p.errorType === 'warning').length
 
     const togglePlayer = (playerId: string) => {
         const newSelected = new Set(selectedPlayerIds)
@@ -73,25 +153,53 @@ export function ConvocationModal({ matchId, onClose, onSave }: ConvocationModalP
         setSelectedPlayerIds(newSelected)
     }
 
+    const updateOverride = (playerId: string, type: 'jersey' | 'position', value: string | null) => {
+        setOverrides(prev => ({
+            ...prev,
+            [playerId]: {
+                ...prev[playerId],
+                [type]: value === '' ? null : value
+            }
+        }))
+    }
+
     const handleSave = async (startMatch = false) => {
         if (!match) return
+        if (totalErrors > 0) {
+            toast.error('Corrige los errores antes de guardar (Dorsales faltantes o duplicados)')
+            return
+        }
 
         try {
             setSaving(true)
             const playerIds = Array.from(selectedPlayerIds)
 
-            // Save convocation
+            // 1. Save Membership (RPC adds/removes)
             await matchService.saveConvocation(match.id, match.team_id, match.season_id, playerIds)
 
+            // 2. Save Overrides sequentially (only for selected players with overrides)
+            // This ensures any new players inserted by RPC get updated
+            const overridePromises = playerIds.map(pid => {
+                const ovr = overrides[pid]
+                if (ovr) {
+                    return matchService.updateConvocationOverride(match.id, pid, {
+                        jersey_number_override: ovr.jersey,
+                        position_override: ovr.position
+                    })
+                }
+                return Promise.resolve()
+            })
+
+            await Promise.all(overridePromises)
+
             if (startMatch) {
-                // Start match
                 await matchService.startMatch(match.id)
                 toast.success('Partido iniciado')
                 navigate(`/live-match/${match.id}`)
             } else {
                 toast.success('Convocatoria guardada')
-                onSave?.() // Call callback
-                onClose() // Close modal
+                onSave?.()
+                onClose()
             }
         } catch (error) {
             console.error('Error saving convocation:', error)
@@ -101,12 +209,7 @@ export function ConvocationModal({ matchId, onClose, onSave }: ConvocationModalP
         }
     }
 
-    // Handle backdrop click
-    const handleBackdropClick = (e: React.MouseEvent) => {
-        if (e.target === e.currentTarget) {
-            onClose()
-        }
-    }
+    // --- Render Helpers ---
 
     if (loading) {
         return (
@@ -119,129 +222,149 @@ export function ConvocationModal({ matchId, onClose, onSave }: ConvocationModalP
     if (!match) return null
 
     return (
-        <div
-            className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-            onClick={handleBackdropClick}
-        >
-            {/* Modal Container */}
-            <div
-                className="w-full max-w-5xl max-h-[90vh] bg-slate-950 border border-slate-800 rounded-2xl flex flex-col overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
-            >
-                {/* Header - Fixed */}
-                <div className="border-b border-slate-800 p-4 flex items-center justify-between flex-shrink-0">
-                    <div className="flex items-center gap-3">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            icon={X}
-                            onClick={onClose}
-                            className="text-zinc-400 hover:text-white"
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="w-full max-w-4xl max-h-[90vh] bg-zinc-950 border border-zinc-800 rounded-xl flex flex-col overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+
+                {/* Header */}
+                <div className="border-b border-zinc-800 p-4 flex items-center justify-between text-white bg-zinc-900/50">
+                    <div>
+                        <h2 className="text-lg font-bold flex items-center gap-2">
+                            Convocatoria
+                            {(totalErrors > 0) && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded border border-red-500/30 flex items-center gap-1"><AlertTriangle size={12} /> {totalErrors} Errores</span>}
+                            {(totalWarnings > 0) && <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded border border-amber-500/30 flex items-center gap-1"><AlertTriangle size={12} /> {totalWarnings} Avisos</span>}
+                        </h2>
+                        <p className="text-xs text-zinc-400">{match.opponent_name} · {selectedPlayerIds.size} seleccionadas</p>
+                    </div>
+                    <Button variant="ghost" size="sm" icon={X} onClick={onClose} />
+                </div>
+
+                {/* List */}
+                <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                    {processedPlayers.map((p) => (
+                        <div
+                            key={p.id}
+                            className={`
+                                group flex items-center gap-3 p-2 rounded-lg border transition-all text-sm
+                                ${p.errorType === 'critical' ? 'bg-red-500/10 border-red-500/30 hover:border-red-500/50' :
+                                    p.errorType === 'warning' ? 'bg-amber-500/05 border-amber-500/30 hover:border-amber-500/50' :
+                                        p.isSelected ? 'bg-zinc-900 border-zinc-700 hover:border-zinc-600' : 'opacity-60 border-transparent hover:bg-zinc-900/50'}
+                            `}
                         >
-                            Cerrar
-                        </Button>
-                        <div>
-                            <h2 className="text-base font-bold text-white">Convocatoria</h2>
-                            <p className="text-xs text-zinc-400">
-                                {match.opponent_name} · {new Date(match.match_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="text-xs text-zinc-400 font-medium">
-                        {selectedPlayerIds.size} seleccionadas
-                    </div>
-                </div>
-
-                {/* Body - Scrollable */}
-                <div className="flex-1 overflow-y-auto p-4">
-                    <div className="grid grid-cols-2 gap-2">
-                        {availablePlayers.map((item) => {
-                            const isSelected = selectedPlayerIds.has(item.player_id)
-                            const player = item.player
-                            if (!player) return null
-
-                            return (
-                                <div
-                                    key={item.id}
-                                    onClick={() => togglePlayer(item.player_id)}
-                                    className={`bg-slate-900 border rounded-lg p-3 cursor-pointer transition-all ${isSelected
-                                        ? 'border-blue-500'
-                                        : 'border-slate-800 hover:border-slate-700'
-                                        }`}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        {/* Square Checkbox */}
-                                        <div
-                                            className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${isSelected
-                                                ? 'bg-blue-500 border-blue-500'
-                                                : 'border-zinc-600 bg-transparent'
-                                                }`}
-                                        >
-                                            {isSelected && <Check size={10} className="text-white" />}
-                                        </div>
-
-                                        {/* Player Info */}
-                                        <div className="flex-1 min-w-0">
-                                            <h3 className="text-sm font-semibold text-white truncate flex items-center gap-2">
-                                                {getPlayerDisplayName(player)}
-                                                {/* Badge for Secondary Assignment - Show Origin Category */}
-                                                {(item as any).assignment_type === 'secondary' && (
-                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                                        {item.current_category || 'Cedida'}
-                                                    </span>
-                                                )}
-                                            </h3>
-                                            <div className="flex items-center gap-1.5 text-xs text-zinc-400">
-                                                <span className="font-mono">
-                                                    #{item.jersey_number || '—'}
-                                                </span>
-                                                <span>·</span>
-                                                <span className="uppercase text-[10px]">
-                                                    {(() => {
-                                                        // For secondary assignments, always use player's main position
-                                                        if ((item as any).assignment_type === 'secondary') {
-                                                            return player.main_position || 'OH'
-                                                        }
-                                                        // For primary assignments, use position field
-                                                        const position = item.position && !['starter', 'convocado'].includes(item.position.toLowerCase()) ? item.position : null
-                                                        const rawRole = position || player.main_position || 'OH'
-                                                        return rawRole
-                                                    })()}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )
-                        })}
-
-                        {availablePlayers.length === 0 && (
-                            <div className="col-span-2 text-center py-8 text-zinc-500 text-sm">
-                                No hay jugadoras disponibles en este equipo.
+                            {/* Checkbox */}
+                            <div
+                                onClick={() => togglePlayer(p.player_id)}
+                                className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer transition-colors ${p.isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-zinc-600'}`}
+                            >
+                                {p.isSelected && <Check size={14} strokeWidth={3} />}
                             </div>
-                        )}
-                    </div>
+
+                            {/* Name & Info */}
+                            <div className="flex-1 cursor-default">
+                                <div className="font-semibold text-zinc-200">
+                                    {getPlayerDisplayName(p.player)}
+                                </div>
+                                <div className="text-xs text-zinc-500 flex items-center gap-2">
+                                    {(p as any).assignment_type === 'secondary' && <span className="text-amber-500">Cedida ({p.current_category})</span>}
+                                    {p.errorMsg && <span className={p.errorType === 'critical' ? 'text-red-400 font-bold' : 'text-amber-400'}>{p.errorMsg}</span>}
+                                </div>
+                            </div>
+
+                            {/* Actions Group */}
+                            {p.isSelected && (
+                                <div className="flex items-center gap-2">
+
+                                    {/* Jersey Edit */}
+                                    {editingJersey === p.player_id ? (
+                                        <div className="relative">
+                                            <input
+                                                autoFocus
+                                                type="text"
+                                                className="w-12 bg-black border border-blue-500 rounded px-1 py-0.5 text-center text-white font-mono"
+                                                defaultValue={p.effectiveJersey || ''}
+                                                onBlur={(e) => {
+                                                    updateOverride(p.player_id, 'jersey', e.target.value)
+                                                    setEditingJersey(null)
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        updateOverride(p.player_id, 'jersey', e.currentTarget.value)
+                                                        setEditingJersey(null)
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => setEditingJersey(p.player_id)}
+                                            className={`
+                                                min-w-[32px] px-1.5 py-1 rounded text-center font-mono font-bold transition-colors border
+                                                ${!p.effectiveJersey ? 'bg-red-500/20 text-red-500 border-red-500/40 animate-pulse' :
+                                                    p.errorMsg === 'Dorsal duplicado' ? 'bg-red-500/20 text-red-500 border-red-500/40' :
+                                                        overrides[p.player_id]?.jersey ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' :
+                                                            'bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500'}
+                                            `}
+                                            title="Click para editar dorsal"
+                                        >
+                                            {p.effectiveJersey || '#?'}
+                                        </button>
+                                    )}
+
+                                    {/* Position Edit */}
+                                    {editingPosition === p.player_id ? (
+                                        <select
+                                            autoFocus
+                                            className="w-16 bg-black border border-blue-500 rounded px-1 py-0.5 text-center text-white text-xs"
+                                            value={p.effectivePosition || ''}
+                                            onChange={(e) => {
+                                                updateOverride(p.player_id, 'position', e.target.value)
+                                                setEditingPosition(null)
+                                            }}
+                                            onBlur={() => setEditingPosition(null)}
+                                        >
+                                            <option value="">SIN</option>
+                                            <option value="S">S</option>
+                                            <option value="OH">OH</option>
+                                            <option value="MB">MB</option>
+                                            <option value="OPP">OPP</option>
+                                            <option value="L">L</option>
+                                        </select>
+                                    ) : (
+                                        <button
+                                            onClick={() => setEditingPosition(p.player_id)}
+                                            className={`
+                                                w-14 px-1.5 py-1 rounded text-center text-xs font-bold uppercase transition-colors border
+                                                ${!p.effectivePosition ? 'bg-amber-500/20 text-amber-500 border-amber-500/40' :
+                                                    overrides[p.player_id]?.position ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' :
+                                                        'bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500'}
+                                            `}
+                                            title="Click para editar posición"
+                                        >
+                                            {p.effectivePosition || 'SIN'}
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    ))}
                 </div>
 
-                {/* Footer - Fixed */}
-                <div className="border-t border-slate-800 p-4 flex items-center gap-2 flex-shrink-0">
+                {/* Footer */}
+                <div className="border-t border-zinc-800 p-4 flex gap-3 text-sm">
                     <Button
                         variant="secondary"
-                        size="sm"
+                        onClick={() => handleSave(false)}
+                        disabled={saving || totalErrors > 0}
                         className="flex-1"
                         icon={Save}
-                        onClick={() => handleSave(false)}
-                        disabled={saving}
                     >
-                        Guardar
+                        {saving ? 'Guardando...' : 'Guardar Convocatoria'}
                     </Button>
                     <Button
                         variant="primary"
-                        size="sm"
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                        icon={Play}
                         onClick={() => handleSave(true)}
-                        disabled={saving || selectedPlayerIds.size < 6}
+                        disabled={saving || totalErrors > 0 || selectedPlayerIds.size < 6}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                        icon={Play}
                     >
                         Iniciar Partido
                     </Button>

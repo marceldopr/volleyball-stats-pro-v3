@@ -82,11 +82,11 @@ export function useMatchData({ matchId, loadMatch, setInitialOnCourtPlayers }: U
                         const rosterItem = roster.find(r => r.player_id === c.player_id)
                         const pData = c.club_players || {}
 
-                        // Priority: Roster Number > Player Profile Number > '?'
-                        const number = rosterItem?.jersey_number || pData.jersey_number || '?'
+                        // Priority: Match Override > Roster Number > Player Profile Number > '?'
+                        const number = c.jersey_number_override || rosterItem?.jersey_number || pData.jersey_number || '?'
 
-                        // Priority: Custom Match Role > Roster POSITION > Player Profile Position > '?'
-                        let effectiveRole = c.role_in_match
+                        // Priority: Match Override > Custom Match Role > Roster POSITION > Player Profile Position > '?'
+                        let effectiveRole = c.position_override || c.role_in_match
                         if (effectiveRole && (effectiveRole.toLowerCase() === 'starter' || effectiveRole.toLowerCase() === 'convocado')) {
                             effectiveRole = null
                         }

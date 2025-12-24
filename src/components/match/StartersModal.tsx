@@ -21,43 +21,6 @@ interface StartersModalV2Props {
     onBack: () => void
 }
 
-// Helper for consistent name formatting (First Surname preference)
-function formatPlayerName(player: PlayerV2 | undefined, fallbackName: string): string {
-    if (!player) {
-        // Fallback for unknown players or manual display
-        return formatName(fallbackName)
-    }
-
-    // 1. Nickname has priority
-    if (player.nickname) return player.nickname
-
-    // 2. Structured Name (First Name + First Surname Initial)
-    if (player.firstName && player.lastName) {
-        // Take the FIRST part of the last name (First Surname)
-        const firstSurname = player.lastName.trim().split(/\s+/)[0]
-        return `${player.firstName} ${firstSurname[0]}.`
-    }
-
-    // 3. Fallback to splitting full name string (legacy behavior)
-    return formatName(player.name || fallbackName)
-}
-
-function formatName(fullName: string): string {
-    const parts = fullName.trim().split(/\s+/)
-    if (parts.length === 1) return parts[0]
-
-    // Fallback heuristic: Try to grab the second-to-last part if length > 2
-    // "Maria Garcia Perez" -> "Maria G." (Garcia is parts[1])
-    // "Maria Jose Garcia" -> "Maria J." (Jose is parts[1]) -> Imperfect but better than "Garcia" which is first name part
-
-    const firstName = parts[0]
-    // If 3+ parts (First S1 S2), take S1 (second to last)
-    // If 2 parts (First S1), take S1 (last)
-    const surnamePart = parts.length > 2 ? parts[parts.length - 2] : parts[parts.length - 1]
-
-    return `${firstName} ${surnamePart[0]}.`
-}
-
 export function StartersModal({
     isOpen,
     derivedState,
@@ -296,7 +259,7 @@ export function StartersModal({
                                                 <span className={`font-bold text-xl ${isCurrentlySelected ? (activePosition === 999 ? 'text-amber-400' : 'text-emerald-400') : 'text-zinc-300'}`}>
                                                     {p.number}
                                                 </span>
-                                                <span className="font-medium text-sm flex-1 text-center">{formatName(p.name)}</span>
+                                                <span className="font-medium text-sm flex-1 text-center">{formatPlayerName(p, p.name)}</span>
                                                 {p.role && p.role.toLowerCase() !== 'starter' && (
                                                     <span className={`flex-shrink-0 w-7 h-7 rounded-full border flex items-center justify-center text-[9px] font-bold uppercase ${p.role.toUpperCase() === 'S' ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' :
                                                         p.role.toUpperCase() === 'OPP' ? 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/40' :
