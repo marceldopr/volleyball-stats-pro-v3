@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { PlayerCard } from './PlayerCard'
 import type { DerivedMatchState, PlayerV2 } from '@/stores/matchStore'
+import { formatPlayerName } from '@/utils/playerDisplay'
 
 interface StartersModalV2Props {
     isOpen: boolean
@@ -20,12 +21,41 @@ interface StartersModalV2Props {
     onBack: () => void
 }
 
+// Helper for consistent name formatting (First Surname preference)
+function formatPlayerName(player: PlayerV2 | undefined, fallbackName: string): string {
+    if (!player) {
+        // Fallback for unknown players or manual display
+        return formatName(fallbackName)
+    }
+
+    // 1. Nickname has priority
+    if (player.nickname) return player.nickname
+
+    // 2. Structured Name (First Name + First Surname Initial)
+    if (player.firstName && player.lastName) {
+        // Take the FIRST part of the last name (First Surname)
+        const firstSurname = player.lastName.trim().split(/\s+/)[0]
+        return `${player.firstName} ${firstSurname[0]}.`
+    }
+
+    // 3. Fallback to splitting full name string (legacy behavior)
+    return formatName(player.name || fallbackName)
+}
+
 function formatName(fullName: string): string {
     const parts = fullName.trim().split(/\s+/)
     if (parts.length === 1) return parts[0]
+
+    // Fallback heuristic: Try to grab the second-to-last part if length > 2
+    // "Maria Garcia Perez" -> "Maria G." (Garcia is parts[1])
+    // "Maria Jose Garcia" -> "Maria J." (Jose is parts[1]) -> Imperfect but better than "Garcia" which is first name part
+
     const firstName = parts[0]
-    const lastNameInitial = parts[parts.length - 1][0]
-    return `${firstName} ${lastNameInitial}.`
+    // If 3+ parts (First S1 S2), take S1 (second to last)
+    // If 2 parts (First S1), take S1 (last)
+    const surnamePart = parts.length > 2 ? parts[parts.length - 2] : parts[parts.length - 1]
+
+    return `${firstName} ${surnamePart[0]}.`
 }
 
 export function StartersModal({
@@ -117,12 +147,13 @@ export function StartersModal({
                         {[4, 3, 2].map(pos => {
                             const selectedId = selectedStarters[pos]
                             const display = selectedId ? getPlayerDisplay(selectedId) : { number: '+', name: `P${pos}`, role: '' }
+                            const playerObj = selectedId ? availablePlayers.find(p => p.id === selectedId) : undefined
 
                             return (
                                 <PlayerCard
                                     key={pos}
                                     number={display.number}
-                                    name={display.name}
+                                    name={formatPlayerName(playerObj, display.name)}
                                     role={display.role}
                                     position={pos as 1 | 2 | 3 | 4 | 5 | 6}
                                     compact={true}
@@ -138,12 +169,13 @@ export function StartersModal({
                         {[5, 6, 1].map(pos => {
                             const selectedId = selectedStarters[pos]
                             const display = selectedId ? getPlayerDisplay(selectedId) : { number: '+', name: `P${pos}`, role: '' }
+                            const playerObj = selectedId ? availablePlayers.find(p => p.id === selectedId) : undefined
 
                             return (
                                 <PlayerCard
                                     key={pos}
                                     number={display.number}
-                                    name={display.name}
+                                    name={formatPlayerName(playerObj, display.name)}
                                     role={display.role}
                                     position={pos as 1 | 2 | 3 | 4 | 5 | 6}
                                     compact={true}
@@ -159,10 +191,11 @@ export function StartersModal({
                         <div className="text-[10px] uppercase font-bold text-zinc-500 mb-2 tracking-widest">LÍBERO</div>
                         {selectedLiberoId ? (() => {
                             const liberoData = getPlayerDisplay(selectedLiberoId)
+                            const playerObj = availablePlayers.find(p => p.id === selectedLiberoId)
                             return (
                                 <PlayerCard
                                     number={liberoData.number}
-                                    name={liberoData.name}
+                                    name={formatPlayerName(playerObj, liberoData.name)}
                                     role="L"
                                     compact={true}
                                     onClick={() => setActivePosition(999)}

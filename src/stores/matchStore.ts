@@ -24,6 +24,9 @@ export interface PlayerV2 {
     number: number
     name: string
     role: string
+    firstName?: string
+    lastName?: string
+    nickname?: string
 }
 
 export interface MatchEvent {

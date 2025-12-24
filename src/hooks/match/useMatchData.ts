@@ -126,7 +126,10 @@ export function useMatchData({ matchId, loadMatch, setInitialOnCourtPlayers }: U
                             id: c.player_id,
                             name,
                             number,
-                            role
+                            role,
+                            firstName: pData.first_name,
+                            lastName: pData.last_name,
+                            nickname: pData.nickname
                         }
                     })
 

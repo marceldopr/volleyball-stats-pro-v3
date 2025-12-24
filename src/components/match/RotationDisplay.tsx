@@ -1,6 +1,7 @@
 import { calculateLiberoRotation } from '@/lib/volleyball/liberoLogic'
 import type { PlayerV2 } from '@/stores/matchStore'
 import { RotationGridStandard, type RotationSlotPlayer } from './RotationGridStandard'
+import { formatPlayerName } from '@/utils/playerDisplay'
 
 interface RotationDisplayProps {
     onCourtPlayers: { position: 1 | 2 | 3 | 4 | 5 | 6; player: PlayerV2 }[]
@@ -41,12 +42,13 @@ export function RotationDisplay({
     const gridPlayers: RotationSlotPlayer[] = [1, 2, 3, 4, 5, 6].map(pos => {
         const playerId = displayRotationIds[pos - 1]; // Array is 0-based, positions are 1-based
         const display = getPlayerDisplay(playerId);
+        const playerObj = availablePlayers.find(p => p.id === playerId);
 
         return {
             position: pos as 1 | 2 | 3 | 4 | 5 | 6,
             playerId,
             number: display.number,
-            name: display.name,
+            name: formatPlayerName(playerObj, display.name), // Format name
             role: display.role
         };
     });

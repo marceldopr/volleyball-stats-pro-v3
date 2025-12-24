@@ -1,6 +1,7 @@
 import { PlayerV2 } from '@/stores/matchStore'
 import { PlayerCard } from './PlayerCard'
 import { ActionType, getActionTitle } from '@/hooks/match/useActionPlayerModal'
+import { formatPlayerName } from '@/utils/playerDisplay'
 
 interface ActionPlayerModalV2Props {
     isOpen: boolean
@@ -192,7 +193,7 @@ export function ActionPlayerModal({
                                     <PlayerCard
                                         key={player.id}
                                         number={player.number}
-                                        name={player.name}
+                                        name={formatPlayerName(player, player.name)}
                                         role={player.role}
                                         position={pos}
                                         compact={true}

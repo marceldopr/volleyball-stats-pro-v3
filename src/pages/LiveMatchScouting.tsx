@@ -539,7 +539,9 @@ export function LiveMatchScouting() {
                                 id: player.id,
                                 name: player.name,
                                 number: player.number,
-                                role: player.role || ''
+                                role: player.role || '',
+                                firstName: player.firstName,
+                                lastName: player.lastName
                             }
                         } : null
                     }).filter(Boolean) as Array<{ position: number; player: { id: string; name: string; number: number; role: string } }>

@@ -1,9 +1,11 @@
 import { RotationGridStandard, type RotationSlotPlayer } from './RotationGridStandard'
+import { formatPlayerName } from '@/utils/playerDisplay'
+import type { PlayerV2 } from '@/stores/matchStore'
 
 interface RotationModalV2Props {
     isOpen: boolean
     onClose: () => void
-    onCourtPlayers: Array<{ position: number; player: { id: string; name: string; number: number } }>
+    onCourtPlayers: Array<{ position: number; player: PlayerV2 }>
     getPlayerDisplay: (playerId: string | null | undefined) => {
         number: string
         name: string
@@ -34,7 +36,7 @@ export function RotationModal({
             position: pos as 1 | 2 | 3 | 4 | 5 | 6,
             playerId: player?.id || null,
             number: display.number,
-            name: display.name,
+            name: formatPlayerName(player, display.name),
             role: display.role
         }
     })

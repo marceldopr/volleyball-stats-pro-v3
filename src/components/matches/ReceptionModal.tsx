@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { X, Timer, RefreshCw, Users } from 'lucide-react'
 import { RotationGridStandard, type RotationSlotPlayer } from '../match/RotationGridStandard'
+import { formatPlayerName } from '@/utils/playerDisplay'
+import type { PlayerV2 } from '@/stores/matchStore'
 
 interface ReceptionModalV2Props {
     isOpen: boolean
@@ -81,14 +83,14 @@ export function ReceptionModal({
 
     // Prepare players for RotationGridStandard
     const gridPlayers: RotationSlotPlayer[] = [1, 2, 3, 4, 5, 6].map(pos => {
-        const player = getPlayerAtPosition(pos)
+        const player = getPlayerAtPosition(pos) as PlayerV2 | undefined
         const display = getPlayerDisplay(player?.id || null)
 
         return {
             position: pos as 1 | 2 | 3 | 4 | 5 | 6,
             playerId: player?.id || null,
             number: display.number,
-            name: display.name,
+            name: formatPlayerName(player, display.name),
             role: display.role,
             isSelected: selectedPlayerId === player?.id
         }
