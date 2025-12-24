@@ -1,7 +1,10 @@
+import { formatPlayerName } from '@/utils/playerDisplay'
+import type { PlayerV2 } from '@/stores/matchStore'
 
 interface PlayerCardProps {
     number: string | number
     name: string
+    player?: PlayerV2 | null // Optional full player object for better name formatting
     role?: string
     position?: 1 | 2 | 3 | 4 | 5 | 6
     isSelected?: boolean
@@ -32,6 +35,7 @@ function getRoleCircleClasses(role: string): string {
 export function PlayerCard({
     number,
     name,
+    player,
     role,
     position,
     isSelected = false,
@@ -109,15 +113,9 @@ export function PlayerCard({
                 {number}
             </span>
 
-            {/* Name - with last name initial (Maria Garcia -> Maria G.) */}
+            {/* Name - using shared formatter */}
             <span className={`absolute bottom-1 text-[9px] uppercase tracking-wide max-w-[100px] text-center leading-tight line-clamp-1 ${isSelected ? 'text-emerald-100' : 'text-zinc-400'}`}>
-                {(() => {
-                    const parts = name.trim().split(' ')
-                    if (parts.length > 1) {
-                        return `${parts[0]} ${parts[parts.length - 1][0]}.`
-                    }
-                    return name
-                })()}
+                {formatPlayerName(player, name)}
             </span>
         </Element>
     )

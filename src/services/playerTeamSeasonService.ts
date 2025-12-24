@@ -125,7 +125,7 @@ export const playerTeamSeasonService = {
         if (secondaryPlayerIds.length > 0) {
             const { data: primaryTeams } = await supabase
                 .from('player_team_season')
-                .select('player_id, team_id, jersey_number, teams(category_stage, category)')
+                .select('player_id, team_id, jersey_number, position, teams(category_stage, category)')
                 .eq('season_id', seasonId)
                 .in('player_id', secondaryPlayerIds)
                 .eq('status', 'active')
@@ -135,7 +135,8 @@ export const playerTeamSeasonService = {
                 primaryTeams.forEach((pt: any) => {
                     primaryTeamsMap.set(pt.player_id, {
                         teams: pt.teams,
-                        jersey_number: pt.jersey_number
+                        jersey_number: pt.jersey_number,
+                        position: pt.position
                     })
                 })
             }
@@ -146,6 +147,8 @@ export const playerTeamSeasonService = {
             const originCategory = primaryInfo?.teams?.category_stage || primaryInfo?.teams?.category || null
             // Use jersey number from secondary assignment, fallback to primary team's number
             const jerseyNumber = item.jersey_number || primaryInfo?.jersey_number || null
+            // Use position from origin team (since secondary assignment usually doesn't have position override)
+            const position = primaryInfo?.position || null
 
             return {
                 id: item.id,
@@ -154,7 +157,7 @@ export const playerTeamSeasonService = {
                 season_id: item.season_id,
                 jersey_number: jerseyNumber,
                 role: null,
-                position: null,
+                position,
                 expected_category: null,
                 current_category: originCategory, // Store origin category here
                 status: 'active',

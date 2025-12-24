@@ -21,7 +21,7 @@ export type MatchEventType =
 
 export interface PlayerV2 {
     id: string
-    number: number
+    number: string
     name: string
     role: string
     firstName?: string

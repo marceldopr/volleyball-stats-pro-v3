@@ -13,14 +13,9 @@ import {
     isPlayerInBatch
 } from '@/lib/volleyball/substitutionBatch'
 
-// Helper: Format name as "FirstName I." (first name + first initial of last name)
-function formatName(fullName: string): string {
-    const parts = fullName.trim().split(/\s+/)
-    if (parts.length === 1) return parts[0]
-    const firstName = parts[0]
-    const lastNameInitial = parts[parts.length - 1][0]
-    return `${firstName} ${lastNameInitial}.`
-}
+import { formatPlayerName } from '@/utils/playerDisplay'
+
+// Local helper removed (using shared utility)
 
 interface SubstitutionModalV2Props {
     isOpen: boolean
@@ -380,6 +375,7 @@ export function SubstitutionModal({
                                 number: String(entry.player.number),
                                 name: entry.player.name,
                                 role: entry.player.role || '',
+                                player: entry.player, // Pass full object for formatting
                                 isSelected: playerOut?.id === entry.player.id,
                                 disabled: isDisabled
                             }
@@ -503,12 +499,12 @@ export function SubstitutionModal({
                                                     <span className="text-zinc-500 font-mono text-[10px] w-5">P{onCourtPosition}</span>
                                                 )}
                                                 <span className="text-zinc-300">
-                                                    #{pair.starter?.number} {formatName(pair.starter?.name || '')}
+                                                    #{pair.starter?.number} {formatPlayerName(pair.starter, pair.starter?.name || '')}
                                                 </span>
                                                 <span className="text-zinc-500 text-[10px] uppercase">{pair.starter?.role}</span>
                                                 <span className="text-zinc-600">↔</span>
                                                 <span className="text-zinc-300">
-                                                    #{pair.substitute?.number} {formatName(pair.substitute?.name || '')}
+                                                    #{pair.substitute?.number} {formatPlayerName(pair.substitute, pair.substitute?.name || '')}
                                                 </span>
                                                 <span className="text-zinc-500 text-[10px] uppercase">{pair.substitute?.role}</span>
                                                 <span className={`text-[10px] ${pair.usesCount === 2 ? 'text-red-400' : 'text-emerald-400'}`}>
@@ -574,11 +570,11 @@ export function SubstitutionModal({
                                         <div className="flex items-center gap-1.5">
                                             <span className="text-zinc-500 w-4">P{sub.outPosition}</span>
                                             <span className="text-red-400">#{sub.outPlayer.number}</span>
-                                            <span className="text-zinc-400">{formatName(sub.outPlayer.name)}</span>
+                                            <span className="text-zinc-400">{formatPlayerName(sub.outPlayer, sub.outPlayer.name)}</span>
                                             <span className="text-zinc-500 text-[10px] uppercase">{sub.outPlayer.role}</span>
                                             <span className="text-zinc-600">→</span>
                                             <span className="text-emerald-400">#{sub.inPlayer.number}</span>
-                                            <span className="text-zinc-400">{formatName(sub.inPlayer.name)}</span>
+                                            <span className="text-zinc-400">{formatPlayerName(sub.inPlayer, sub.inPlayer.name)}</span>
                                             <span className="text-zinc-500 text-[10px] uppercase">{sub.inPlayer.role}</span>
                                         </div>
                                         <button

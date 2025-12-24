@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Check, Play, Save, AlertTriangle, User, Hash } from 'lucide-react'
+import { X, Check, Play, Save, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { matchService, MatchV2DB } from '@/services/matchService'
 import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
 import { toast } from 'sonner'
+import { getEffectivePlayerDisplayData } from '@/utils/playerEffectiveDisplay'
 
 function getPlayerDisplayName(player: any): string {
     if (!player) return 'Jugadora desconocida'
@@ -27,7 +28,6 @@ export function ConvocationModal({ matchId, onClose, onSave }: { matchId: string
     // Editing states
     const [editingJersey, setEditingJersey] = useState<string | null>(null) // playerId
     const [editingPosition, setEditingPosition] = useState<string | null>(null) // playerId
-    const [tempValue, setTempValue] = useState('')
 
     useEffect(() => {
         const loadData = async () => {
@@ -85,10 +85,23 @@ export function ConvocationModal({ matchId, onClose, onSave }: { matchId: string
         availablePlayers.forEach(p => {
             if (!selectedPlayerIds.has(p.player_id)) return
 
+            // Construct pseudo-convocation object from local overrides
             const ovr = overrides[p.player_id]
-            const jersey = ovr?.jersey ?? p.jersey_number ?? ''
-            if (jersey) {
-                jerseyCounts[jersey] = (jerseyCounts[jersey] || 0) + 1
+            const convocationData = {
+                player_id: p.player_id,
+                jersey_number_override: ovr?.jersey,
+                position_override: ovr?.position,
+                role_in_match: null // In modal context, we rely on overrides or roster
+            }
+
+            const effectiveData = getEffectivePlayerDisplayData(
+                p.player || { id: p.player_id },
+                p, // p is the roster item in ConvocationModal
+                convocationData
+            )
+
+            if (effectiveData.jerseyNumber && effectiveData.jerseyNumber !== '?') {
+                jerseyCounts[effectiveData.jerseyNumber] = (jerseyCounts[effectiveData.jerseyNumber] || 0) + 1
             }
         })
 
@@ -97,9 +110,23 @@ export function ConvocationModal({ matchId, onClose, onSave }: { matchId: string
             const isSelected = selectedPlayerIds.has(p.player_id)
             const ovr = overrides[p.player_id]
 
-            // Effective values
-            const effectiveJersey = ovr?.jersey ?? p.jersey_number
-            const effectivePosition = ovr?.position ?? p.position ?? p.player?.main_position
+            // Construct pseudo-convocation object
+            const convocationData = {
+                player_id: p.player_id,
+                jersey_number_override: ovr?.jersey, // Local override
+                position_override: ovr?.position,   // Local override
+                role_in_match: null
+            }
+
+            // Use Unified Utility
+            const effectiveData = getEffectivePlayerDisplayData(
+                p.player || { id: p.player_id },
+                p, // roster item
+                convocationData
+            )
+
+            const effectiveJersey = effectiveData.jerseyNumber === '?' ? '' : effectiveData.jerseyNumber
+            const effectivePosition = effectiveData.position === '?' ? '' : effectiveData.position
 
             // Error detection (Only if selected)
             let errorType: 'critical' | 'warning' | null = null
@@ -125,7 +152,8 @@ export function ConvocationModal({ matchId, onClose, onSave }: { matchId: string
                 effectivePosition,
                 errorType,
                 errorMsg,
-                hasOverride: !!ovr
+                hasOverride: !!ovr || effectiveData.source === 'override',
+                isLoaned: effectiveData.isLoaned
             }
         }).sort((a, b) => {
             // Sort: Errors First > Selected > Number
@@ -235,7 +263,7 @@ export function ConvocationModal({ matchId, onClose, onSave }: { matchId: string
                         </h2>
                         <p className="text-xs text-zinc-400">{match.opponent_name} · {selectedPlayerIds.size} seleccionadas</p>
                     </div>
-                    <Button variant="ghost" size="sm" icon={X} onClick={onClose} />
+                    <Button variant="ghost" size="sm" icon={X} onClick={onClose}>Cerrar</Button>
                 </div>
 
                 {/* List */}

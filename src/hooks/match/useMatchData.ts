@@ -6,6 +6,7 @@ import { teamService } from '@/services/teamService'
 import { toast } from 'sonner'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import type { PlayerV2 } from '@/stores/matchStore'
+import { getEffectivePlayerDisplayData } from '@/utils/playerEffectiveDisplay'
 
 interface UseMatchDataProps {
     matchId: string | undefined
@@ -78,43 +79,21 @@ export function useMatchData({ matchId, loadMatch, setInitialOnCourtPlayers }: U
                 const players = convos
                     .filter(c => c.status === 'convocado' || c.status === undefined)
                     .map(c => {
-                        // Find roster entry for this player to get the correct season number/role
+                        // ... existing imports
+
+                        // Find roster entry for this player
                         const rosterItem = roster.find(r => r.player_id === c.player_id)
                         const pData = c.club_players || {}
 
-                        // Priority: Match Override > Roster Number > Player Profile Number > '?'
-                        const number = c.jersey_number_override || rosterItem?.jersey_number || pData.jersey_number || '?'
+                        // Calculate effective data using unified utility
+                        const effectiveData = getEffectivePlayerDisplayData(
+                            { id: c.player_id, jersey_number: pData.jersey_number, main_position: pData.main_position },
+                            rosterItem,
+                            c // convocation data (includes overrides)
+                        )
 
-                        // Priority: Match Override > Custom Match Role > Roster POSITION > Player Profile Position > '?'
-                        let effectiveRole = c.position_override || c.role_in_match
-                        if (effectiveRole && (effectiveRole.toLowerCase() === 'starter' || effectiveRole.toLowerCase() === 'convocado')) {
-                            effectiveRole = null
-                        }
-
-                        // Use POSITION field from roster (this is what gets edited in TeamRosterManager)
-                        let rosterPosition = rosterItem?.position
-                        if (rosterPosition && (rosterPosition.toLowerCase() === 'starter' || rosterPosition.toLowerCase() === 'convocado')) {
-                            rosterPosition = null
-                        }
-
-                        const rawRole = effectiveRole || rosterPosition || pData.main_position || '?'
-
-                        // Map Spanish/Full names to Codes
-                        const roleMap: Record<string, string> = {
-                            'Central': 'MB',
-                            'Receptora': 'OH',
-                            'Receptor': 'OH',
-                            'Punta': 'OH',
-                            'Opuesta': 'OPP',
-                            'Opuesto': 'OPP',
-                            'Colocadora': 'S',
-                            'Colocador': 'S',
-                            'Armadora': 'S',
-                            'Líbero': 'L',
-                            'Libero': 'L'
-                        }
-
-                        const role = roleMap[rawRole] || rawRole && roleMap[Object.keys(roleMap).find(k => rawRole.includes(k)) || ''] || rawRole
+                        const number = effectiveData.jerseyNumber
+                        const role = effectiveData.position
 
                         // Combine first_name + last_name for full name display
                         const fullName = pData.first_name && pData.last_name

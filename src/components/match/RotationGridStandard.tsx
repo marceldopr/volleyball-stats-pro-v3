@@ -1,4 +1,5 @@
 import { PlayerCard } from './PlayerCard'
+import type { PlayerV2 } from '@/stores/matchStore'
 
 interface RotationSlotPlayer {
     position: 1 | 2 | 3 | 4 | 5 | 6
@@ -6,6 +7,7 @@ interface RotationSlotPlayer {
     name: string
     role: string
     playerId: string | null
+    player?: PlayerV2 // Optional full object
     isSelected?: boolean
     disabled?: boolean
 }
@@ -46,6 +48,7 @@ export function RotationGridStandard({
                 key={position}
                 number={player.number}
                 name={player.name}
+                player={player.player} // Pass full object
                 role={player.role}
                 position={position}
                 isSelected={player.isSelected}
