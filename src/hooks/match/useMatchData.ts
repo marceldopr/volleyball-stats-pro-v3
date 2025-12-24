@@ -20,7 +20,7 @@ interface UseMatchDataProps {
  * Extrae toda la lógica de carga de partido, equipo, jugadoras y convocaciones
  * Líneas originales: 41, 44-45, 92-207 en LiveMatchScoutingV2.tsx
  */
-export function useMatchData({ matchId, loadMatch, setInitialOnCourtPlayers, reset }: UseMatchDataProps) {
+export function useMatchData({ matchId, loadMatch, setInitialOnCourtPlayers, reset: _reset }: UseMatchDataProps) {
     const navigate = useNavigate()
     const [loading, setLoading] = useState(true)
     const [matchData, setMatchData] = useState<any>(null)

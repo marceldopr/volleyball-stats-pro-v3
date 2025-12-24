@@ -24,7 +24,7 @@ export function MatchAnalysis() {
     const [timelineExpanded, setTimelineExpanded] = useState(false)
 
     // Store state
-    const { derivedState, loadMatch, setInitialOnCourtPlayers } = useMatchStore()
+    const { derivedState, loadMatch, setInitialOnCourtPlayers, reset } = useMatchStore()
     const homeTeamName = useMatchStore(state => state.homeTeamName)
     const awayTeamName = useMatchStore(state => state.awayTeamName)
     const events = useMatchStore(state => state.events)
@@ -36,7 +36,8 @@ export function MatchAnalysis() {
     const { loading, matchData, availablePlayers } = useMatchData({
         matchId,
         loadMatch,
-        setInitialOnCourtPlayers
+        setInitialOnCourtPlayers,
+        reset
     })
 
     // Calculate analytics
