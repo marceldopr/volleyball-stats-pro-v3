@@ -152,7 +152,7 @@ export function LiveMatchScouting() {
 
     const handleGoToAnalysis = () => {
         if (!matchData) return
-        navigate(`/match-analysis-v2/${matchData.id}`)
+        navigate(`/match-analysis/${matchData.id}`)
     }
 
 

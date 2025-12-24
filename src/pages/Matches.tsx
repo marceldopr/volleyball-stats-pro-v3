@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ConvocationManager } from '../components/ConvocationManager'
 import { ConvocationModal } from '../components/matches/ConvocationModal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useAuthStore } from '../stores/authStore'
@@ -27,11 +26,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
 
-  // Convocation Manager state (V1)
-  const [convocationManagerOpen, setConvocationManagerOpen] = useState(false)
-  const [selectedMatchForConvocation, setSelectedMatchForConvocation] = useState<any>(null)
-
-  // Convocation Modal state (V2)
+  // Convocation Modal state
   const [convocationModalMatchId, setConvocationModalMatchId] = useState<string | null>(null)
 
   const navigate = useNavigate()
@@ -223,66 +218,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
 
 
 
-  const handleOpenConvocationManager = (match: any) => {
-    if (match.status !== 'planned') {
-      alert('No se puede modificar la convocatoria de un partido iniciado o finalizado.')
-      return
-    }
-    setSelectedMatchForConvocation(match)
-    setConvocationManagerOpen(true)
-  }
-
-  const handleCloseConvocationManager = () => {
-    setConvocationManagerOpen(false)
-    setSelectedMatchForConvocation(null)
-    // Reload matches to update convocation status
-    if (profile?.club_id && currentSeason) {
-      matchService.listMatches(profile.club_id, currentSeason.id)
-        .then(matches => {
-          let filteredMatches = matches
-          if (teamId) {
-            filteredMatches = filteredMatches.filter(m => m.team_id === teamId)
-          }
-          if (isCoach) {
-            filteredMatches = filteredMatches.filter(m => assignedTeamIds.includes(m.team_id))
-          }
-          setSupabaseMatches(filteredMatches)
-        })
-    }
-  }
-
-  const handleStartMatch = async (match: any) => {
-    // Check if match has convocation
-    const hasConvocation = matchesWithConvocations[match.id]
-
-    if (!hasConvocation) {
-      alert('Este partido no tiene convocatoria. Gestiona la convocatoria antes de iniciar el partido.')
-      return
-    }
-
-    try {
-      // Verify we have at least 6 convocated players
-      const convocations = await matchConvocationService.getConvocationsByMatch(match.id)
-      const convocated = convocations.filter((c: any) => c.status === 'convocado')
-
-      if (convocated.length < 6) {
-        alert(`Solo hay ${convocated.length} jugadoras convocadas. Se necesitan al menos 6 para iniciar el partido.`)
-        return
-      }
-
-      // Update match status to in_progress
-      await matchService.updateMatch(match.id, {
-        status: 'in_progress'
-      })
-
-      // Navigate directly to live match
-      // LiveMatch will detect no starters and show StartersManagement modal automatically
-      navigate(`/matches/${match.id}/live`)
-    } catch (err) {
-      console.error('Error starting match:', err)
-      alert('Error al iniciar el partido.')
-    }
-  }
+  // V1 handlers removed - always use V2 flow
 
 
 
@@ -438,13 +374,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                             variant="secondary"
                             size="sm"
                             icon={Users}
-                            onClick={() => {
-                              if (match.engine === 'v2') {
-                                setConvocationModalMatchId(match.id)
-                              } else {
-                                handleOpenConvocationManager(match)
-                              }
-                            }}
+                            onClick={() => setConvocationModalMatchId(match.id)}
                           >
                             Convocatoria
                           </Button>
@@ -459,16 +389,12 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                             size="sm"
                             icon={Play}
                             onClick={async () => {
-                              if (match.engine === 'v2') {
-                                try {
-                                  await matchService.startMatch(match.id)
-                                  navigate(`/live-match/${match.id}`)
-                                } catch (e) {
-                                  console.error('Error starting V2 match:', e)
-                                  alert('Error al iniciar el partido V2')
-                                }
-                              } else {
-                                handleStartMatch(match)
+                              try {
+                                await matchService.startMatch(match.id)
+                                navigate(`/live-match/${match.id}`)
+                              } catch (e) {
+                                console.error('Error starting match:', e)
+                                alert('Error al iniciar el partido')
                               }
                             }}
                           >
@@ -484,13 +410,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                             variant="primary"
                             size="sm"
                             icon={Play}
-                            onClick={() => {
-                              if (match.engine === 'v2') {
-                                navigate(`/live-match/${match.id}`)
-                              } else {
-                                navigate(`/matches/${match.id}/live`)
-                              }
-                            }}
+                            onClick={() => navigate(`/live-match/${match.id}`)}
                             className="animate-pulse"
                           >
                             Ver en Vivo
@@ -566,20 +486,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
         )
       })()}
 
-      {/* Convocation Manager Modal */}
-      {
-        convocationManagerOpen && selectedMatchForConvocation && (
-          <ConvocationManager
-            isOpen={convocationManagerOpen}
-            onClose={handleCloseConvocationManager}
-            matchId={selectedMatchForConvocation.id}
-            teamId={selectedMatchForConvocation.team_id}
-            seasonId={selectedMatchForConvocation.season_id}
-            matchStatus={selectedMatchForConvocation.status}
-            opponentName={selectedMatchForConvocation.opponent_name}
-          />
-        )
-      }
+      {/* V1 ConvocationManager removed */}
 
       {/* Convocation Modal V2 */}
       {convocationModalMatchId && (

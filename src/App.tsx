@@ -9,7 +9,6 @@ import { LiveMatchScouting } from '@/pages/LiveMatchScouting'
 import { MatchAnalysis } from '@/pages/MatchAnalysis'
 import { Analytics } from '@/pages/Analytics'
 import { SettingsPage } from '@/pages/Settings'
-import { NewMatch } from '@/pages/NewMatch'
 import { Exports } from '@/pages/Exports'
 import { About } from '@/pages/About'
 import { Login } from '@/pages/Login'
@@ -36,6 +35,7 @@ import { CalendarioPage } from './pages/CalendarioPage'
 import { SaludDisponibilidadPage } from './pages/SaludDisponibilidadPage'
 import { NextSeasonPage } from './pages/NextSeasonPage'
 import { CoachSignupPage } from './pages/CoachSignupPage'
+import { V1BlockedRoute } from '@/components/routing/V1BlockedRoute'
 
 function App() {
   const { isDarkMode } = useThemeStore()
@@ -133,16 +133,10 @@ function App() {
                       <Matches />
                     </RoleGuard>
                   } />
-                  <Route path="/matches/new" element={
-                    <RoleGuard allowedForDT allowedForCoach>
-                      <NewMatch />
-                    </RoleGuard>
-                  } />
-                  <Route path="/matches/:id" element={
-                    <RoleGuard allowedForDT allowedForCoach>
-                      <Matches />
-                    </RoleGuard>
-                  } />
+                  {/* Legacy route redirects */}
+                  <Route path="/matches/new" element={<V1BlockedRoute />} />
+                  <Route path="/matches/:id" element={<V1BlockedRoute />} />
+                  <Route path="/matches/:id/live" element={<V1BlockedRoute />} />
 
                   {/* V2 Match System Routes */}
                   <Route path="/matches/create" element={
