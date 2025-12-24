@@ -41,7 +41,6 @@ import { useAuthStore } from './stores/authStore'
 function App() {
   const { isDarkMode } = useThemeStore()
   const session = useAuthStore(state => state.session)
-  const profile = useAuthStore(state => state.profile)
   const location = useLocation()
 
   // E2E Testing: Bypass auth check when running tests
