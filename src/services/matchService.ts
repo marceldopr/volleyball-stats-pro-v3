@@ -214,35 +214,22 @@ export const matchService = {
     /**
      * Guardar convocatòria (reemplaça l'existent)
      */
+    /**
+     * Guardar convocatòria (Atomic Diff via RPC)
+     * Preserva overrides de jugadoras que se mantienen convocadas.
+     */
     async saveConvocation(matchId: string, teamId: string, seasonId: string, playerIds: string[]): Promise<void> {
         try {
-            // 1. Eliminar convocatòries existents
-            const { error: deleteError } = await supabase
-                .from('match_convocations')
-                .delete()
-                .eq('match_id', matchId)
+            const { error } = await supabase.rpc('save_match_convocation_diff', {
+                p_match_id: matchId,
+                p_team_id: teamId,
+                p_season_id: seasonId,
+                p_player_ids: playerIds
+            })
 
-            if (deleteError) throw deleteError
-
-            // 2. Inserir noves convocatòries
-            if (playerIds.length === 0) return
-
-            const convocationsData = playerIds.map(playerId => ({
-                match_id: matchId,
-                team_id: teamId,
-                season_id: seasonId,
-                player_id: playerId,
-                status: 'convocado',
-                role_in_match: null
-            }))
-
-            const { error: insertError } = await supabase
-                .from('match_convocations')
-                .insert(convocationsData)
-
-            if (insertError) throw insertError
+            if (error) throw error
         } catch (error) {
-            console.error('Error saving convocation V2:', error)
+            console.error('Error saving convocation V2 (RPC):', error)
             throw error
         }
     },
