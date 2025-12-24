@@ -8,8 +8,12 @@
  * Usage: node scripts/check-legacy-routes.js
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Forbidden patterns
 const FORBIDDEN_PATTERNS = [
@@ -101,7 +105,8 @@ function walkDirectory(dir) {
 // Main execution
 console.log('🔍 Checking for legacy V1 routes...\n');
 
-const srcDir = path.join(process.cwd(), 'src');
+const projectRoot = path.resolve(__dirname, '..');
+const srcDir = path.join(projectRoot, 'src');
 const violations = walkDirectory(srcDir);
 
 if (violations.length > 0) {

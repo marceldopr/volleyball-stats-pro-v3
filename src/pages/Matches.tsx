@@ -486,9 +486,8 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
         )
       })()}
 
-      {/* V1 ConvocationManager removed */}
 
-      {/* Convocation Modal V2 */}
+      {/* Convocation Modal */}
       {convocationModalMatchId && (
         <ConvocationModal
           matchId={convocationModalMatchId}
