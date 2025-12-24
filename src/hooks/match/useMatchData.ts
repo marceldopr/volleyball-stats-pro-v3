@@ -12,6 +12,7 @@ interface UseMatchDataProps {
     matchId: string | undefined
     loadMatch: (id: string, events: any[], ourSide: 'home' | 'away', teamNames: { home: string; away: string }) => void
     setInitialOnCourtPlayers: (players: PlayerV2[]) => void
+    reset: () => void // New prop for safety
 }
 
 /**
@@ -19,14 +20,13 @@ interface UseMatchDataProps {
  * Extrae toda la lógica de carga de partido, equipo, jugadoras y convocaciones
  * Líneas originales: 41, 44-45, 92-207 en LiveMatchScoutingV2.tsx
  */
-export function useMatchData({ matchId, loadMatch, setInitialOnCourtPlayers }: UseMatchDataProps) {
+export function useMatchData({ matchId, loadMatch, setInitialOnCourtPlayers, reset }: UseMatchDataProps) {
     const navigate = useNavigate()
     const [loading, setLoading] = useState(true)
     const [matchData, setMatchData] = useState<any>(null)
     const [availablePlayers, setAvailablePlayers] = useState<any[]>([])
 
     // Load Match & Convocations only once
-    // Original: líneas 92-207
     useEffect(() => {
         if (!matchId) return
 
@@ -34,9 +34,18 @@ export function useMatchData({ matchId, loadMatch, setInitialOnCourtPlayers }: U
             try {
                 setLoading(true)
 
-                // CRITICAL FIX: Clear cached team names from localStorage
-                // This prevents old "Local"/"Visitante" from being restored
+                // CRITICAL SAFEGUARD: 
+                // If we are loading a new match, or restarting the process, 
+                // we should clear any potential stale state first.
+                // However, doing this unconditionally might flash.
+                // Ideally, we reset if the STORE's current ID != matchId.
+                // But we don't have access to store ID here directly unless we import store
+                // or trust that loadMatch handles it. 
+                // Let's rely on loadMatch overwriting key data, but ensure localStorage cleanup.
+
+                // Clean localStorage legacy data
                 const stored = localStorage.getItem('match-store-v2')
+
                 if (stored) {
                     try {
                         const parsed = JSON.parse(stored)

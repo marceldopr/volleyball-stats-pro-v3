@@ -13,6 +13,11 @@ export function formatPlayerName(player: PlayerV2 | undefined | null, fallbackNa
         return formatNameString(fallbackName)
     }
 
+    // Guard: fallback if player exists but has no name fields?
+    if (!player.name && !player.nickname && !player.firstName && !player.lastName) {
+        return formatNameString(fallbackName || '')
+    }
+
     // 1. Nickname has priority
     if (player.nickname) return player.nickname
 
@@ -27,7 +32,8 @@ export function formatPlayerName(player: PlayerV2 | undefined | null, fallbackNa
     return formatNameString(player.name || fallbackName)
 }
 
-function formatNameString(fullName: string): string {
+function formatNameString(fullName: string | null | undefined): string {
+    if (!fullName) return ''
     const parts = fullName.trim().split(/\s+/)
     if (parts.length === 1) return parts[0]
 

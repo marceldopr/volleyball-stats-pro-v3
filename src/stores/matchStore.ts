@@ -21,7 +21,7 @@ export type MatchEventType =
 
 export interface PlayerV2 {
     id: string
-    number: string
+    number: string | number // Relaxed to support legacy numeric data
     name: string
     role: string
     firstName?: string

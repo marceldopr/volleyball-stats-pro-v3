@@ -41,29 +41,30 @@ import { MobileTabNav, TabView } from '@/components/match/MobileTabNav'
 
 export function LiveMatchScouting() {
     const { matchId } = useParams<{ matchId: string }>()
+    console.log('[[LiveMatchScouting MOUNTED]]', { matchId }) // Debug log
     const navigate = useNavigate()
 
-    // Store
-    const {
-        derivedState,
-        events,
-        loadMatch,
-        addEvent,
-        addReceptionEval,
-        setInitialOnCourtPlayers,
-        undoEvent,
-        closeSetSummaryModal
-    } = useMatchStore()
-
-    // Team names from root state (NOT derived state - these are stable)
+    // ... (rest of store selectors)
+    // Store Selectors (Granular for performance and stability)
+    const derivedState = useMatchStore(state => state.derivedState)
+    const events = useMatchStore(state => state.events)
+    const loadMatch = useMatchStore(state => state.loadMatch)
+    const addEvent = useMatchStore(state => state.addEvent)
+    const addReceptionEval = useMatchStore(state => state.addReceptionEval)
+    const setInitialOnCourtPlayers = useMatchStore(state => state.setInitialOnCourtPlayers)
+    const undoEvent = useMatchStore(state => state.undoEvent)
+    const closeSetSummaryModal = useMatchStore(state => state.closeSetSummaryModal)
     const homeTeamName = useMatchStore(state => state.homeTeamName)
     const awayTeamName = useMatchStore(state => state.awayTeamName)
+
+    const reset = useMatchStore(state => state.reset)
 
     // Custom Hooks - Data Loading
     const { loading, matchData, availablePlayers } = useMatchData({
         matchId,
         loadMatch,
-        setInitialOnCourtPlayers
+        setInitialOnCourtPlayers,
+        reset
     })
 
     // Custom Hooks - Modal Management
@@ -348,8 +349,16 @@ export function LiveMatchScouting() {
         }
     }
 
-    if (loading) return <div className="h-screen bg-zinc-950 flex items-center justify-center text-zinc-500">Cargando...</div>
-    if (!matchData) return null
+    if (loading) return <div className="h-screen bg-zinc-950 flex items-center justify-center text-zinc-500">Cargando datos del partido...</div>
+
+    if (!matchData) {
+        return (
+            <div className="h-screen bg-zinc-950 flex flex-col items-center justify-center text-red-500 gap-4">
+                <div>Error: No se han podido cargar los datos del partido.</div>
+                <button onClick={() => navigate('/matches')} className="px-4 py-2 bg-zinc-800 rounded">Volver</button>
+            </div>
+        )
+    }
 
     return (
         <div className="min-h-screen bg-zinc-950 flex justify-center text-white font-sans overflow-y-auto">

@@ -486,7 +486,7 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
                             icon={Play}
                             onClick={() => {
                               if (match.engine === 'v2') {
-                                navigate(`/live-match-v2/${match.id}`)
+                                navigate(`/live-match/${match.id}`)
                               } else {
                                 navigate(`/matches/${match.id}/live`)
                               }
