@@ -6,9 +6,9 @@ import { toast } from 'sonner'
 import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
 import { MatchTimeline } from '@/components/MatchTimeline'
 import { formatTimeline } from '@/utils/timelineFormatter'
-import { MatchFinishedModal } from '@/components/matches/MatchFinishedModal'
 import { ReceptionModal } from '@/components/matches/ReceptionModal'
 import { SetSummaryModal } from '@/components/matches/SetSummaryModal'
+import { MatchFinishedModalV2 } from '@/components/matches/MatchFinishedModalV2'
 import { SubstitutionModal } from '@/components/matches/SubstitutionModal'
 import { isLibero, isValidSubstitution } from '@/lib/volleyball/substitutionHelpers'
 import { getLastEventLabel } from '@/utils/matchEventLabels'
@@ -580,13 +580,17 @@ export function LiveMatchScouting() {
                     onUndo={handlers.handleUndoSetSummary}
                 />
 
-                <MatchFinishedModal
+                {/* Match Finished Modal - V2 */}
+                <MatchFinishedModalV2
                     isOpen={modals.isMatchFinishedModalOpen}
-                    matchId={matchId}
                     matchInfo={{
-                        homeTeamName: homeTeamName || 'Local',
-                        awayTeamName: awayTeamName || 'Visitante',
-                        sets: derivedState.setsScores || [],
+                        homeTeamName: matchData.homeTeamName || 'Nosotros',
+                        awayTeamName: matchData.awayTeamName || 'Rival',
+                        sets: derivedState.setsScores.map((set, idx) => ({
+                            setNumber: idx + 1,
+                            home: set.home,
+                            away: set.away
+                        })),
                         homeSetsWon: derivedState.setsWonHome,
                         awaySetsWon: derivedState.setsWonAway,
                         date: matchData?.match_date ? new Date(matchData.match_date).toLocaleDateString('es-ES', {

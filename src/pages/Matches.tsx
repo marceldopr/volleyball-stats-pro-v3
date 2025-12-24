@@ -215,14 +215,6 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
     setMatchToDelete(null)
   }
 
-
-
-  // V1 handlers removed - always use V2 flow
-
-
-
-
-
   return (
     <div className="max-w-6xl mx-auto px-6 lg:px-8 pt-6 lg:pt-8 pb-10">
       {/* Header */}
@@ -246,264 +238,271 @@ export function Matches({ teamId }: { teamId?: string } = {}) {
       </div>
 
       {/* Loading state */}
-      {(loading || roleLoading) && (
-        <div className="text-center py-12">
-          <div className="text-sm text-gray-600 dark:text-gray-400">Cargando partidos...</div>
-        </div>
-      )}
+      {
+        (loading || roleLoading) && (
+          <div className="text-center py-12">
+            <div className="text-sm text-gray-600 dark:text-gray-400">Cargando partidos...</div>
+          </div>
+        )
+      }
 
       {/* Empty state */}
-      {!loading && !roleLoading && supabaseMatches.length === 0 && (
-        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-          <Trophy className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">
-            {isCoach ? 'No tienes partidos asignados' : 'No hay partidos registrados'}
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {isCoach
-              ? 'Todavía no tienes equipos asignados. Contacta con Dirección Técnica.'
-              : 'Crea tu primer partido usando el botón "Nuevo Partido"'
-            }
-          </p>
-        </div>
-      )
+      {
+        !loading && !roleLoading && supabaseMatches.length === 0 && (
+          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <Trophy className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">
+              {isCoach ? 'No tienes partidos asignados' : 'No hay partidos registrados'}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {isCoach
+                ? 'Todavía no tienes equipos asignados. Contacta con Dirección Técnica.'
+                : 'Crea tu primer partido usando el botón "Nuevo Partido"'
+              }
+            </p>
+          </div>
+        )
       }
 
       {/* Lista de partidos */}
-      {!loading && supabaseMatches.length > 0 && (() => {
-        // Helper para crear DateTime combinado de match_date + match_time
-        const getMatchDateTime = (match: any): Date => {
-          // Si tiene match_time, combinar fecha + hora
-          if (match.match_time) {
-            return new Date(`${match.match_date}T${match.match_time}`)
+      {
+        !loading && supabaseMatches.length > 0 && (() => {
+          // Helper para crear DateTime combinado de match_date + match_time
+          const getMatchDateTime = (match: any): Date => {
+            // Si tiene match_time, combinar fecha + hora
+            if (match.match_time) {
+              return new Date(`${match.match_date}T${match.match_time}`)
+            }
+            // Fallback: solo fecha (asume 00:00)
+            return new Date(match.match_date)
           }
-          // Fallback: solo fecha (asume 00:00)
-          return new Date(match.match_date)
-        }
 
-        // 1. Separar en dos bloques
-        const upcomingOrLiveMatches = supabaseMatches.filter(
-          m => m.status === 'planned' || m.status === 'in_progress'
-        )
-        const finishedMatches = supabaseMatches.filter(
-          m => m.status === 'finished'
-        )
+          // 1. Separar en dos bloques
+          const upcomingOrLiveMatches = supabaseMatches.filter(
+            m => m.status === 'planned' || m.status === 'in_progress'
+          )
+          const finishedMatches = supabaseMatches.filter(
+            m => m.status === 'finished'
+          )
 
-        // 2. Ordenar:
-        // Upcoming/Live: ascendente (más próximo primero)
-        upcomingOrLiveMatches.sort((a, b) => {
-          const dateA = getMatchDateTime(a)
-          const dateB = getMatchDateTime(b)
-          return dateA.getTime() - dateB.getTime()
-        })
+          // 2. Ordenar:
+          // Upcoming/Live: ascendente (más próximo primero)
+          upcomingOrLiveMatches.sort((a, b) => {
+            const dateA = getMatchDateTime(a)
+            const dateB = getMatchDateTime(b)
+            return dateA.getTime() - dateB.getTime()
+          })
 
-        // Finished: descendente (más reciente primero)
-        finishedMatches.sort((a, b) => {
-          const dateA = getMatchDateTime(a)
-          const dateB = getMatchDateTime(b)
-          return dateB.getTime() - dateA.getTime()
-        })
+          // Finished: descendente (más reciente primero)
+          finishedMatches.sort((a, b) => {
+            const dateA = getMatchDateTime(a)
+            const dateB = getMatchDateTime(b)
+            return dateB.getTime() - dateA.getTime()
+          })
 
-        // 3. Combinar: primero upcoming/live, luego finished
-        const orderedMatches = [...upcomingOrLiveMatches, ...finishedMatches]
+          // 3. Combinar: primero upcoming/live, luego finished
+          const orderedMatches = [...upcomingOrLiveMatches, ...finishedMatches]
 
-        return (
-          <div className="space-y-3">
-            {orderedMatches.map((match) => (
-              <div
-                key={match.id}
-                data-testid="match-card"
-                className="bg-slate-900 border border-slate-800 rounded-xl px-5 py-4 flex flex-col gap-2 hover:border-slate-700 transition-colors"
-              >
-                {/* ROW 1: Teams + Result + Buttons */}
-                <div className="flex items-center justify-between gap-4">
-                  {/* Teams */}
-                  <div className="flex items-center gap-2 min-w-0">
-                    {match.home_away === 'home' ? (
-                      <>
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                          {teamMap[match.team_id] || 'Mi Equipo'}
-                        </h3>
-                        <span className="text-gray-400 flex-shrink-0">vs</span>
-                        <h3 className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                          {match.opponent_name}
-                        </h3>
-                      </>
-                    ) : (
-                      <>
-                        <h3 className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                          {match.opponent_name}
-                        </h3>
-                        <span className="text-gray-400 flex-shrink-0">vs</span>
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                          {teamMap[match.team_id] || 'Mi Equipo'}
-                        </h3>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Primary Action Button + Delete */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {/* Date/Time - Next to button */}
-                    <div className="text-xs text-gray-400">
-                      {(() => {
-                        const matchDate = new Date(match.match_date)
-                        if (isNaN(matchDate.getTime())) {
-                          return 'Fecha no disponible'
-                        }
-                        const displayTime = match.match_time
-                          ? match.match_time.substring(0, 5)
-                          : matchDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-                        return (
-                          <>
-                            {matchDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
-                            {' · '}
-                            {displayTime}
-                          </>
-                        )
-                      })()}
+          return (
+            <div className="space-y-3">
+              {orderedMatches.map((match) => (
+                <div
+                  key={match.id}
+                  data-testid="match-card"
+                  className="bg-slate-900 border border-slate-800 rounded-xl px-5 py-4 flex flex-col gap-2 hover:border-slate-700 transition-colors"
+                >
+                  {/* ROW 1: Teams + Result + Buttons */}
+                  <div className="flex items-center justify-between gap-4">
+                    {/* Teams */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      {match.home_away === 'home' ? (
+                        <>
+                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                            {teamMap[match.team_id] || 'Mi Equipo'}
+                          </h3>
+                          <span className="text-gray-400 flex-shrink-0">vs</span>
+                          <h3 className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                            {match.opponent_name}
+                          </h3>
+                        </>
+                      ) : (
+                        <>
+                          <h3 className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                            {match.opponent_name}
+                          </h3>
+                          <span className="text-gray-400 flex-shrink-0">vs</span>
+                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                            {teamMap[match.team_id] || 'Mi Equipo'}
+                          </h3>
+                        </>
+                      )}
                     </div>
 
-                    {/* SINGLE PRIMARY BUTTON - Smart Logic */}
-                    {(() => {
-                      const hasConvocation = matchesWithConvocations[match.id]
+                    {/* Primary Action Button + Delete */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Date/Time - Next to button */}
+                      <div className="text-xs text-gray-400">
+                        {(() => {
+                          const matchDate = new Date(match.match_date)
+                          if (isNaN(matchDate.getTime())) {
+                            return 'Fecha no disponible'
+                          }
+                          const displayTime = match.match_time
+                            ? match.match_time.substring(0, 5)
+                            : matchDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+                          return (
+                            <>
+                              {matchDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
+                              {' · '}
+                              {displayTime}
+                            </>
+                          )
+                        })()}
+                      </div>
 
-                      // CASE 1: Planned without convocation
-                      if (match.status === 'planned' && !hasConvocation) {
-                        return (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            icon={Users}
-                            onClick={() => setConvocationModalMatchId(match.id)}
-                            data-testid="convocation-btn"
-                          >
-                            Convocatoria
-                          </Button>
-                        )
-                      }
+                      {/* SINGLE PRIMARY BUTTON - Smart Logic */}
+                      {(() => {
+                        const hasConvocation = matchesWithConvocations[match.id]
 
-                      // CASE 2: Planned with convocation
-                      if (match.status === 'planned' && hasConvocation) {
-                        return (
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            icon={Play}
-                            onClick={async () => {
-                              try {
-                                await matchService.startMatch(match.id)
-                                navigate(`/live-match/${match.id}`)
-                              } catch (e) {
-                                console.error('Error starting match:', e)
-                                alert('Error al iniciar el partido')
-                              }
-                            }}
-                            data-testid="start-match-btn"
-                          >
-                            Iniciar Partido
-                          </Button>
-                        )
-                      }
+                        // CASE 1: Planned without convocation
+                        if (match.status === 'planned' && !hasConvocation) {
+                          return (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              icon={Users}
+                              onClick={() => setConvocationModalMatchId(match.id)}
+                              data-testid="convocation-btn"
+                            >
+                              Convocatoria
+                            </Button>
+                          )
+                        }
 
-                      // CASE 3: In progress
-                      if (match.status === 'in_progress') {
-                        return (
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            icon={Play}
-                            onClick={() => navigate(`/live-match/${match.id}`)}
-                            className="animate-pulse"
-                            data-testid="view-live-btn"
-                          >
-                            Ver en Vivo
-                          </Button>
-                        )
-                      }
+                        // CASE 2: Planned with convocation
+                        if (match.status === 'planned' && hasConvocation) {
+                          return (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              icon={Play}
+                              onClick={async () => {
+                                try {
+                                  await matchService.startMatch(match.id)
+                                  navigate(`/live-match/${match.id}`)
+                                } catch (e) {
+                                  console.error('Error starting match:', e)
+                                  alert('Error al iniciar el partido')
+                                }
+                              }}
+                              data-testid="start-match-btn"
+                            >
+                              Iniciar Partido
+                            </Button>
+                          )
+                        }
 
-                      // CASE 4: Finished
-                      if (match.status === 'finished') {
-                        return (
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            icon={BarChart3}
-                            onClick={() => {
-                              navigate(`/match-analysis/${match.id}`)
-                            }}
-                            data-testid="view-analysis-btn"
-                          >
-                            Ver Análisis
-                          </Button>
-                        )
-                      }
+                        // CASE 3: In progress
+                        if (match.status === 'in_progress') {
+                          return (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              icon={Play}
+                              onClick={() => navigate(`/live-match/${match.id}`)}
+                              className="animate-pulse"
+                              data-testid="view-live-btn"
+                            >
+                              Ver en Vivo
+                            </Button>
+                          )
+                        }
 
-                      return null
-                    })()}
+                        // CASE 4: Finished
+                        if (match.status === 'finished') {
+                          return (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              icon={BarChart3}
+                              onClick={() => {
+                                navigate(`/match-analysis/${match.id}`)
+                              }}
+                              data-testid="view-analysis-btn"
+                            >
+                              Ver Análisis
+                            </Button>
+                          )
+                        }
 
-                    {/* Delete Button */}
-                    {(!isCoach || (isCoach && match.status === 'planned')) && (
-                      <button
-                        onClick={() => handleDeleteClick(match)}
-                        className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                        title="Eliminar partido"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
+                        return null
+                      })()}
+
+                      {/* Delete Button */}
+                      {(!isCoach || (isCoach && match.status === 'planned')) && (
+                        <button
+                          onClick={() => handleDeleteClick(match)}
+                          className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                          title="Eliminar partido"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                {/* ROW 2: Result + Badges */}
-                <div className="flex items-center justify-between gap-4">
-                  {/* Sets Result - Score bold, details normal - Show for finished AND in_progress */}
-                  {(match.status === 'finished' || match.status === 'in_progress') ? (() => {
-                    const result = getActualMatchResult(match) || match.result || '-'
-                    const match_result = result.match(/^(\d+-\d+)\s*(.*)$/)
+                  {/* ROW 2: Result + Badges */}
+                  <div className="flex items-center justify-between gap-4">
+                    {/* Sets Result - Score bold, details normal - Show for finished AND in_progress */}
+                    {(match.status === 'finished' || match.status === 'in_progress') ? (() => {
+                      const result = getActualMatchResult(match) || match.result || '-'
+                      const match_result = result.match(/^(\d+-\d+)\s*(.*)$/)
 
-                    if (match_result) {
-                      const [, score, details] = match_result
+                      if (match_result) {
+                        const [, score, details] = match_result
+                        return (
+                          <div className="text-sm text-gray-900 dark:text-white tabular-nums">
+                            <span className="font-semibold">{score}</span>
+                            {details && <span className="font-normal"> {details}</span>}
+                          </div>
+                        )
+                      }
+
                       return (
-                        <div className="text-sm text-gray-900 dark:text-white tabular-nums">
-                          <span className="font-semibold">{score}</span>
-                          {details && <span className="font-normal"> {details}</span>}
+                        <div className="text-sm font-normal text-gray-900 dark:text-white tabular-nums">
+                          {result}
                         </div>
                       )
-                    }
+                    })() : <div></div>}
 
-                    return (
-                      <div className="text-sm font-normal text-gray-900 dark:text-white tabular-nums">
-                        {result}
-                      </div>
-                    )
-                  })() : <div></div>}
-
-                  {/* Badges */}
-                  {/* Badges removed as requested */}
-                  <div className="flex items-center gap-2 flex-wrap justify-end">
-                    {/* Tags removed */}
+                    {/* Badges */}
+                    {/* Badges removed as requested */}
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      {/* Tags removed */}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )
-      })()}
+              ))}
+            </div>
+          )
+        })()
+      }
 
 
       {/* Convocation Modal */}
-      {convocationModalMatchId && (
-        <ConvocationModal
-          matchId={convocationModalMatchId}
-          onClose={() => setConvocationModalMatchId(null)}
-          onSave={() => {
-            setConvocationModalMatchId(null)
-            // Trigger refresh
-            setRefreshKey(prev => prev + 1)
-          }}
-        />
-      )}
+      {
+        convocationModalMatchId && (
+          <ConvocationModal
+            matchId={convocationModalMatchId}
+            onClose={() => setConvocationModalMatchId(null)}
+            onSave={() => {
+              setConvocationModalMatchId(null)
+              // Trigger refresh
+              setRefreshKey(prev => prev + 1)
+            }}
+          />
+        )
+      }
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog

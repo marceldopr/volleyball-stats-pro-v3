@@ -26,23 +26,7 @@ export function calculateLiberoRotation(
 
     const displayRotation = [...baseRotation];
 
-    // Back row positions: 5, 6, 1 (in volleyball court layout)
-    // Rotation array indices: 0=P1, 1=P2, 2=P3, 3=P4, 4=P5, 5=P6
-    // P1 is index 0. P6 is index 5. P5 is index 4.
-    // Wait, let's verify V1 mapping:
-    // V1 Code:
-    // const backRowPositions = [4, 5, 0] // Array indices for positions 5, 6, 1
-    // const positionNumber = [5, 6, 1][backRowPositions.indexOf(arrayIndex)]
-
-    // Indices in `currentRotationOrder`:
-    // P1 = Index 0
-    // P2 = Index 1
-    // P3 = Index 2
-    // P4 = Index 3
-    // P5 = Index 4
-    // P6 = Index 5
-
-    // Back row is P1, P6, P5.
+    // Back row positions are P1, P6, P5 (array indices 0, 5, 4)
     const backRowIndices = [4, 5, 0]; // Indices for P5, P6, P1
 
     backRowIndices.forEach(arrayIndex => {
