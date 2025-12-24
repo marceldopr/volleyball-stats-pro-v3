@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider, Route, createRoutesFromElements, Routes, Navigate, useLocation } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider, Route, createRoutesFromElements, Routes } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Teams } from '@/pages/Teams'
 import { TeamSeasonContext } from '@/pages/TeamSeasonContext'
@@ -38,22 +38,9 @@ import { CoachSignupPage } from './pages/CoachSignupPage'
 import { V1BlockedRoute } from '@/components/routing/V1BlockedRoute'
 import { useAuthStore } from './stores/authStore'
 
+
 function App() {
   const { isDarkMode } = useThemeStore()
-  const session = useAuthStore(state => state.session)
-  const location = useLocation()
-
-  // E2E Testing: Bypass auth check when running tests
-  const isE2EBypass = import.meta.env.VITE_E2E_BYPASS_AUTH === 'true'
-
-  // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/register', '/signup/coach']
-  const isPublicRoute = publicRoutes.includes(location.pathname)
-
-  // Redirect to login if not authenticated (unless E2E bypass or public route)
-  if (!session?.user && !isPublicRoute && !isE2EBypass) {
-    return <Navigate to="/login" replace />
-  }
 
   const router = createBrowserRouter(
     createRoutesFromElements(
