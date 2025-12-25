@@ -85,28 +85,36 @@ export function Teams() {
         teamsData = allTeams.filter(team => assignedTeamIds.includes(team.id))
       }
 
-      // Enriched teams with operational data
-      const enrichedTeams = await Promise.all(
-        teamsData.map(async (team) => {
-          const [coachName, assistantName, activePlayers, attendance, winLoss] = await Promise.all([
-            coachAssignmentService.getPrimaryCoachForTeam(team.id, seasonId),
-            coachAssignmentService.getAssistantCoachForTeam(team.id, seasonId),
-            teamStatsService.getActivePlayersCount(team.id, seasonId),
-            teamStatsService.getAttendanceLast30Days(team.id, seasonId),
-            teamStatsService.getWinLossRecord(team.id, seasonId)
-          ])
+      // Bulk fetch enrichment data
+      const teamIds = teamsData.map(t => t.id)
 
-          return {
-            ...team,
-            coach_name: coachName,
-            assistant_coach_name: assistantName,
-            active_players_count: activePlayers,
-            attendance_30d: attendance,
-            ...winLoss
-          }
-        })
-      )
+      const [
+        primaryCoachesMap,
+        assistantCoachesMap,
+        rosterCountsMap,
+        attendanceMap,
+        winLossMap
+      ] = await Promise.all([
+        coachAssignmentService.getPrimaryCoachesForTeams(teamIds, seasonId),
+        coachAssignmentService.getAssistantCoachesForTeams(teamIds, seasonId),
+        teamStatsService.getRosterCountForTeams(teamIds, seasonId),
+        teamStatsService.getAttendanceLast30DaysForTeams(teamIds),
+        teamStatsService.getWinLossRecordForTeams(teamIds, seasonId)
+      ])
 
+      const enrichedTeams = teamsData.map(team => {
+        const wl = winLossMap.get(team.id) || { wins: 0, losses: 0 }
+
+        return {
+          ...team,
+          coach_name: primaryCoachesMap.get(team.id) || null,
+          assistant_coach_name: assistantCoachesMap.get(team.id) || null,
+          active_players_count: rosterCountsMap.get(team.id) || 0,
+          attendance_30d: attendanceMap.get(team.id) ?? null,
+          wins: wl.wins,
+          losses: wl.losses
+        }
+      })
       return enrichedTeams
     } catch (error) {
       console.error('Error loading teams:', error)

@@ -165,6 +165,9 @@ export const teamStatsService = {
     /**
      * Get active roster count for a team
      */
+    /**
+     * Get active roster count for a team
+     */
     async getRosterCount(teamId: string, seasonId: string): Promise<number> {
         try {
             // If no seasonId provided, get count without season filter
@@ -196,6 +199,114 @@ export const teamStatsService = {
         } catch (error) {
             return 0
         }
+    },
+
+    /**
+     * BULK: Get roster counts for multiple teams
+     */
+    async getRosterCountForTeams(teamIds: string[], seasonId: string): Promise<Map<string, number>> {
+        const resultMap = new Map<string, number>()
+        if (!teamIds.length) return resultMap
+
+        const { data } = await supabase
+            .from('player_team_season')
+            .select('team_id')
+            .in('team_id', teamIds)
+            .eq('season_id', seasonId)
+
+        data?.forEach(p => {
+            const count = resultMap.get(p.team_id) || 0
+            resultMap.set(p.team_id, count + 1)
+        })
+
+        return resultMap
+    },
+
+    /**
+     * BULK: Get attendance (last 30d) for multiple teams
+     */
+    async getAttendanceLast30DaysForTeams(teamIds: string[]): Promise<Map<string, number | null>> {
+        const resultMap = new Map<string, number | null>()
+        if (!teamIds.length) return resultMap
+
+        const startDate = new Date()
+        startDate.setDate(startDate.getDate() - 30)
+
+        // 1. Get recent trainings for all teams
+        const { data: trainings } = await supabase
+            .from('trainings')
+            .select('id, team_id')
+            .in('team_id', teamIds)
+            .gte('date', startDate.toISOString())
+
+        if (!trainings || trainings.length === 0) return resultMap
+
+        const trainingIds = trainings.map(t => t.id)
+
+        // 2. Get attendance records
+        const { data: attendance } = await supabase
+            .from('training_attendance')
+            .select('training_id, status')
+            .in('training_id', trainingIds)
+
+        const trainingStats = new Map<string, { total: number, present: number }>()
+        attendance?.forEach(a => {
+            const s = trainingStats.get(a.training_id) || { total: 0, present: 0 }
+            s.total++
+            if (a.status === 'present' || a.status === 'justified') s.present++
+            trainingStats.set(a.training_id, s)
+        })
+
+        // 3. Aggregate per team
+        teamIds.forEach(tid => {
+            const teamTrainings = trainings.filter(t => t.team_id === tid)
+            if (teamTrainings.length === 0) {
+                resultMap.set(tid, null)
+                return
+            }
+
+            let tTotal = 0
+            let tPresent = 0
+            teamTrainings.forEach(t => {
+                const s = trainingStats.get(t.id)
+                if (s) {
+                    tTotal += s.total
+                    tPresent += s.present
+                }
+            })
+
+            resultMap.set(tid, tTotal > 0 ? Math.round((tPresent / tTotal) * 100) : null)
+        })
+
+        return resultMap
+    },
+
+    /**
+     * BULK: Get Win/Loss records for multiple teams
+     */
+    async getWinLossRecordForTeams(teamIds: string[], seasonId: string): Promise<Map<string, { wins: number, losses: number }>> {
+        const resultMap = new Map<string, { wins: number, losses: number }>()
+        if (!teamIds.length) return resultMap
+
+        const { data: matches } = await supabase
+            .from('matches')
+            .select('team_id, our_sets, opponent_sets, status')
+            .in('team_id', teamIds)
+            .eq('season_id', seasonId) // Only matches from this season
+            .eq('status', 'finished')
+
+        matches?.forEach(m => {
+            const current = resultMap.get(m.team_id) || { wins: 0, losses: 0 }
+            // Basic logic: check set scores if available, or just assume status
+            // Assuming 3-0, 3-2 etc logic is handled by our_sets > opponent_sets
+            if (m.our_sets !== null && m.opponent_sets !== null) {
+                if (m.our_sets > m.opponent_sets) current.wins++
+                else if (m.opponent_sets > m.our_sets) current.losses++ // Strict check
+            }
+            resultMap.set(m.team_id, current)
+        })
+
+        return resultMap
     },
 
     /**

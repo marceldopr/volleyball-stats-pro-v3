@@ -307,5 +307,83 @@ export const coachAssignmentService = {
         if (!coach) return null
 
         return `${coach.first_name} ${coach.last_name}`
+    },
+
+    /**
+     * BULK: Get primary coaches for multiple teams
+     */
+    getPrimaryCoachesForTeams: async (teamIds: string[], seasonId: string): Promise<Map<string, string>> => {
+        if (!teamIds.length) return new Map()
+
+        // 1. Get assignments
+        const { data: assignments } = await supabase
+            .from('coach_team_season')
+            .select('team_id, coach_id')
+            .in('team_id', teamIds)
+            .eq('season_id', seasonId)
+            .eq('role_in_team', 'head')
+
+        if (!assignments || assignments.length === 0) return new Map()
+
+        const coachIds = [...new Set(assignments.map(a => a.coach_id))]
+
+        // 2. Get coach details
+        const { data: coaches } = await supabase
+            .from('coaches')
+            .select('id, first_name, last_name')
+            .in('id', coachIds)
+
+        const coachMap = new Map<string, string>()
+        coaches?.forEach(c => {
+            coachMap.set(c.id, `${c.first_name} ${c.last_name}`)
+        })
+
+        // 3. Map team_id -> coach name
+        const resultMap = new Map<string, string>()
+        assignments.forEach(a => {
+            const name = coachMap.get(a.coach_id)
+            if (name) resultMap.set(a.team_id, name)
+        })
+
+        return resultMap
+    },
+
+    /**
+     * BULK: Get assistant coaches for multiple teams
+     */
+    getAssistantCoachesForTeams: async (teamIds: string[], seasonId: string): Promise<Map<string, string>> => {
+        if (!teamIds.length) return new Map()
+
+        // 1. Get assignments
+        const { data: assignments } = await supabase
+            .from('coach_team_season')
+            .select('team_id, coach_id')
+            .in('team_id', teamIds)
+            .eq('season_id', seasonId)
+            .eq('role_in_team', 'assistant')
+
+        if (!assignments || assignments.length === 0) return new Map()
+
+        const coachIds = [...new Set(assignments.map(a => a.coach_id))]
+
+        // 2. Get coach details
+        const { data: coaches } = await supabase
+            .from('coaches')
+            .select('id, first_name, last_name')
+            .in('id', coachIds)
+
+        const coachMap = new Map<string, string>()
+        coaches?.forEach(c => {
+            coachMap.set(c.id, `${c.first_name} ${c.last_name}`)
+        })
+
+        // 3. Map team_id -> coach name
+        const resultMap = new Map<string, string>()
+        assignments.forEach(a => {
+            const name = coachMap.get(a.coach_id)
+            if (name) resultMap.set(a.team_id, name)
+        })
+
+        return resultMap
     }
 }
