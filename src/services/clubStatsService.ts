@@ -140,10 +140,12 @@ export const clubStatsService = {
 
             const [allPlayersResult, recentTrainingsResult] = await Promise.all([
                 // Query 1: All players (for imbalanced teams check)
+                // Query 1: All players (for imbalanced teams check)
                 supabase
-                    .from('players')
+                    .from('player_team_season')
                     .select('id, team_id')
-                    .in('team_id', teamIds),
+                    .in('team_id', teamIds)
+                    .eq('status', 'active'),
 
                 // Query 2: Recent trainings (last 30 days) - Covers Attendance, Unregistered & Recent Activity
                 supabase
@@ -838,10 +840,12 @@ export const clubStatsService = {
 
             // 4. AXIS: TEAM BALANCE
             // Teams with < 9 players (RED)
+            // Teams with < 9 players (RED)
             const { data: players } = await supabase
-                .from('players')
+                .from('player_team_season')
                 .select('team_id')
                 .in('team_id', teamIds)
+                .eq('status', 'active')
 
             const teamPlayerCounts = new Map<string, number>()
             players?.forEach(p => {
