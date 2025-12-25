@@ -378,5 +378,88 @@ export const matchService = {
             console.error('Error starting match V2:', error)
             throw error
         }
+    },
+
+    /**
+     * Record the result of a set (and update match totals)
+     */
+    async recordSetResult(
+        matchId: string,
+        setNumber: number,
+        homePoints: number,
+        awayPoints: number
+    ): Promise<void> {
+        try {
+            // 1. Upsert match_set
+            const { error: setError } = await supabase
+                .from('match_sets')
+                .upsert({
+                    match_id: matchId,
+                    set_number: setNumber,
+                    home_points: homePoints,
+                    away_points: awayPoints
+                }, { onConflict: 'match_id, set_number' })
+
+            if (setError) throw setError
+
+            // 2. Recalculate match totals using DB aggregation to ensure consistency
+            const { data: allSets, error: setsError } = await supabase
+                .from('match_sets')
+                .select('*')
+                .eq('match_id', matchId)
+
+            if (setsError) throw setsError
+
+            let setsHome = 0
+            let setsAway = 0
+            let pointsHome = 0
+            let pointsAway = 0
+            const resultParts: string[] = []
+
+            allSets.sort((a, b) => a.set_number - b.set_number).forEach(set => {
+                pointsHome += set.home_points
+                pointsAway += set.away_points
+                if (set.home_points > set.away_points) setsHome++
+                else if (set.away_points > set.home_points) setsAway++
+
+                resultParts.push(`${set.home_points}-${set.away_points}`)
+            })
+
+            // 3. Determine Status and Winner
+            let status = 'in_progress'
+            let winner = null
+            let finishedAt = null
+
+            // Logic: First to 3 sets
+            if (setsHome >= 3 || setsAway >= 3) {
+                status = 'finished'
+                winner = setsHome > setsAway ? 'home' : 'away'
+                finishedAt = new Date().toISOString()
+            }
+
+            const resultText = `Sets: ${setsHome}-${setsAway} (${resultParts.join(', ')})`
+
+            // 4. Update Match
+            const { error: updateError } = await supabase
+                .from('matches')
+                .update({
+                    sets_home: setsHome,
+                    sets_away: setsAway,
+                    points_home: pointsHome,
+                    points_away: pointsAway,
+                    winner: winner,
+                    status: status as any,
+                    result: resultText,
+                    finished_at: finishedAt,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', matchId)
+
+            if (updateError) throw updateError
+
+        } catch (error) {
+            console.error('Error in recordSetResult:', error)
+            throw error
+        }
     }
 }

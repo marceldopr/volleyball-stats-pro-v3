@@ -2,8 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { rotateLineup } from '../lib/volleyball/rotationLogic'
 import { matchService } from '@/services/matchService'
-
-// --- Types ---
+import { teamStatsService } from '@/services/teamStatsService'
 
 export type MatchEventType =
     | 'POINT_US'
@@ -912,7 +911,26 @@ export const useMatchStore = create<MatchV2State>()(
                             }
                         }
                         tempEvents.push(setStartEvent)
+                    } else {
+                        // Match Finished
+                        // Nothing extra needed?
+                        // recordSetResult below will handle status='finished' and winner update
                     }
+
+                    // --- NUEVO: Guardar resultado estructurado en match_sets ---
+                    // Se lanza asíncrona para no bloquear UI
+                    matchService.recordSetResult(
+                        dbMatchId,
+                        currentSet,
+                        tempDerived.homeScore,
+                        tempDerived.awayScore
+                    ).catch((e: any) => console.error('[MatchStore] Failed to record set result:', e))
+
+                    // Also recalculate player stats for the whole match (real-time KPIs)
+                    // We pass tempEvents so we don't need to wait for DB write
+                    teamStatsService.recalculateMatchStats(dbMatchId, tempEvents)
+                        .catch((e: any) => console.error('[MatchStore] Failed to recalculate stats:', e))
+                    // -----------------------------------------------------------
                 }
 
                 const finalDerived = calculateDerivedState(tempEvents, ourSide, initialOnCourtPlayers, dismissedSetSummaries)
@@ -934,6 +952,7 @@ export const useMatchStore = create<MatchV2State>()(
                     state.autoSaveEvents()
                 }
             },
+
 
             undoEvent: () => {
                 const { events, ourSide, initialOnCourtPlayers, dismissedSetSummaries } = get()

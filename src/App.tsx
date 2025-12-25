@@ -30,6 +30,7 @@ import { Coaches } from './pages/Coaches'
 import { CoachDetail } from './pages/CoachDetail'
 import { ClubDashboardPage } from '@/pages/ClubDashboardPage'
 import { StatsPage } from '@/pages/StatsPage'
+import { RankingsPage } from '@/pages/RankingsPage'
 import { ProtectedRoute } from '@/components/routing/ProtectedRoute'
 import { useThemeStore } from '@/stores/themeStore'
 import { SeasonCacheProvider } from './providers/SeasonCacheProvider'
@@ -110,6 +111,11 @@ function App() {
                   <Route path="/stats" element={
                     <RoleGuard allowedForDT>
                       <StatsPage />
+                    </RoleGuard>
+                  } />
+                  <Route path="/stats/rankings" element={
+                    <RoleGuard allowedForDT>
+                      <RankingsPage />
                     </RoleGuard>
                   } />
                   <Route path="/players" element={

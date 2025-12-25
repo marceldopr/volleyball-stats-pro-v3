@@ -83,17 +83,24 @@ export function Sidebar() {
       { id: 'partidos', title: 'Partidos', href: '/matches', icon: Trophy, level: 2 },
 
       // LEVEL 3 - Analytics & Tracking
+      // LEVEL 3 - Analytics & Tracking
       {
         id: 'estadisticas',
         title: 'Estadísticas',
+        href: '/stats',
         icon: BarChart3,
         level: 3,
+      },
+      {
+        id: 'informes',
+        title: 'Informes',
+        icon: FileText,
+        level: 3,
         children: [
-          { name: 'Equipos', href: '/stats' },
-          { name: 'Jugadores', href: '/reports/players' }
+          { name: 'Club', href: '/club/dashboard' },
+          { name: 'Jugadoras', href: '/reports/players' }
         ]
       },
-      { id: 'informes', title: 'Informes', href: '/club/dashboard', icon: FileText, level: 3 },
       { id: 'salud', title: 'Salud y disponibilidad', href: '/salud-disponibilidad', icon: Activity, level: 3 },
 
       // LEVEL 4 - Structure & Configuration

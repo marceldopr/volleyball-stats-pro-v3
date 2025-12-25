@@ -8,6 +8,8 @@ import { seasonService, SeasonDB } from '@/services/seasonService'
 import { TeamStatsTab } from '@/components/dashboard/TeamStatsTab'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { toast } from 'sonner'
+import { StatsNavigation } from '@/components/stats/StatsNavigation'
+
 
 export function StatsPage() {
     const { profile } = useAuthStore()
@@ -100,6 +102,10 @@ export function StatsPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+                <StatsNavigation />
+            </div>
+
             {/* Header with team selector */}
             <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -114,15 +120,21 @@ export function StatsPage() {
                             </p>
                         </div>
 
-                        {/* Team selector */}
-                        <div className="w-full sm:w-auto">
+                        {/* Actions */}
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+
+
+                            {/* Team selector */}
                             <select
                                 value={selectedTeamId}
-                                onChange={(e) => setSelectedTeamId(e.target.value)}
+                                onChange={(e) => {
+                                    if (e.target.value === 'separator') return
+                                    setSelectedTeamId(e.target.value)
+                                }}
                                 className="input w-full sm:w-64 bg-white dark:bg-gray-900 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600"
                             >
                                 <option value="all">📊 Todos</option>
-                                <option disabled>───────────────────</option>
+                                <option value="separator" disabled>───────────────────</option>
                                 {teams.map((team) => (
                                     <option key={team.id} value={team.id}>
                                         {getTeamDisplayName(team)}

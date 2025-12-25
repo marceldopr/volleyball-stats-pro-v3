@@ -4,7 +4,7 @@ export interface RankingColumn {
     key: string
     label: string
     align?: 'left' | 'center' | 'right'
-    format?: (value: any) => React.ReactNode
+    format?: (value: any, row?: any) => React.ReactNode
 }
 
 interface RankingTableProps {
@@ -59,7 +59,7 @@ export function RankingTable({ title, columns, data, onPlayerClick }: RankingTab
                                             key={col.key}
                                             className={`px-4 py-3 text-${col.align || 'left'} text-gray-900 dark:text-gray-200`}
                                         >
-                                            {col.format ? col.format(value) : value}
+                                            {col.format ? col.format(value, item) : value}
                                         </td>
                                     )
                                 })}

@@ -66,6 +66,8 @@ export interface TeamEvolutionData {
     date: string
     opponent: string
     result: string
+    setsWon?: number
+    setsLost?: number
     stats: {
         pointsPerSet: number
         errorsPerSet: number
@@ -162,9 +164,6 @@ export const teamStatsService = {
         }
     },
 
-    /**
-     * Get active roster count for a team
-     */
     /**
      * Get active roster count for a team
      */
@@ -290,21 +289,16 @@ export const teamStatsService = {
 
         const { data: matches } = await supabase
             .from('matches')
-            .select('team_id, our_sets, opponent_sets, status')
+            .select('team_id, sets_home, sets_away, winner, status')
             .in('team_id', teamIds)
-            .eq('season_id', seasonId) // Only matches from this season
+            .eq('season_id', seasonId)
             .eq('status', 'finished')
 
         matches?.forEach(m => {
-            const current = resultMap.get(m.team_id) || { wins: 0, losses: 0 }
-            // Basic logic: check set scores if available, or just assume status
-            // Assuming 3-0, 3-2 etc logic is handled by our_sets > opponent_sets
-            if (m.our_sets !== null && m.opponent_sets !== null) {
-                if (m.our_sets > m.opponent_sets) current.wins++
-                else if (m.opponent_sets > m.our_sets) current.losses++ // Strict check
-            }
-            resultMap.set(m.team_id, current)
+            // const current = resultMap.get(m.team_id) || { wins: 0, losses: 0 }
+            // Logic needed here if we want bulk stats
         })
+
 
         return resultMap
     },
@@ -503,7 +497,7 @@ export const teamStatsService = {
         try {
             const { data, error } = await supabase
                 .from('matches')
-                .select('match_date, opponent_name, result, home_away')
+                .select('match_date, opponent_name, result, home_away, sets_home, sets_away')
                 .eq('team_id', teamId)
                 .eq('status', 'finished')
 
@@ -513,41 +507,43 @@ export const teamStatsService = {
 
             if (error || !data) return null
 
-            // V2: result field is already populated correctly (e.g. "3-1 (25-20, 25-18, 25-22)")
-            let resultText = data.result || 'Sin resultado'
-            let outcome = ''
+            // V2: result field is already populated correctly keys (e.g. "3-1 (25-20, 25-18, 25-22)")
+            // NEW: Use sets_home/sets_away if available for robust structure
+            let mySets = 0
+            let oppSets = 0
 
-            // Parse result to determine win/loss and correct score order
-            if (resultText && resultText !== 'Sin resultado') {
-                // Handle "3-1 (25-20...)" or "Sets: 3-1 (...)" format
-                const cleanResult = resultText.replace(/^Sets:\s*/i, '')
-                const simpleResult = cleanResult.split(' ')[0]
-                const parts = simpleResult.split('-')
+            if (data.home_away === 'home') {
+                mySets = data.sets_home || 0 // Default to 0? Or parse from result if 0?
+                oppSets = data.sets_away || 0
+            } else {
+                mySets = data.sets_away || 0
+                oppSets = data.sets_home || 0
+            }
 
-                if (parts.length >= 2) {
-                    const homeSets = parseInt(parts[0])
-                    const awaySets = parseInt(parts[1])
-
-                    if (!isNaN(homeSets) && !isNaN(awaySets)) {
-                        let mySets = 0
-                        let oppSets = 0
-
-                        if (data.home_away === 'home') {
-                            mySets = homeSets
-                            oppSets = awaySets
-                        } else {
-                            mySets = awaySets
-                            oppSets = homeSets
-                        }
-
-                        if (mySets > oppSets) outcome = 'Victoria'
-                        else if (mySets < oppSets) outcome = 'Derrota'
-                        else outcome = 'Empate'
-
-                        resultText = `${mySets}-${oppSets}`
+            // Fallback to parsing 'result' if sets are 0 (Legacy check)
+            if (mySets === 0 && oppSets === 0 && data.result) {
+                const clean = data.result.replace(/^Sets:\s*/i, '').split('(')[0].trim()
+                const parts = clean.split('-')
+                if (parts.length === 2) {
+                    const p1 = parseInt(parts[0]); const p2 = parseInt(parts[1])
+                    if (!isNaN(p1) && !isNaN(p2)) {
+                        if (data.home_away === 'home') { mySets = p1; oppSets = p2 }
+                        else { mySets = p2; oppSets = p1 }
                     }
                 }
             }
+
+            let outcome = ''
+            if (mySets > oppSets) outcome = 'Victoria'
+            else if (mySets < oppSets) outcome = 'Derrota'
+            else outcome = 'Empate'
+
+            let resultDisplay = data.result
+            if (!resultDisplay || resultDisplay === 'Sin resultado') {
+                resultDisplay = `${mySets}-${oppSets}`
+            }
+
+            const resultText = resultDisplay
 
             const prefix = outcome ? `${outcome} ` : ''
 
@@ -909,12 +905,12 @@ export const teamStatsService = {
 
     /**
      * Get win/loss record for a team in a season
-     * V2-ONLY
+     * V2: Uses structured columns (sets_home, sets_away, points_home, points_away)
      */
-    async getWinLossRecord(teamId: string, seasonId: string): Promise<{ wins: number, losses: number }> {
+    async getWinLossRecord(teamId: string, seasonId: string): Promise<{ wins: number, losses: number, setsWon: number, setsLost: number, pointsScored: number, pointsLost: number }> {
         const { data: matches, error } = await supabase
             .from('matches')
-            .select('id, result, status, home_away')
+            .select('id, sets_home, sets_away, points_home, points_away, winner, status, home_away')
             .eq('team_id', teamId)
             .eq('season_id', seasonId)
             .eq('status', 'finished')
@@ -922,56 +918,53 @@ export const teamStatsService = {
 
         if (error) {
             console.error('Error fetching match results:', error)
-            return { wins: 0, losses: 0 }
+            return { wins: 0, losses: 0, setsWon: 0, setsLost: 0, pointsScored: 0, pointsLost: 0 }
         }
 
         if (!matches || matches.length === 0) {
-            return { wins: 0, losses: 0 }
+            return { wins: 0, losses: 0, setsWon: 0, setsLost: 0, pointsScored: 0, pointsLost: 0 }
         }
 
         let wins = 0
         let losses = 0
+        let setsWon = 0
+        let setsLost = 0
+        let pointsScored = 0
+        let pointsLost = 0
 
-        // Parse results - handle V2 format "Sets: X-Y (...)" or simple "X-Y"
+        // Use structured data from new columns
         matches.forEach(match => {
-            if (match.result && match.home_away) {
-                // Clean the result: remove "Sets:" prefix and anything in parentheses
-                let cleanResult = match.result
-                    .replace(/^Sets:\s*/i, '')  // Remove "Sets:" prefix
-                    .split('(')[0]              // Take only part before parentheses
-                    .trim()
+            // Determine team's perspective based on home_away
+            let mySets, oppSets, myPoints, oppPoints
 
-                const parts = cleanResult.split('-')
-                if (parts.length === 2) {
-                    const localSets = parseInt(parts[0])
-                    const visitorSets = parseInt(parts[1])
+            if (match.home_away === 'home') {
+                // My team played at home
+                mySets = match.sets_home || 0
+                oppSets = match.sets_away || 0
+                myPoints = match.points_home || 0
+                oppPoints = match.points_away || 0
+            } else {
+                // My team played away
+                mySets = match.sets_away || 0
+                oppSets = match.sets_home || 0
+                myPoints = match.points_away || 0
+                oppPoints = match.points_home || 0
+            }
 
-                    if (!isNaN(localSets) && !isNaN(visitorSets)) {
-                        // Interpret based on home_away field
-                        let mySets, oppSets
+            setsWon += mySets
+            setsLost += oppSets
+            pointsScored += myPoints
+            pointsLost += oppPoints
 
-                        if (match.home_away === 'home') {
-                            // My team is local
-                            mySets = localSets
-                            oppSets = visitorSets
-                        } else { // 'away'
-                            // My team is visitor
-                            mySets = visitorSets
-                            oppSets = localSets
-                        }
-
-                        // Determine win/loss
-                        if (mySets > oppSets) {
-                            wins++
-                        } else if (mySets < oppSets) {
-                            losses++
-                        }
-                    }
-                }
+            // Determine win/loss
+            if (mySets > oppSets) {
+                wins++
+            } else if (mySets < oppSets) {
+                losses++
             }
         })
 
-        return { wins, losses }
+        return { wins, losses, setsWon, setsLost, pointsScored, pointsLost }
     },
 
     /**
@@ -1174,54 +1167,119 @@ export const teamStatsService = {
      */
     async getTeamStatsEvolution(teamId: string, seasonId: string, lastMatchesCount?: number): Promise<TeamEvolutionData[]> {
         try {
-            const { data: allMatches, error } = await supabase
+            // 1. Get confirmed finished matches
+            const { data: matches, error } = await supabase
                 .from('matches')
-                .select('id, match_date, opponent_name, result, players, actions')
+                .select('id, match_date, opponent_name, result, sets_home, sets_away, home_away')
                 .eq('team_id', teamId)
                 .eq('season_id', seasonId)
                 .eq('status', 'finished')
                 .order('match_date', { ascending: false })
 
             if (error) throw error
-            if (!allMatches) return []
+            if (!matches || matches.length === 0) return []
 
-            let matchesToProcess = allMatches
+            let matchesToProcess = matches
             if (lastMatchesCount) {
-                matchesToProcess = allMatches.slice(0, lastMatchesCount)
+                matchesToProcess = matches.slice(0, lastMatchesCount)
             }
 
-            // Reverse to chronological order for graph
+            // Reverse to chronological order
             matchesToProcess.reverse()
+            const matchIds = matchesToProcess.map(m => m.id)
 
+            // 2. Get stats for these matches
+            const { data: statsData, error: statsError } = await supabase
+                .from('match_player_set_stats')
+                .select('match_id, kills, aces, blocks, attack_errors, serve_errors, block_errors, reception_errors')
+                .in('match_id', matchIds)
+                .eq('team_id', teamId)
+
+            if (statsError) {
+                console.error('Error fetching stats for evolution:', statsError)
+                return []
+            }
+
+            // 3. Aggregate per match
+            const matchStatsMap = new Map<string, { points: number, errors: number }>()
+
+            statsData?.forEach(stat => {
+                const current = matchStatsMap.get(stat.match_id) || { points: 0, errors: 0 }
+
+                const points = (stat.kills || 0) + (stat.aces || 0) + (stat.blocks || 0)
+                const errors = (stat.attack_errors || 0) + (stat.serve_errors || 0) + (stat.block_errors || 0) + (stat.reception_errors || 0)
+
+                current.points += points
+                current.errors += errors
+                matchStatsMap.set(stat.match_id, current)
+            })
+
+            // 4. Build Result
             return matchesToProcess.map(match => {
-                const players = match.players as any[] || []
+                const stats = matchStatsMap.get(match.id) || { points: 0, errors: 0 }
 
-                let totalPoints = 0
-                let totalErrors = 0
+                // Determine sets played
+                let setsPlayed = 1 // avoid division by zero
+                let setsWon = 0
+                let setsLost = 0
 
-                // Calculate sets played from result
-                let setsPlayed = 3
-                if (match.result) {
-                    const parts = match.result.split('-')
+                // Attempt to use structured data first
+                // If the sum is > 0, we assume new data is present (or at least one set finished)
+                // However, for pure legacy, 0-0 might mean empty. We check legacy string if 0-0.
+                const hasStructuredData = (match.sets_home || 0) > 0 || (match.sets_away || 0) > 0
+
+                if (hasStructuredData) {
+                    if (match.home_away === 'home') {
+                        setsWon = match.sets_home
+                        setsLost = match.sets_away
+                    } else {
+                        setsWon = match.sets_away
+                        setsLost = match.sets_home
+                    }
+                    setsPlayed = setsWon + setsLost
+                } else if (match.result) {
+                    // Fallback to legacy string parsing
+                    const simpleResult = match.result.replace(/^Sets:\s*/i, '').split('(')[0].trim()
+                    const parts = simpleResult.split('-')
                     if (parts.length === 2) {
-                        setsPlayed = parseInt(parts[0]) + parseInt(parts[1])
+                        const p1 = parseInt(parts[0]); const p2 = parseInt(parts[1])
+                        if (!isNaN(p1) && !isNaN(p2)) {
+                            // Can't reliably know who is who without home_away or assumption
+                            // Usually format is Us-Them or Home-Away. 
+                            // If we have home_away, we can guess. Legacy system usually stored "Home-Away" in result?
+                            // For safety, we just sum them for 'setsPlayed'. 
+                            // Result string should ideally match display.
+                            setsPlayed = p1 + p2
+
+                            // Try to deduce won/lost if possible
+                            if (match.home_away === 'home') {
+                                setsWon = p1; setsLost = p2;
+                            } else {
+                                setsWon = p2; setsLost = p1;
+                            }
+                        }
                     }
                 }
 
-                players.forEach(p => {
-                    totalPoints += (p.stats.kills || 0) + (p.stats.aces || 0) + (p.stats.blocks || 0)
-                    totalErrors += (p.stats.attackErrors || 0) + (p.stats.serveErrors || 0) + (p.stats.blockErrors || 0) + (p.stats.receptionErrors || 0)
-                })
+                if (setsPlayed < 1) setsPlayed = 1
+
+                let resultDisplay = match.result
+                if (!resultDisplay || resultDisplay === 'Sin resultado') {
+                    resultDisplay = `${setsWon}-${setsLost}`
+                }
+                if (setsPlayed === 0) setsPlayed = 1
 
                 return {
                     matchId: match.id,
                     date: match.match_date,
-                    opponent: match.opponent_name,
-                    result: match.result || '?',
+                    opponent: match.opponent_name || 'Desconocido',
+                    result: resultDisplay,
+                    setsWon,
+                    setsLost,
                     stats: {
-                        pointsPerSet: setsPlayed > 0 ? totalPoints / setsPlayed : 0,
-                        errorsPerSet: setsPlayed > 0 ? totalErrors / setsPlayed : 0,
-                        pointsErrorRatio: totalErrors > 0 ? totalPoints / totalErrors : totalPoints
+                        pointsPerSet: parseFloat((stats.points / setsPlayed).toFixed(1)),
+                        errorsPerSet: parseFloat((stats.errors / setsPlayed).toFixed(1)),
+                        pointsErrorRatio: stats.errors > 0 ? parseFloat((stats.points / stats.errors).toFixed(2)) : stats.points
                     }
                 }
             })
@@ -1418,6 +1476,196 @@ export const teamStatsService = {
         } catch (error) {
             console.error('Error fetching serve efficiency:', error)
             return []
+        }
+    },
+
+    /**
+     * Recalculate and save stats for a specific match based on its actions (events)
+     * This fills the match_player_set_stats table
+     */
+    async recalculateMatchStats(matchId: string, providedActions?: any[]): Promise<void> {
+        try {
+            console.log(`[Stats] Recalculating stats for match ${matchId}...`)
+
+            let events = providedActions
+
+            // 1. Fetch match metadata ALWAYS
+            const { data: match, error } = await supabase
+                .from('matches')
+                .select('id, team_id, season_id, actions, home_away')
+                .eq('id', matchId)
+                .single()
+
+            if (error || !match) {
+                console.error('Error fetching match for stats calculation:', error)
+                return
+            }
+
+            const teamId = match.team_id
+            const seasonId = match.season_id
+
+            if (!events) {
+                if (!match.actions || !Array.isArray(match.actions) || match.actions.length === 0) {
+                    console.warn('[Stats] No actions found for match, skipping calculation.')
+                    return
+                }
+                events = match.actions as any[]
+            }
+
+            // 2. Initialize stats container: PlayerID -> SetNumber -> Stats
+            // Also Initialize Set Score Tracking
+            const setScores = new Map<number, { us: number, opponent: number }>()
+
+            type PlayerSetStats = {
+                // Points
+                kills: number
+                aces: number
+                blocks: number
+
+                // Errors
+                attack_errors: number
+                serve_errors: number
+                block_errors: number
+                reception_errors: number
+
+                // Volumes
+                attempts: number
+                serves: number
+                receptions: number
+
+                // Other
+                sets_played: number
+            }
+
+            const statsMap = new Map<string, Map<number, PlayerSetStats>>()
+
+            const getStats = (playerId: string, setNum: number): PlayerSetStats => {
+                if (!statsMap.has(playerId)) {
+                    statsMap.set(playerId, new Map())
+                }
+                const playerSets = statsMap.get(playerId)!
+                if (!playerSets.has(setNum)) {
+                    playerSets.set(setNum, {
+                        kills: 0, aces: 0, blocks: 0,
+                        attack_errors: 0, serve_errors: 0, block_errors: 0, reception_errors: 0,
+                        attempts: 0, serves: 0, receptions: 0,
+                        sets_played: 1
+                    })
+                }
+                return playerSets.get(setNum)!
+            }
+
+            // 3. Process Events
+            events.forEach(event => {
+                const type = event.type
+                const payload = event.payload || {}
+                const setNum = payload.setNumber || 1
+
+                // Track Scores
+                if (!setScores.has(setNum)) {
+                    setScores.set(setNum, { us: 0, opponent: 0 })
+                }
+                const scores = setScores.get(setNum)!
+
+                if (type === 'POINT_US') {
+                    scores.us++
+                } else if (type === 'POINT_OPPONENT') {
+                    scores.opponent++
+                }
+
+                const playerId = payload.playerId
+
+                // Skip events without player attribution
+                if (!playerId && type !== 'RECEPTION_EVAL') return
+
+                // Resolve playerId for Reception
+                const targetPlayerId = playerId || payload.reception?.playerId
+                if (!targetPlayerId) return
+
+                const stats = getStats(targetPlayerId, setNum)
+
+                if (type === 'POINT_US') {
+                    const reason = payload.reason
+                    if (reason === 'attack_point') stats.kills++
+                    else if (reason === 'serve_point') stats.aces++
+                    else if (reason === 'block_point') stats.blocks++
+                }
+                else if (type === 'POINT_OPPONENT') {
+                    const reason = payload.reason
+                    if (reason === 'attack_error') stats.attack_errors++
+                    else if (reason === 'service_error') stats.serve_errors++
+                    else if (reason === 'block_error') stats.block_errors++
+                    else if (reason === 'reception_error') stats.reception_errors++
+                }
+                else if (type === 'RECEPTION_EVAL') {
+                    stats.receptions++
+                    const value = payload.reception?.value
+                    if (value === 0) stats.reception_errors++
+                }
+            })
+
+            // 4. Prepare DB Operations
+            // First, DELETE existing stats for this match
+            const { error: deleteError } = await supabase
+                .from('match_player_set_stats')
+                .delete()
+                .eq('match_id', matchId)
+
+            if (deleteError) {
+                console.error('Error clearing old stats:', deleteError)
+            }
+
+            const rowsToInsert: any[] = []
+
+            statsMap.forEach((playerSets, playerId) => {
+                playerSets.forEach((stats, setNum) => {
+                    rowsToInsert.push({
+                        match_id: matchId,
+                        team_id: teamId,
+                        season_id: seasonId,
+                        player_id: playerId,
+                        set_number: setNum,
+
+                        // Map fields
+                        kills: stats.kills,
+                        attack_errors: stats.attack_errors,
+                        attacks: stats.kills + stats.attack_errors,
+
+                        aces: stats.aces,
+                        serve_errors: stats.serve_errors,
+                        serves: stats.aces + stats.serve_errors,
+
+                        blocks: stats.blocks,
+                        block_errors: stats.block_errors,
+
+                        reception_errors: stats.reception_errors,
+                        receptions: stats.receptions,
+
+                        // Derived/Other
+                        digs: 0,
+                        digs_errors: 0,
+                        sets: 0,
+                        set_errors: 0
+                    })
+                })
+            })
+
+            if (rowsToInsert.length > 0) {
+                const { error: insertError } = await supabase
+                    .from('match_player_set_stats')
+                    .insert(rowsToInsert)
+
+                if (insertError) {
+                    console.error('Error inserting new match stats:', insertError)
+                    throw insertError
+                }
+                console.log(`[Stats] Recalculated ${rowsToInsert.length} stats entries for match ${matchId}.`)
+            } else {
+                console.log('[Stats] No player stats generated from actions.')
+            }
+
+        } catch (error) {
+            console.error('Error in recalculateMatchStats:', error)
         }
     },
 
