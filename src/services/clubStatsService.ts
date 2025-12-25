@@ -74,19 +74,132 @@ export const clubStatsService = {
     /**
      * Get comprehensive club overview summary
      */
+    /**
+     * Get comprehensive club overview summary
+     */
     async getOverview(clubId: string, seasonId?: string): Promise<ClubOverviewSummary> {
-        const [globalKPIs, categories, coaches, alerts] = await Promise.all([
-            this.getGlobalKPIs(clubId, seasonId),
-            this.getCategoriesSummary(clubId, seasonId),
-            this.getCoachesSummary(clubId, seasonId),
-            this.getClubAlerts(clubId, seasonId)
-        ])
+        try {
+            // 1. MASTER LOAD: Fetch ALL required data in parallel
+            // This prevents N+1 queries in sub-functions
 
-        return {
-            ...globalKPIs,
-            categories,
-            coaches,
-            alerts
+            // 1.1 Teams
+            let teamsQuery = supabase
+                .from('teams')
+                .select('id, category_stage, custom_name, gender, season_id, identifier_id, identifier:club_identifiers(id, name, type, code, color_hex)')
+                .eq('club_id', clubId)
+
+            if (seasonId) teamsQuery = teamsQuery.eq('season_id', seasonId)
+
+            // 1.2 Coaches (Profiles)
+            const profilesQuery = supabase
+                .from('profiles')
+                .select('id, full_name, role')
+                .eq('club_id', clubId)
+                .in('role', ['coach', 'dt'])
+
+            // 1.3 Coach Assignments
+            const assignmentsQuery = supabase
+                .from('coach_team_assignments')
+                .select('team_id, user_id')
+
+            // Dates for 30d and 7d windows
+            const now = new Date()
+            const startDate30 = new Date()
+            startDate30.setDate(now.getDate() - 30)
+
+            // Excecute initial batch (Teams & Coaches)
+            const [teamsResult, profilesResult, assignmentsResult] = await Promise.all([
+                teamsQuery,
+                profilesQuery,
+                assignmentsQuery
+            ])
+
+            const teamsRaw = teamsResult.data || []
+            const teams = teamsRaw.map((t: any) => {
+                if (t.identifier && Array.isArray(t.identifier)) {
+                    t.identifier = t.identifier[0] || null
+                }
+                return t
+            })
+            const teamIds = teams.map(t => t.id)
+            const profiles = profilesResult.data || []
+            const assignments = assignmentsResult.data || [] // We will filter these in memory
+
+            // If no teams, return empty summary
+            if (teamIds.length === 0) {
+                return {
+                    attendanceGlobal: null,
+                    unregisteredTrainingsCount: 0,
+                    imbalancedTeamsCount: 0,
+                    inactiveTeamsCount: 0,
+                    totalTeams: 0,
+                    activeTeamsCount: 0,
+                    categories: [],
+                    coaches: [],
+                    alerts: []
+                }
+            }
+
+            // 2. SECOND BATCH: Fetch Dependent Data (using teamIds from batch 1)
+            const [
+                playersResult,
+                trainingsResult,
+                matchesResult,
+                evaluationsResult
+            ] = await Promise.all([
+                // 2.1 Players (Active)
+                supabase
+                    .from('player_team_season')
+                    .select('id, team_id, status')
+                    .in('team_id', teamIds)
+                    .eq('status', 'active'),
+
+                // 2.2 Trainings (Last 30d) + Attendance
+                supabase
+                    .from('trainings')
+                    .select('id, team_id, date, training_attendance(id, status)')
+                    .in('team_id', teamIds)
+                    .gte('date', startDate30.toISOString())
+                    .lte('date', now.toISOString())
+                    .order('date', { ascending: false }),
+
+                // 2.3 Matches (Finished) - For Win/Loss
+                supabase
+                    .from('matches')
+                    .select('result, status, home_away, our_sets, opponent_sets, team_id')
+                    .in('team_id', teamIds)
+                    .eq('status', 'finished'),
+
+                // 2.4 Evaluations (for Coach completion rate)
+                supabase
+                    .from('player_team_season_evaluations')
+                    .select('id, team_id, phase')
+                    .in('team_id', teamIds)
+            ])
+
+            const players = playersResult.data || []
+            const trainings = trainingsResult.data || []
+            const matches = matchesResult.data || []
+            const evaluations = evaluationsResult.data || []
+
+            // 3. IN-MEMORY PROCESSING
+            // Pass the raw data to helper functions (now synchronous or simple data processors)
+
+            const globalKPIs = this.calculateGlobalKPIs(teams, players, trainings)
+            const categories = this.calculateCategoriesSummary(teams, matches, trainings, players)
+            const coachesSummary = this.calculateCoachesSummary(profiles, assignments, teams, evaluations)
+            const alerts = this.calculateClubAlerts(teams, players, trainings)
+
+            return {
+                ...globalKPIs,
+                categories,
+                coaches: coachesSummary,
+                alerts
+            }
+
+        } catch (error) {
+            console.error('Error getting club overview:', error)
+            throw error
         }
     },
 
@@ -97,573 +210,351 @@ export const clubStatsService = {
     /**
      * Calculate global KPIs for the club (Refactored for 4-Axes)
      */
-    async getGlobalKPIs(clubId: string, seasonId?: string): Promise<{
+    /**
+     * Calculate global KPIs (Synchronous)
+     */
+    calculateGlobalKPIs(
+        teams: any[],
+        players: any[],
+        trainings: any[]
+    ): {
         attendanceGlobal: number | null
         unregisteredTrainingsCount: number
         imbalancedTeamsCount: number
         inactiveTeamsCount: number
         totalTeams: number
         activeTeamsCount: number
-    }> {
-        try {
-            // 1. Get teams
-            let teamsQuery = supabase
-                .from('teams')
-                .select('id')
-                .eq('club_id', clubId)
+    } {
+        const teamIds = teams.map(t => t.id)
+        const totalTeams = teams.length
+        const now = new Date()
+        const startDate7 = new Date()
+        startDate7.setDate(now.getDate() - 7)
+        const startDate30 = new Date()
+        startDate30.setDate(now.getDate() - 30)
 
-            if (seasonId) teamsQuery = teamsQuery.eq('season_id', seasonId)
+        // --- Metric 1: Imbalanced Teams (< 9 players) ---
+        const playersByTeam = new Map<string, number>()
+        players.forEach(p => {
+            const count = playersByTeam.get(p.team_id) || 0
+            playersByTeam.set(p.team_id, count + 1)
+        })
 
-            const { data: teams, error: teamsError } = await teamsQuery
+        let imbalancedTeamsCount = 0
+        teamIds.forEach(id => {
+            const count = playersByTeam.get(id) || 0
+            if (count < 9) imbalancedTeamsCount++
+        })
 
-            if (teamsError || !teams || teams.length === 0) {
-                return {
-                    attendanceGlobal: null,
-                    unregisteredTrainingsCount: 0,
-                    imbalancedTeamsCount: 0,
-                    inactiveTeamsCount: 0,
-                    totalTeams: 0,
-                    activeTeamsCount: 0
-                }
-            }
+        // --- Metric 2: Global Attendance (Last 30 days) ---
+        let totalRecords = 0
+        let presentRecords = 0
 
-            const teamIds = teams.map(t => t.id)
-            const totalTeams = teams.length
-
-            // OPTIMIZATION: Consolidated Queries
-            // 1. Get ALL players for these teams in ONE request
-            // 2. Get Recent Trainings (last 30 days) in ONE request
-
-            const startDate30 = new Date()
-            startDate30.setDate(startDate30.getDate() - 30)
-            const now = new Date()
-
-            const [allPlayersResult, recentTrainingsResult] = await Promise.all([
-                // Query 1: All players (for imbalanced teams check)
-                // Query 1: All players (for imbalanced teams check)
-                supabase
-                    .from('player_team_season')
-                    .select('id, team_id')
-                    .in('team_id', teamIds)
-                    .eq('status', 'active'),
-
-                // Query 2: Recent trainings (last 30 days) - Covers Attendance, Unregistered & Recent Activity
-                supabase
-                    .from('trainings')
-                    .select('id, team_id, date, training_attendance(id, status)')
-                    .in('team_id', teamIds)
-                    .gte('date', startDate30.toISOString())
-                    .lte('date', now.toISOString())
-                    .order('date', { ascending: false })
-            ])
-
-            // --- Metric 1: Imbalanced Teams (< 9 players) ---
-            const playersByTeam = new Map<string, number>()
-            allPlayersResult.data?.forEach(p => {
-                const count = playersByTeam.get(p.team_id) || 0
-                playersByTeam.set(p.team_id, count + 1)
-            })
-
-            let imbalancedTeamsCount = 0
-            teamIds.forEach(id => {
-                const count = playersByTeam.get(id) || 0
-                if (count < 9) imbalancedTeamsCount++
-            })
-
-            // --- Metric 2: Global Attendance (Last 30 days) ---
-            const recentTrainings = recentTrainingsResult.data || []
-            let totalRecords = 0
-            let presentRecords = 0
-
-            // Helper to get training date object
-            const getTrainingDate = (t: any) => new Date(t.date)
-
-            recentTrainings.forEach(t => {
-                const attendance = t.training_attendance as any[]
-                if (attendance && attendance.length > 0) {
-                    attendance.forEach(record => {
-                        totalRecords++
-                        if (record.status === 'present' || record.status === 'justified') {
-                            presentRecords++
-                        }
-                    })
-                }
-            })
-
-            const attendanceGlobal = totalRecords > 0
-                ? Math.round((presentRecords / totalRecords) * 100)
-                : null
-
-            // --- Metric 3: Unregistered Trainings (Last 7 days) ---
-            let unregisteredTrainingsCount = 0
-            const startDate7 = new Date()
-            startDate7.setDate(startDate7.getDate() - 7)
-
-            recentTrainings.forEach(t => {
-                const tDate = getTrainingDate(t)
-                const attendance = t.training_attendance as any[]
-
-                // Logic: If training is recent (< 7 days) and has NO attendance records at all
-                // OR has attendance but none are confirmed? usually 'unregistered' means empty attendance.
-                if (tDate >= startDate7 && tDate <= now) {
-                    if (!attendance || attendance.length === 0) {
-                        unregisteredTrainingsCount++
+        trainings.forEach(t => {
+            const attendance = t.training_attendance as any[]
+            if (attendance && attendance.length > 0) {
+                attendance.forEach(record => {
+                    totalRecords++
+                    if (record.status === 'present' || record.status === 'justified') {
+                        presentRecords++
                     }
-                }
-            })
-
-            // RE-EVALUATING QUERY 2 STRATEGY for "Unregistered"
-            // If we use `select('..., training_attendance(id)')` (Left Join), we get all trainings.
-            // Then we check if `training_attendance` array is empty.
-
-            // Let's refine the query in logic below, assuming I'll fix the string in the query above.
-            // FIX: I will change the query to use standard left join alias in the replacement string.
-
-            // --- Metric 4: Inactive Teams ---
-            // "Sin confirmar asistencia > 7d"
-            // Means: Latest training with attendance is older than 7 days OR no trainings at all.
-            // With our 30-day window:
-            // - Check latest training date per team.
-            // - If team not in list -> Inactive (no training in 30d).
-            // - If latest training < 7 days ago -> Active.
-            // - Else -> Inactive.
-
-            const teamLatestActivity = new Map<string, Date>()
-            recentTrainings.forEach(t => {
-                const d = getTrainingDate(t)
-                const current = teamLatestActivity.get(t.team_id)
-                if (!current || d > current) {
-                    teamLatestActivity.set(t.team_id, d)
-                }
-            })
-
-            let inactiveTeamsCount = 0
-            teamIds.forEach(id => {
-                const lastActivity = teamLatestActivity.get(id)
-                if (!lastActivity || lastActivity < startDate7) {
-                    inactiveTeamsCount++
-                }
-            })
-
-            return {
-                attendanceGlobal,
-                unregisteredTrainingsCount, // Will calculate correctly in revised block
-                imbalancedTeamsCount,
-                inactiveTeamsCount,
-                totalTeams,
-                activeTeamsCount: totalTeams - inactiveTeamsCount
+                })
             }
+        })
 
-        } catch (error) {
-            console.error('Error calculating global KPIs:', error)
-            return {
-                attendanceGlobal: null,
-                unregisteredTrainingsCount: 0,
-                imbalancedTeamsCount: 0,
-                inactiveTeamsCount: 0,
-                totalTeams: 0,
-                activeTeamsCount: 0
+        const attendanceGlobal = totalRecords > 0
+            ? Math.round((presentRecords / totalRecords) * 100)
+            : null
+
+        // --- Metric 3: Unregistered Trainings (Last 7 days) ---
+        let unregisteredTrainingsCount = 0
+
+        trainings.forEach(t => {
+            const tDate = new Date(t.date)
+            const attendance = t.training_attendance as any[]
+
+            if (tDate >= startDate7 && tDate <= now) {
+                if (!attendance || attendance.length === 0) {
+                    unregisteredTrainingsCount++
+                }
             }
+        })
+
+        // --- Metric 4: Inactive Teams ---
+        const teamLatestActivity = new Map<string, Date>()
+        trainings.forEach(t => {
+            const d = new Date(t.date)
+            const current = teamLatestActivity.get(t.team_id)
+            if (!current || d > current) {
+                teamLatestActivity.set(t.team_id, d)
+            }
+        })
+
+        let inactiveTeamsCount = 0
+        teamIds.forEach(id => {
+            const lastActivity = teamLatestActivity.get(id)
+            // Considered inactive if no activity at all OR last activity is older than 7 days
+            if (!lastActivity || lastActivity < startDate7) {
+                inactiveTeamsCount++
+            }
+        })
+
+        return {
+            attendanceGlobal,
+            unregisteredTrainingsCount,
+            imbalancedTeamsCount,
+            inactiveTeamsCount,
+            totalTeams,
+            activeTeamsCount: totalTeams - inactiveTeamsCount
         }
     },
 
     /**
      * Get summary by category
      */
-    async getCategoriesSummary(clubId: string, seasonId?: string): Promise<CategorySummary[]> {
-        try {
-            // Get all teams with their category and identifier (same as teamService)
-            let teamsQuery = supabase
-                .from('teams')
-                .select('id, category_stage, custom_name, gender, identifier_id, identifier:club_identifiers(id, name, type, code, color_hex)')
-                .eq('club_id', clubId)
+    /**
+     * Calculate summary by category (Synchronous)
+     */
+    calculateCategoriesSummary(
+        teams: any[],
+        matches: any[],
+        trainings: any[],
+        players: any[]
+    ): CategorySummary[] {
+        // Group teams by category
+        const categoriesMap = new Map<CategoryStage, string[]>()
+        teams.forEach(t => {
+            if (t.category_stage) {
+                const list = categoriesMap.get(t.category_stage) || []
+                list.push(t.id)
+                categoriesMap.set(t.category_stage, list)
+            }
+        })
 
-            if (seasonId) {
-                teamsQuery = teamsQuery.eq('season_id', seasonId)
+        // Roster Sizes Map
+        const teamRosterSizes = new Map<string, number>()
+        players.forEach(p => {
+            const current = teamRosterSizes.get(p.team_id) || 0
+            teamRosterSizes.set(p.team_id, current + 1)
+        })
+
+        // Prepare Stats Maps for fast lookup
+        // 1. Training Stats by Team
+        const teamTrainingStats = new Map<string, { total: number, present: number, unregistered: number, latest: Date | null }>()
+        const now = new Date()
+        const oneWeekAgo = new Date()
+        oneWeekAgo.setDate(now.getDate() - 7)
+
+        trainings.forEach(t => {
+            const stats = teamTrainingStats.get(t.team_id) || { total: 0, present: 0, unregistered: 0, latest: null }
+            const tDate = new Date(t.date)
+
+            // Update latest activity
+            if (!stats.latest || tDate > stats.latest) {
+                stats.latest = tDate
             }
 
-            const { data: teamsRaw, error: teamsError } = await teamsQuery
-
-            if (teamsError || !teamsRaw) return []
-
-            // Normalize identifier (may be array from Supabase)
-            const teams = teamsRaw.map((t: any) => {
-                if (t.identifier && Array.isArray(t.identifier)) {
-                    t.identifier = t.identifier[0] || null
+            // Unregistered (Last 7 days)
+            if (tDate >= oneWeekAgo && tDate <= now) {
+                if (!t.training_attendance || t.training_attendance.length === 0) {
+                    stats.unregistered++
                 }
-                return t
+            }
+
+            // Attendance
+            const att = t.training_attendance || []
+            att.forEach((r: any) => {
+                stats.total++
+                if (r.status === 'present' || r.status === 'justified') stats.present++
             })
 
-            // Group teams by category to build categoriesMap
-            // Only show categories that have teams
-            const categoriesMap = new Map<CategoryStage, string[]>()
+            teamTrainingStats.set(t.team_id, stats)
+        })
 
-            teams.forEach(t => {
+        // 2. Match Stats by Team (Wins/Losses)
+        const teamMatchStats = new Map<string, { wins: number, losses: number }>()
+        matches.forEach(m => {
+            if (!m.team_id) return
+            const stats = teamMatchStats.get(m.team_id) || { wins: 0, losses: 0 }
+            const sets = getSetsFromMatch(m)
+            if (sets.ourSets !== null && sets.theirSets !== null) {
+                if (sets.ourSets > sets.theirSets) stats.wins++
+                else if (sets.theirSets > sets.ourSets) stats.losses++
+            }
+            teamMatchStats.set(m.team_id, stats)
+        })
+
+        // Build Summary
+        const categoriesSummary: CategorySummary[] = []
+
+        for (const [categoryName, teamIds] of categoriesMap.entries()) {
+            // Aggregate Category Stats
+            let catWins = 0
+            let catLosses = 0
+            let catAttTotal = 0
+            let catAttPresent = 0
+
+            const teamDetails: TeamCategoryDetail[] = []
+
+            teamIds.forEach(tId => {
+                const t = teams.find(x => x.id === tId)
+                if (!t) return
+
+                const mStats = teamMatchStats.get(tId)
+                if (mStats) {
+                    catWins += mStats.wins
+                    catLosses += mStats.losses
+                }
+
+                const tStats = teamTrainingStats.get(tId)
+                let teamAtt: number | null = null
+                let unregistered = 0
+                let inactivityDays = 999
+
+                if (tStats) {
+                    catAttTotal += tStats.total
+                    catAttPresent += tStats.present
+                    if (tStats.total > 0) {
+                        teamAtt = Math.round((tStats.present / tStats.total) * 100)
+                    }
+                    unregistered = tStats.unregistered
+                    if (tStats.latest) {
+                        inactivityDays = Math.floor((now.getTime() - tStats.latest.getTime()) / (1000 * 60 * 60 * 24))
+                    }
+                }
+
+                // Calculate Global Status (Risk)
+                const rosterSize = teamRosterSizes.get(tId) || 0
+                let riskFactors = 0
+                if (teamAtt !== null && teamAtt < 80) riskFactors += 3
+                if (rosterSize < 9) riskFactors += 3
+                if (inactivityDays > 7) riskFactors += 3
+                if (unregistered > 2) riskFactors += 3
+
+                if (teamAtt !== null && teamAtt >= 80 && teamAtt < 85) riskFactors += 1
+                if (rosterSize === 9) riskFactors += 1
+                if (inactivityDays >= 4 && inactivityDays <= 7) riskFactors += 1
+                if (unregistered >= 1 && unregistered <= 2) riskFactors += 1
+
+                let globalStatus: 'high' | 'medium' | 'low' = 'low'
+                if (riskFactors >= 3) globalStatus = 'high'
+                else if (riskFactors >= 1) globalStatus = 'medium'
+
+                // Display Name Logic
+                let shortName = 'Equipo'
+                let fullName = getTeamDisplayName(t)
+                shortName = fullName
                 if (t.category_stage) {
-                    const list = categoriesMap.get(t.category_stage) || []
-                    list.push(t.id)
-                    categoriesMap.set(t.category_stage, list)
+                    const catPrefix = t.category_stage.toLowerCase()
+                    const nameLower = fullName.toLowerCase()
+                    if (nameLower.startsWith(catPrefix)) {
+                        shortName = fullName.substring(t.category_stage.length).trim()
+                    }
                 }
+                if (!shortName || shortName.trim() === '') shortName = fullName
+
+                teamDetails.push({
+                    id: tId,
+                    name: fullName,
+                    shortName,
+                    attendance: teamAtt,
+                    rosterSize,
+                    injuryCount: 0,
+                    lastActivityDays: inactivityDays === 999 ? null : inactivityDays,
+                    globalStatus,
+                    unregisteredTrainingsCount: unregistered,
+                    inactivityDays
+                })
             })
 
-            // 1. Get all player assignments (roster size) - ALREADY OPTIMIZED
-            const { data: teamPlayers } = await supabase
-                .from('player_team_season')
-                .select('team_id')
-                .in('team_id', teams.map(t => t.id))
-
-            const teamRosterSizes = new Map<string, number>()
-            teamPlayers?.forEach(p => {
-                teamRosterSizes.set(p.team_id, (teamRosterSizes.get(p.team_id) || 0) + 1)
-            })
-
-            // Calculate stats for each category
-            const categoriesSummary: CategorySummary[] = []
-
-            for (const [categoryName, teamIds] of categoriesMap.entries()) {
-                // Get matches for this category
-                const { data: matches } = await supabase
-                    .from('matches')
-                    .select('result, status, home_away, our_sets, opponent_sets')
-                    .in('team_id', teamIds)
-                    .eq('status', 'finished')
-
-                let wins = 0
-                let losses = 0
-
-                matches?.forEach(match => {
-                    const sets = getSetsFromMatch(match)
-                    if (sets.ourSets !== null && sets.theirSets !== null) {
-                        if (sets.ourSets > sets.theirSets) wins++
-                        else if (sets.theirSets > sets.theirSets) losses++
-                    }
-                })
-
-                const winLossRatio = losses > 0 ? parseFloat((wins / losses).toFixed(2)) : wins > 0 ? wins : null
-
-                // Risk logic
-                let riskLevel: 'low' | 'medium' | 'high' | null = null
-                if (winLossRatio !== null) {
-                    if (winLossRatio >= 1.5) riskLevel = 'low'
-                    else if (winLossRatio >= 0.8) riskLevel = 'medium'
-                    else riskLevel = 'high'
-                }
-
-                // Attendance Logic (Category + Per Team)
-                const startDate = new Date()
-                startDate.setDate(startDate.getDate() - 30)
-
-                const { data: catTrainings, error: trainingsError } = await supabase
-                    .from('trainings')
-                    .select('id, team_id')
-                    .in('team_id', teamIds)
-                    .gte('date', startDate.toISOString())
-                    .lte('date', new Date().toISOString())
-
-                if (trainingsError) {
-                    console.warn('[ClubStats] Could not fetch trainings for category:', trainingsError.message)
-                }
-
-                let categoryAttendance: number | null = null
-                const teamDetailMap = new Map<string, TeamCategoryDetail>()
-
-                // Initialize default details for all teams in category
-                teamIds.forEach(tId => {
-                    const t = teams.find(x => x.id === tId)
-
-                    let shortName = 'Equipo'
-                    let fullName = 'Equipo'
-
-                    if (t) {
-                        // Use the same utility as tabs to get full team name
-                        fullName = getTeamDisplayName(t)
-
-                        // For shortName: remove category prefix to save space in cards
-                        // E.g., "Cadete Taronja Femenino" -> "Taronja Femenino"
-                        shortName = fullName
-                        if (t.category_stage) {
-                            const catPrefix = t.category_stage.toLowerCase()
-                            const nameLower = fullName.toLowerCase()
-                            if (nameLower.startsWith(catPrefix)) {
-                                shortName = fullName.substring(t.category_stage.length).trim()
-                            }
-                        }
-
-                        // Fallback if removal results in empty string
-                        if (!shortName || shortName.trim() === '') {
-                            shortName = fullName
-                        }
-                    }
-
-                    teamDetailMap.set(tId, {
-                        id: tId,
-                        name: fullName,
-                        shortName: shortName,
-                        attendance: null,
-                        rosterSize: teamRosterSizes.get(tId) || 0,
-                        injuryCount: 0,
-                        lastActivityDays: null,
-                        globalStatus: 'low', // Will be calculated later
-                        unregisteredTrainingsCount: 0,
-                        inactivityDays: 0
-                    })
-                })
-
-                if (catTrainings && catTrainings.length > 0) {
-                    const tIds = catTrainings.map(t => t.id)
-                    const { data: att } = await supabase
-                        .from('training_attendance')
-                        .select('training_id, status')
-                        .in('training_id', tIds)
-
-                    if (att && att.length > 0) {
-                        // Global Category Att
-                        const valid = att.filter(r => r.status === 'present' || r.status === 'justified').length
-                        categoryAttendance = Math.round((valid / att.length) * 100)
-
-                        // Per Team Att
-                        const trainingStats = new Map<string, { total: number, present: number }>()
-                        att.forEach(a => {
-                            const s = trainingStats.get(a.training_id) || { total: 0, present: 0 }
-                            s.total++
-                            if (a.status === 'present' || a.status === 'justified') s.present++
-                            trainingStats.set(a.training_id, s)
-                        })
-
-                        teamIds.forEach(tId => {
-                            const teamTrainingsList = catTrainings.filter(t => t.team_id === tId)
-                            if (teamTrainingsList.length > 0) {
-                                let tTotal = 0
-                                let tPresent = 0
-                                teamTrainingsList.forEach(tt => {
-                                    const s = trainingStats.get(tt.id)
-                                    if (s) {
-                                        tTotal += s.total
-                                        tPresent += s.present
-                                    }
-                                })
-                                if (tTotal > 0) {
-                                    const teamAtt = Math.round((tPresent / tTotal) * 100)
-                                    const current = teamDetailMap.get(tId)
-                                    if (current) current.attendance = teamAtt
-                                }
-                            }
-                        })
-                    }
-                }
-
-                // Calculate unregistered trainings (last 7 days) per team
-                const startDate7 = new Date()
-                startDate7.setDate(startDate7.getDate() - 7)
-                const { data: recentTrainings, error: recentError } = await supabase
-                    .from('trainings')
-                    .select('id, team_id, date')
-                    .in('team_id', teamIds)
-                    .gte('date', startDate7.toISOString())
-                    .lte('date', new Date().toISOString())
-
-                if (recentError) {
-                    console.warn('[ClubStats] Could not fetch recent trainings:', recentError.message)
-                }
-
-                if (recentTrainings) {
-                    const trainingIds = recentTrainings.map(t => t.id)
-                    const { data: attRecords } = await supabase
-                        .from('training_attendance')
-                        .select('training_id')
-                        .in('training_id', trainingIds)
-
-                    const trainingsWithAttendance = new Set(attRecords?.map(a => a.training_id) || [])
-
-                    // Count unregistered trainings per team
-                    teamIds.forEach(tId => {
-                        const teamTrainings = recentTrainings.filter(t => t.team_id === tId)
-                        const unregistered = teamTrainings.filter(t => {
-                            const tDate = new Date(t.date)
-                            return tDate < new Date() && !trainingsWithAttendance.has(t.id)
-                        }).length
-
-                        const teamDetail = teamDetailMap.get(tId)
-                        if (teamDetail) teamDetail.unregisteredTrainingsCount = unregistered
-                    })
-                }
-
-                // Calculate inactivity days per team
-                const { data: allTeamTrainings, error: activityError } = await supabase
-                    .from('trainings')
-                    .select('team_id, date, training_attendance!inner(id)')
-                    .in('team_id', teamIds)
-                    .order('date', { ascending: false })
-
-                if (activityError) {
-                    console.warn('[ClubStats] Could not fetch team activity:', activityError.message)
-                }
-
-                const teamLastActivity = new Map<string, Date>()
-                allTeamTrainings?.forEach(t => {
-                    if (!teamLastActivity.has(t.team_id)) {
-                        teamLastActivity.set(t.team_id, new Date(t.date))
-                    }
-                })
-
-                const now = new Date()
-                teamIds.forEach(tId => {
-                    const lastActivity = teamLastActivity.get(tId)
-                    const teamDetail = teamDetailMap.get(tId)
-                    if (teamDetail) {
-                        if (lastActivity) {
-                            const daysSince = Math.floor((now.getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24))
-                            teamDetail.inactivityDays = daysSince
-                        } else {
-                            teamDetail.inactivityDays = 999 // No activity ever
-                        }
-                    }
-                })
-
-                // Calculate global status for each team
-                teamIds.forEach(tId => {
-                    const team = teamDetailMap.get(tId)
-                    if (!team) return
-
-                    let riskFactors = 0
-
-                    // High risk factors (instant red)
-                    if (team.attendance !== null && team.attendance < 80) riskFactors += 3
-                    if (team.rosterSize < 9) riskFactors += 3
-                    if (team.inactivityDays > 7) riskFactors += 3
-                    if (team.unregisteredTrainingsCount > 2) riskFactors += 3
-
-                    // Medium risk factors
-                    if (team.attendance !== null && team.attendance >= 80 && team.attendance < 85) riskFactors += 1
-                    if (team.rosterSize === 9) riskFactors += 1
-                    if (team.inactivityDays >= 4 && team.inactivityDays <= 7) riskFactors += 1
-                    if (team.unregisteredTrainingsCount >= 1 && team.unregisteredTrainingsCount <= 2) riskFactors += 1
-
-                    // Assign status
-                    if (riskFactors >= 3) {
-                        team.globalStatus = 'high' // Red
-                    } else if (riskFactors >= 1) {
-                        team.globalStatus = 'medium' // Orange
-                    } else {
-                        team.globalStatus = 'low' // Green
-                    }
-                })
-
-                categoriesSummary.push({
-                    id: categoryName,
-                    name: categoryName,
-                    attendance: categoryAttendance,
-                    winLossRatio,
-                    wins,
-                    losses,
-                    riskLevel,
-                    teamsCount: teamIds.length,
-                    teams: Array.from(teamDetailMap.values()).sort((a, b) => a.name.localeCompare(b.name))
-                })
+            // Category Level Metrics
+            let categoryAttendance: number | null = null
+            if (catAttTotal > 0) {
+                categoryAttendance = Math.round((catAttPresent / catAttTotal) * 100)
             }
 
-            // Sort outcome
-            const categoryOrder: CategoryStage[] = ['Benjamín', 'Alevín', 'Infantil', 'Cadete', 'Juvenil', 'Júnior', 'Sénior']
-            categoriesSummary.sort((a, b) => {
-                return categoryOrder.indexOf(a.name) - categoryOrder.indexOf(b.name)
-            })
+            const winLossRatio = catLosses > 0 ? parseFloat((catWins / catLosses).toFixed(2)) : catWins > 0 ? catWins : null
 
-            return categoriesSummary
-        } catch (error) {
-            console.error('Error getting categories summary:', error)
-            return []
+            let riskLevel: 'low' | 'medium' | 'high' | null = null
+            if (winLossRatio !== null) {
+                if (winLossRatio >= 1.5) riskLevel = 'low'
+                else if (winLossRatio >= 0.8) riskLevel = 'medium'
+                else riskLevel = 'high'
+            }
+
+            categoriesSummary.push({
+                id: categoryName,
+                name: categoryName,
+                attendance: categoryAttendance,
+                winLossRatio,
+                wins: catWins,
+                losses: catLosses,
+                riskLevel,
+                teamsCount: teamIds.length,
+                teams: teamDetails.sort((a, b) => a.name.localeCompare(b.name))
+            })
         }
+
+        // Sort Categories
+        const categoryOrder: CategoryStage[] = ['Benjamín', 'Alevín', 'Infantil', 'Cadete', 'Juvenil', 'Júnior', 'Sénior']
+        categoriesSummary.sort((a, b) => {
+            return categoryOrder.indexOf(a.name) - categoryOrder.indexOf(b.name)
+        })
+
+        return categoriesSummary
     },
 
     /**
      * Get summary by coach
      */
-    async getCoachesSummary(clubId: string, seasonId?: string): Promise<CoachSummary[]> {
-        try {
-            // If seasonId is provided, get teams for that season
-            let seasonTeamIds: string[] | null = null
-            if (seasonId) {
-                const { data: seasonTeams } = await supabase
-                    .from('teams')
-                    .select('id')
-                    .eq('club_id', clubId)
-                    .eq('season_id', seasonId)
+    /**
+     * Calculate summary by coach (Synchronous)
+     */
+    calculateCoachesSummary(
+        profiles: any[],
+        assignments: any[],
+        teams: any[],
+        evaluations: any[]
+    ): CoachSummary[] {
+        const coachesSummary: CoachSummary[] = []
+        // Optional: filter assignments only for teams in the current 'teams' list (if season filtered)
+        const teamIdsSet = new Set(teams.map(t => t.id))
 
-                seasonTeamIds = seasonTeams?.map(t => t.id) || []
+        for (const profile of profiles) {
+            // Filter assignments for this coach and match with current season teams
+            const coachAssignments = assignments.filter(a =>
+                a.user_id === profile.id && teamIdsSet.has(a.team_id)
+            )
 
-                // If no teams in this season, return empty
-                if (seasonTeamIds.length === 0) {
-                    return []
-                }
+            const teamsCount = coachAssignments.length
+
+            let reportsCompletion: number | null = null
+            if (teamsCount > 0) {
+                const assignedTeamIds = coachAssignments.map(a => a.team_id)
+
+                // Evaluations for these teams
+                const coachEvals = evaluations.filter(e => assignedTeamIds.includes(e.team_id))
+
+                const totalExpected = teamsCount * 3 // 3 reports per team
+                const uniqueReports = new Set(
+                    coachEvals.map(e => `${e.team_id}-${e.phase}`)
+                )
+                const completed = uniqueReports.size
+                reportsCompletion = totalExpected > 0 ? Math.round((completed / totalExpected) * 100) : 0
             }
 
-            // Get all coaches (users with role 'coach' or 'dt' in this club)
-            const { data: profiles, error: profilesError } = await supabase
-                .from('profiles')
-                .select('id, full_name, role')
-                .eq('club_id', clubId)
-                .in('role', ['coach', 'dt'])
-
-            if (profilesError || !profiles) {
-                return []
-            }
-
-            const coachesSummary: CoachSummary[] = []
-
-            for (const profile of profiles) {
-                // Get teams assigned to this coach (filtered by season if applicable)
-                let assignmentsQuery = supabase
-                    .from('coach_team_assignments')
-                    .select('team_id')
-                    .eq('user_id', profile.id)
-
-                // If we have seasonTeamIds, filter only those teams
-                if (seasonTeamIds !== null) {
-                    assignmentsQuery = assignmentsQuery.in('team_id', seasonTeamIds)
-                }
-
-                const { data: assignments } = await assignmentsQuery
-
-                const teamsCount = assignments?.length || 0
-
-                // Get evaluations completion rate
-                let reportsCompletion: number | null = null
-                if (assignments && assignments.length > 0) {
-                    const teamIds = assignments.map(a => a.team_id)
-
-                    const { data: evaluations } = await supabase
-                        .from('player_team_season_evaluations')
-                        .select('id, team_id, phase')
-                        .in('team_id', teamIds)
-
-                    if (evaluations) {
-                        const totalExpected = teamsCount * 3 // 3 evaluations per team (start, mid, end)
-                        // Count unique team-phase pairs
-                        const uniqueReports = new Set(
-                            evaluations?.map(e => `${e.team_id
-                                } - ${e.phase}`) || []
-                        )
-                        const completed = uniqueReports.size
-                        reportsCompletion = totalExpected > 0 ? Math.round((completed / totalExpected) * 100) : 0
-                    }
-                }
-
-                coachesSummary.push({
-                    id: profile.id,
-                    name: profile.full_name || 'Sin nombre',
-                    teamsCount,
-                    reportsCompletion
-                })
-            }
-
-            // Sort by teams count (descending)
-            coachesSummary.sort((a, b) => b.teamsCount - a.teamsCount)
-
-            return coachesSummary
-        } catch (error) {
-            console.error('Error getting coaches summary:', error)
-            return []
+            coachesSummary.push({
+                id: profile.id,
+                name: profile.full_name || 'Sin nombre',
+                teamsCount,
+                reportsCompletion
+            })
         }
+
+        // Sort by team count (descending)
+        coachesSummary.sort((a, b) => b.teamsCount - a.teamsCount)
+
+        return coachesSummary
     },
 
     /**
@@ -672,211 +563,130 @@ export const clubStatsService = {
     /**
      * Get club-wide alerts (Refactored for 4-Axes)
      */
-    async getClubAlerts(clubId: string, seasonId?: string): Promise<ClubAlert[]> {
+    /**
+     * Calculate club-wide alerts (Synchronous)
+     */
+    calculateClubAlerts(
+        teams: any[],
+        players: any[], // now using player_team_season
+        trainings: any[]
+    ): ClubAlert[] {
         const alerts: ClubAlert[] = []
+        const teamIds = teams.map(t => t.id)
+        const now = new Date()
+        const startDate7 = new Date()
+        startDate7.setDate(now.getDate() - 7)
 
-        try {
-            // Get all teams
-            let teamsQuery = supabase
-                .from('teams')
-                .select('id, custom_name, category_stage')
-                .eq('club_id', clubId)
+        // 1. AXIS: ATTENDANCE (Global or Team)
+        // < 80% is Alert
+        // Calc attendance per team using training list
+        const teamAttendanceMap = new Map<string, { total: number, present: number }>()
 
-            if (seasonId) teamsQuery = teamsQuery.eq('season_id', seasonId)
-            const { data: teams } = await teamsQuery
-            if (!teams || teams.length === 0) return alerts
-            const teamIds = teams.map(t => t.id)
-
-            // 1. AXIS: ATTENDANCE (Global or Team)
-            // < 80% is Alert. We verify team by team last 30 days.
-            const startDate30 = new Date()
-            startDate30.setDate(startDate30.getDate() - 30)
-
-            const { data: trainings30 } = await supabase
-                .from('trainings')
-                .select('id, team_id')
-                .in('team_id', teamIds)
-                .gte('date', startDate30.toISOString())
-
-            if (trainings30) {
-                // Group trainings by team
-                const teamTrainings = new Map<string, string[]>()
-                trainings30.forEach(t => {
-                    const list = teamTrainings.get(t.team_id) || []
-                    list.push(t.id)
-                    teamTrainings.set(t.team_id, list)
-                })
-
-                // Get all attendance records
-                const allTrainingIds = trainings30.map(t => t.id)
-                if (allTrainingIds.length > 0) {
-                    const { data: attendance } = await supabase
-                        .from('training_attendance')
-                        .select('training_id, status')
-                        .in('training_id', allTrainingIds)
-
-                    if (attendance) {
-                        // Map trainingId -> attendance stats
-                        const trainingStats = new Map<string, { total: number, present: number }>()
-                        attendance.forEach(a => {
-                            const s = trainingStats.get(a.training_id) || { total: 0, present: 0 }
-                            s.total++
-                            if (a.status === 'present' || a.status === 'justified') s.present++
-                            trainingStats.set(a.training_id, s)
-                        })
-
-                        // Calculate team attendance
-                        let teamsLowAttendance = 0
-                        teams.forEach(team => {
-                            const tIds = teamTrainings.get(team.id) || []
-                            let teamTotal = 0
-                            let teamPresent = 0
-                            tIds.forEach(tid => {
-                                const stats = trainingStats.get(tid)
-                                if (stats) {
-                                    teamTotal += stats.total
-                                    teamPresent += stats.present
-                                }
-                            })
-
-                            if (teamTotal > 0) {
-                                const rate = (teamPresent / teamTotal) * 100
-                                if (rate < 80) {
-                                    teamsLowAttendance++
-                                }
-                            }
-                        })
-
-                        if (teamsLowAttendance > 0) {
-                            alerts.push({
-                                id: 'low-attendance',
-                                message: `${teamsLowAttendance} equipos con asistencia < 80 % `,
-                                level: 'danger',
-                                targetType: 'team'
-                            })
-                        }
-                    }
-                }
-            }
-
-
-            // 2. AXIS: ACTIVITY
-            // 7 played days without registering activity (confirming attendance).
-            const { data: allTrainingsWithAttendance } = await supabase
-                .from('trainings')
-                .select('team_id, date, training_attendance!inner(id)')
-                .in('team_id', teamIds)
-                .order('date', { ascending: false })
-
-            const teamLatestActivity = new Map<string, Date>()
-            allTrainingsWithAttendance?.forEach(t => {
-                const d = new Date(t.date)
-                if (!teamLatestActivity.has(t.team_id)) {
-                    teamLatestActivity.set(t.team_id, d)
-                }
+        trainings.forEach(t => {
+            const att = t.training_attendance || []
+            let tTotal = 0
+            let tPresent = 0
+            att.forEach((r: any) => {
+                tTotal++
+                if (r.status === 'present' || r.status === 'justified') tPresent++
             })
 
-            const activityThresholdDate = new Date()
-            activityThresholdDate.setDate(activityThresholdDate.getDate() - 7)
-            let inactiveTeams = 0
+            const current = teamAttendanceMap.get(t.team_id) || { total: 0, present: 0 }
+            current.total += tTotal
+            current.present += tPresent
+            teamAttendanceMap.set(t.team_id, current)
+        })
 
-            teams.forEach(t => {
-                const last = teamLatestActivity.get(t.id)
-                if (!last || last < activityThresholdDate) {
-                    inactiveTeams++
-                }
-            })
-
-            if (inactiveTeams > 0) {
-                alerts.push({
-                    id: 'inactive-teams',
-                    message: `${inactiveTeams} equipos sin registrar actividad reciente`,
-                    level: 'warning',
-                    targetType: 'team'
-                })
+        let teamsLowAttendance = 0
+        teams.forEach(t => {
+            const stats = teamAttendanceMap.get(t.id)
+            if (stats && stats.total > 0) {
+                const rate = (stats.present / stats.total) * 100
+                if (rate < 80) teamsLowAttendance++
             }
+        })
 
-
-            // 3. AXIS: UNREGISTERED TRAININGS
-            // Past trainings (last 7 days) without attendance
-            const startDate7 = new Date()
-            startDate7.setDate(startDate7.getDate() - 7)
-            const now = new Date()
-
-            const { data: trainingsLast7 } = await supabase
-                .from('trainings')
-                .select('id, team_id, date')
-                .in('team_id', teamIds)
-                .gte('date', startDate7.toISOString())
-                .lte('date', now.toISOString())
-
-            if (trainingsLast7) {
-                const tIds7 = trainingsLast7.map(t => t.id)
-                const { data: attExists } = await supabase
-                    .from('training_attendance')
-                    .select('training_id')
-                    .in('training_id', tIds7)
-
-                const trainingsWithAttendance = new Set(attExists?.map(a => a.training_id))
-
-                let unregisteredCount = 0
-                trainingsLast7.forEach(t => {
-                    const d = new Date(t.date)
-                    if (d < now && !trainingsWithAttendance.has(t.id)) {
-                        unregisteredCount++
-                    }
-                })
-
-                if (unregisteredCount > 0) {
-                    alerts.push({
-                        id: 'unregistered-trainings',
-                        message: `${unregisteredCount} entrenamientos sin asistencia registrada esta semana`,
-                        level: unregisteredCount > 2 ? 'danger' : 'warning',
-                        targetType: 'team'
-                    })
-                }
-            }
-
-
-            // 4. AXIS: TEAM BALANCE
-            // Teams with < 9 players (RED)
-            // Teams with < 9 players (RED)
-            const { data: players } = await supabase
-                .from('player_team_season')
-                .select('team_id')
-                .in('team_id', teamIds)
-                .eq('status', 'active')
-
-            const teamPlayerCounts = new Map<string, number>()
-            players?.forEach(p => {
-                if (p.team_id) {
-                    teamPlayerCounts.set(p.team_id, (teamPlayerCounts.get(p.team_id) || 0) + 1)
-                }
+        if (teamsLowAttendance > 0) {
+            alerts.push({
+                id: 'low-attendance',
+                message: `${teamsLowAttendance} equipos con asistencia < 80 % `,
+                level: 'danger',
+                targetType: 'team'
             })
+        }
 
-            let unbalancedTeams = 0
-            teamIds.forEach(id => {
-                const count = teamPlayerCounts.get(id) || 0
-                if (count < 9) {
-                    unbalancedTeams++
-                }
-            })
-
-            if (unbalancedTeams > 0) {
-                alerts.push({
-                    id: 'unbalanced-teams',
-                    message: `${unbalancedTeams} equipos con plantilla insuficiente(<9 jugadoras)`,
-                    level: 'danger',
-                    targetType: 'team'
-                })
+        // 2. AXIS: UNREGISTERED TRAININGS
+        // Already calculated in getOverview flow indirectly, but let's count for alerts
+        let unregisteredCount = 0
+        trainings.forEach(t => {
+            const tDate = new Date(t.date)
+            if (tDate >= startDate7 && tDate <= now) {
+                const att = t.training_attendance || []
+                if (att.length === 0) unregisteredCount++
             }
+        })
 
-        } catch (error) {
-            console.error('Error getting club alerts:', error)
+        if (unregisteredCount > 0) {
+            alerts.push({
+                id: 'unregistered-trainings',
+                message: `${unregisteredCount} entrenamientos sin asistencia registrada esta semana`,
+                level: unregisteredCount > 2 ? 'danger' : 'warning',
+                targetType: 'team'
+            })
+        }
+
+        // 3. AXIS: ACTIVITY (No activity in 7 days)
+        const teamLatestActivity = new Map<string, Date>()
+        trainings.forEach(t => {
+            const d = new Date(t.date)
+            const current = teamLatestActivity.get(t.team_id)
+            if (!current || d > current) {
+                teamLatestActivity.set(t.team_id, d)
+            }
+        })
+
+        let inactiveTeams = 0
+        teams.forEach(t => {
+            const last = teamLatestActivity.get(t.id)
+            if (!last || last < startDate7) {
+                inactiveTeams++
+            }
+        })
+
+        if (inactiveTeams > 0) {
+            alerts.push({
+                id: 'inactive-teams',
+                message: `${inactiveTeams} equipos sin registrar actividad reciente`,
+                level: 'warning',
+                targetType: 'team'
+            })
+        }
+
+        // 4. AXIS: TEAM BALANCE (< 9 players)
+        // Count players per team
+        const teamPlayerCounts = new Map<string, number>()
+        players.forEach(p => {
+            const count = teamPlayerCounts.get(p.team_id) || 0
+            teamPlayerCounts.set(p.team_id, count + 1)
+        })
+
+        let unbalancedTeams = 0
+        teams.forEach(t => {
+            const count = teamPlayerCounts.get(t.id) || 0
+            if (count < 9) unbalancedTeams++
+        })
+
+        if (unbalancedTeams > 0) {
+            alerts.push({
+                id: 'imbalanced-teams',
+                message: `${unbalancedTeams} equipos con plantilla insuficiente (< 9 jugadoras)`,
+                level: 'danger',
+                targetType: 'team'
+            })
         }
 
         return alerts
-    }
+    },
 }
 
 /**
