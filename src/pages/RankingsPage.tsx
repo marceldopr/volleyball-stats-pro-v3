@@ -76,9 +76,9 @@ export function RankingsPage() {
             case 'block':
                 return data.sort((a, b) => b.blockPoints - a.blockPoints)
             case 'reception':
-                // For reception, sort by efficiency (descending) but filter out low attempts
+                // For reception, sort by efficiency (descending) but filter out players with no attempts
                 return data
-                    .filter(p => p.receptionAttempts > 5) // Minimum threshold
+                    .filter(p => p.receptionAttempts > 0) // Minimum threshold: at least 1 reception
                     .sort((a, b) => b.receptionEfficiency - a.receptionEfficiency)
             default:
                 return data
