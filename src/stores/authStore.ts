@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { supabase } from '@/lib/supabaseClient'
 import type { Session } from '@supabase/supabase-js'
+import { seasonService } from '@/services/seasonService'
+import { coachAssignmentService } from '@/services/coachAssignmentService'
 
 export type UserRole = 'dt' | 'coach' | 'admin'
 
@@ -17,19 +19,22 @@ interface AuthState {
     profile: Profile | null
     loading: boolean
     error: string | null
+    assignedTeamIds: string[] | null // null = not loaded yet, [] = loaded but empty
     setSession: (session: Session | null) => void
     setProfile: (profile: Profile | null) => void
     login: (email: string, password: string) => Promise<void>
     logout: () => Promise<void>
+    fetchAssignments: (force?: boolean) => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>()(
     persist(
-        (set) => ({
+        (set, get) => ({
             session: null,
             profile: null,
             loading: false,
             error: null,
+            assignedTeamIds: null,
 
             setSession: (session) => set({ session }),
 
@@ -66,7 +71,13 @@ export const useAuthStore = create<AuthState>()(
                         profile: profileData as Profile,
                         loading: false,
                         error: null,
+                        assignedTeamIds: null // Reset assignments on new login
                     })
+
+                    // Trigger fetch assignments if coach
+                    if (profileData.role === 'coach') {
+                        get().fetchAssignments()
+                    }
                 } catch (error) {
                     const errorMessage = error instanceof Error ? error.message : 'An error occurred during login'
                     set({
@@ -92,6 +103,7 @@ export const useAuthStore = create<AuthState>()(
                         profile: null,
                         loading: false,
                         error: null,
+                        assignedTeamIds: null
                     })
                 } catch (error) {
                     const errorMessage = error instanceof Error ? error.message : 'An error occurred during logout'
@@ -102,12 +114,50 @@ export const useAuthStore = create<AuthState>()(
                     throw error
                 }
             },
+
+            fetchAssignments: async (force = false) => {
+                const { profile, assignedTeamIds } = get()
+
+                // If we already have assignments and not forcing, skip
+                if (!force && assignedTeamIds !== null) return
+
+                // Only fetch for coaches with club
+                if (profile?.role !== 'coach' || !profile?.club_id) {
+                    set({ assignedTeamIds: [] })
+                    return
+                }
+
+                try {
+                    // No loading state set here to avoid UI flickering if background update
+                    // or we could use a separate 'loadingAssignments' state if needed
+
+                    const currentSeason = await seasonService.getCurrentSeasonByClub(profile.club_id)
+
+                    if (!currentSeason) {
+                        set({ assignedTeamIds: [] })
+                        return
+                    }
+
+                    const teamIds = await coachAssignmentService.getAssignedTeamsByUser(
+                        profile.id,
+                        currentSeason.id
+                    )
+
+                    set({ assignedTeamIds: teamIds })
+                } catch (error) {
+                    console.error('Error fetching assignments in store:', error)
+                    // Don't set error state to avoid blocking main UI, just log it
+                    // Maybe set empty to stop retrying infinitely?
+                    // set({ assignedTeamIds: [] })
+                }
+            }
         }),
         {
             name: 'auth-storage',
             partialize: (state) => ({
                 session: state.session,
                 profile: state.profile,
+                assignedTeamIds: state.assignedTeamIds, // Persist assignments
             }),
         }
     )

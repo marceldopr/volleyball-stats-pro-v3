@@ -572,7 +572,7 @@ export const clubStatsService = {
         trainings: any[]
     ): ClubAlert[] {
         const alerts: ClubAlert[] = []
-        const teamIds = teams.map(t => t.id)
+
         const now = new Date()
         const startDate7 = new Date()
         startDate7.setDate(now.getDate() - 7)

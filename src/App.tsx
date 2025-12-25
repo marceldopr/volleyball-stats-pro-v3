@@ -1,13 +1,17 @@
 import { createBrowserRouter, RouterProvider, Route, createRoutesFromElements, Routes } from 'react-router-dom'
+import { Suspense, lazy } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Teams } from '@/pages/Teams'
 import { TeamSeasonContext } from '@/pages/TeamSeasonContext'
 import { Matches } from '@/pages/Matches'
 import { MatchWizard } from '@/pages/MatchWizard'
 import { MatchConvocation } from '@/components/matches/MatchConvocation'
-import { LiveMatchScouting } from '@/pages/LiveMatchScouting'
-import { MatchAnalysis } from '@/pages/MatchAnalysis'
+// Lazy load heavy components
+const LiveMatchScouting = lazy(() => import('@/pages/LiveMatchScouting').then(module => ({ default: module.LiveMatchScouting })))
+const MatchAnalysis = lazy(() => import('@/pages/MatchAnalysis').then(module => ({ default: module.MatchAnalysis })))
+
 import { Analytics } from '@/pages/Analytics'
+import { Loader2 } from 'lucide-react'
 import { SettingsPage } from '@/pages/Settings'
 import { Exports } from '@/pages/Exports'
 import { About } from '@/pages/About'
@@ -153,12 +157,16 @@ function App() {
                   } />
                   <Route path="/live-match/:matchId" element={
                     <RoleGuard allowedForDT allowedForCoach>
-                      <LiveMatchScouting />
+                      <Suspense fallback={<div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary-500" /></div>}>
+                        <LiveMatchScouting />
+                      </Suspense>
                     </RoleGuard>
                   } />
                   <Route path="/match-analysis/:matchId" element={
                     <RoleGuard allowedForDT allowedForCoach>
-                      <MatchAnalysis />
+                      <Suspense fallback={<div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary-500" /></div>}>
+                        <MatchAnalysis />
+                      </Suspense>
                     </RoleGuard>
                   } />
 
