@@ -67,7 +67,6 @@ export const matchService = {
                     match_time: input.match_time || null,
                     home_away: input.home_away,
                     status: 'planned',
-                    result: null,
                     notes: input.notes || null,
                     actions: [],
                     engine: 'v2'  // SEMPRE 'v2'

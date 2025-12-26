@@ -1,17 +1,24 @@
-﻿import { useState, useEffect } from 'react'
+﻿/**
+ * LiveMatchScouting.tsx
+ * 
+ * Main container component for live match scouting.
+ * Orchestrates hooks and renders UI components.
+ * 
+ * REFACTORED: Handlers moved to useLiveMatchHandlers hook.
+ * Rotation prep and stats calculation moved to pure helpers.
+ */
+
+import { useState, useEffect } from 'react'
 import * as React from 'react'
 import { useParams, useNavigate, useBlocker } from 'react-router-dom'
 import { clsx } from 'clsx'
-import { useMatchStore, validateFIVBSubstitution } from '@/stores/matchStore'
-import { toast } from 'sonner'
-import { calculateLiberoRotation } from '../lib/volleyball/liberoLogic'
+import { useMatchStore } from '@/stores/matchStore'
 import { MatchTimeline } from '@/components/MatchTimeline'
 import { formatTimeline } from '@/utils/timelineFormatter'
 import { ReceptionModal } from '@/components/matches/ReceptionModal'
 import { SetSummaryModal } from '@/components/matches/SetSummaryModal'
 import { MatchFinishedModalV2 } from '@/components/matches/MatchFinishedModalV2'
 import { SubstitutionModal } from '@/components/matches/SubstitutionModal'
-import { isLibero, isValidSubstitution } from '@/lib/volleyball/substitutionHelpers'
 import { getLastEventLabel } from '@/utils/matchEventLabels'
 
 // Custom Hooks
@@ -24,6 +31,11 @@ import { useMatchModalsManager } from '@/hooks/match/useMatchModalsManager'
 import { useTimeouts } from '@/hooks/match/useTimeouts'
 import { useMatchEffects } from '@/hooks/match/useMatchEffects'
 import { usePlayerHelpers } from '@/hooks/match/usePlayerHelpers'
+import { useLiveMatchHandlers } from '@/hooks/match/useLiveMatchHandlers'
+
+// Pure Helpers
+import { prepareReceptionModalRotation } from '@/lib/volleyball/prepareReceptionModalRotation'
+import { calculateMatchStats } from '@/lib/volleyball/calculateMatchStats'
 
 // UI Components
 import { ReadOnlyBanner } from '@/components/match/ReadOnlyBanner'
@@ -38,20 +50,15 @@ import { ActionPlayerModal } from '@/components/match/ActionPlayerModal'
 import { MobileTabNav, TabView } from '@/components/match/MobileTabNav'
 
 
-
-
 export function LiveMatchScouting() {
     const { matchId } = useParams<{ matchId: string }>()
     const navigate = useNavigate()
 
-    // Navigation control: Allow programmatic navigation after user confirms exit
+    // Navigation control refs
     const allowNavigationRef = React.useRef(false)
-
-    // Track when user is confirming exit (vs new navigation attempt)
     const isConfirmingExitRef = React.useRef(false)
 
-    // ... (rest of store selectors)
-    // Store Selectors (Granular for performance and stability)
+    // Store Selectors
     const derivedState = useMatchStore(state => state.derivedState)
     const events = useMatchStore(state => state.events)
     const loadMatch = useMatchStore(state => state.loadMatch)
@@ -62,7 +69,6 @@ export function LiveMatchScouting() {
     const closeSetSummaryModal = useMatchStore(state => state.closeSetSummaryModal)
     const homeTeamName = useMatchStore(state => state.homeTeamName)
     const awayTeamName = useMatchStore(state => state.awayTeamName)
-
     const reset = useMatchStore(state => state.reset)
 
     // Custom Hooks - Data Loading
@@ -86,18 +92,11 @@ export function LiveMatchScouting() {
         addEvent
     })
 
-    // Navigation Blocker: Define blocker BEFORE using it in hooks
-    // Block navigation if match is in progress AND user hasn't confirmed exit
-    // Navigation Blocker: Define blocker BEFORE using it in hooks
-    // Block navigation if match is in progress AND user hasn't confirmed exit
-
+    // Navigation Blocker
     const blocker = useBlocker(
         ({ currentLocation, nextLocation }) => {
-            // Dynamic check inside callback to avoid stale closure issues
-            // MUST read allowNavigationRef.current here, not use a render-time const
             const isMatchActive = !derivedState.isMatchFinished && events.length > 0
             const shouldBlock = isMatchActive && !allowNavigationRef.current && !isConfirmingExitRef.current
-
             return shouldBlock && currentLocation.pathname !== nextLocation.pathname
         }
     )
@@ -127,7 +126,7 @@ export function LiveMatchScouting() {
         isMatchFinished: derivedState.isMatchFinished
     })
 
-    // Custom Hooks - Effects (validation, auto-save)
+    // Custom Hooks - Effects
     useMatchEffects({
         matchId,
         loading,
@@ -137,244 +136,53 @@ export function LiveMatchScouting() {
         navigate
     })
 
-    // Timeline Logic
-    const [showTimeline, setShowTimeline] = useState(false)
-
-    // Mobile Tab State
-    const [activeTab, setActiveTab] = useState<TabView>('actions')
-
-    // DEV-ONLY: Assert lineup/players validation
-    if (import.meta.env.DEV) {
-        // Only validate if match is active (has lineup and not finished)
-        if (derivedState.hasLineupForCurrentSet && !derivedState.isMatchFinished) {
-            const onCourtCount = derivedState.onCourtPlayers.length
-            if (onCourtCount !== 6) {
-                console.warn(
-                    `[DEV][WARN] On-court players invalid length: ${onCourtCount} (expected 6) ` +
-                    `matchId=${matchId} set=${derivedState.currentSet}`
-                )
-            }
-        }
-    }
-
-    // Blocker Effect: Show exit modal when navigation is blocked (NOT during render!)
-    // Guard: Only open if modal is NOT already open
-    useEffect(() => {
-        if (blocker.state === "blocked" && !modals.exitModalOpen && !isConfirmingExitRef.current) {
-            console.log('[Blocker] Navigation blocked, opening exit modal')
-            handlers.openExit()
-        }
-    }, [blocker.state, modals.exitModalOpen]) // ✅ Removed 'handlers' to prevent re-triggers
-
-    // DEV-ONLY: Performance timing for event processing
-
-    const handleGoToMatches = () => {
-        // Just navigate and let the blocker intercept naturally if needed
-        navigate('/matches')
-    }
-
-    const handleGoToAnalysis = () => {
-        if (!matchData) return
-        // Just navigate and let the blocker intercept naturally if needed
-        navigate(`/match-analysis/${matchData.id}`)
-    }
-
-
-
-    // Explicit save function removed - logic moved to useMatchModalsManagerV2
-
-
-    // Set Summary Handlers
-    // Set Summary Handlers removed - Logic moved to useMatchModalsManagerV2
-
-    // Confirm Starters Handler
-    const handleConfirmStarters = () => {
-        // Validation for Set 1 & 5
-        const needsServeChoice = derivedState.currentSet === 1 || derivedState.currentSet === 5
-        if (needsServeChoice && !startersModal.initialServerChoice) return // Should be blocked by button, but safety check
-
-        const lineup = [1, 2, 3, 4, 5, 6].map(pos => {
-            const playerId = startersModal.selectedStarters[pos]
-            const player = availablePlayers.find(p => p.id === playerId)
-            return {
-                position: pos as 1 | 2 | 3 | 4 | 5 | 6,
-                playerId,
-                player: player!
-            }
-        })
-
-        // Dispatch Service Choice if needed
-        if (needsServeChoice && startersModal.initialServerChoice) {
-            addEvent('SET_SERVICE_CHOICE', {
-                setNumber: derivedState.currentSet,
-                initialServingSide: startersModal.initialServerChoice
-            })
-        }
-
-        addEvent('SET_LINEUP', {
-            setNumber: derivedState.currentSet,
-            lineup: lineup as any,
-            liberoId: startersModal.selectedLiberoId
-        })
-
-
-        // Close modal strictly
-        startersModal.closeModal()
-    }
-
-    // Substitution Handler
-    const handleConfirmSubstitution = ({ playerOutId, playerInId, position }: {
-        playerOutId: string
-        playerInId: string
-        position: 1 | 2 | 3 | 4 | 5 | 6
-    }) => {
-        // Find full player objects
-        const playerOut = availablePlayers.find(p => p.id === playerOutId)
-        const playerIn = availablePlayers.find(p => p.id === playerInId)
-
-        if (!playerIn || !playerOut) {
-            toast.error('Jugadora no encontrada')
-            return
-        }
-
-        // VALIDACIÃ“N DE ROLES
-        if (!isValidSubstitution(playerOut, playerIn)) {
-            toast.error('SustituciÃ³n no vÃ¡lida: los cambios deben ser campo por campo o lÃ­bero por lÃ­bero')
-            return
-        }
-
-        // Determinar si es cambio lÃ­beroâ†”lÃ­bero
-        const isLiberoSwap = isLibero(playerOut) && isLibero(playerIn)
-
-        // NUEVA VALIDACIÃ“N FIVB: Si es cambio de campo, verificar reglas FIVB
-        if (!isLiberoSwap) {
-            const validation = validateFIVBSubstitution(
-                derivedState.currentSetSubstitutions,
-                playerOutId,
-                playerInId,
-                derivedState.onCourtPlayers
-            )
-
-            if (!validation.valid) {
-                toast.error(validation.reason || 'SustituciÃ³n no vÃ¡lida segÃºn reglas FIVB')
-                return
-            }
-        }
-
-        // Dispatch substitution event
-        addEvent('SUBSTITUTION', {
-            substitution: {
-                playerOutId,
-                playerInId,
-                position,
-                setNumber: derivedState.currentSet,
-                playerIn: playerIn,
-                isLiberoSwap: isLiberoSwap
-            }
-        })
-
-        // Close modal
-        substitutionModal.closeModal()
-        toast.success(`Cambio: ${playerIn.name} entra`)
-    }
-
-    // Handle Back from Starters Modal removed - logic moved to useMatchModalsManagerV2
-
-    // Instant Libero Swap Handler
-    const handleInstantLiberoSwap = () => {
-        // Verificar que hay lineup y el set no ha terminado
-        if (!derivedState.hasLineupForCurrentSet || derivedState.isSetFinished || derivedState.isMatchFinished) {
-            toast.error('No se puede cambiar el lÃ­bero en este momento')
-            return
-        }
-
-        const currentLiberoId = derivedState.currentLiberoId
-
-        // Encontrar todos los lÃ­beros del equipo
-        const allLiberos = availablePlayers.filter(p => {
-            const role = p.role?.toUpperCase()
-            return role === 'L' || role === 'LIBERO' || role === 'LÃBERO'
-        })
-
-        // Filtrar lÃ­beros disponibles (no el actual)
-        const availableLiberos = allLiberos.filter(p => p.id !== currentLiberoId)
-
-        if (availableLiberos.length === 0) {
-            toast.info('Solo hay un lÃ­bero disponible')
-            return
-        }
-
-        // Seleccionar el siguiente lÃ­bero (el primero disponible)
-        const nextLibero = availableLiberos[0]
-        const currentLibero = allLiberos.find(p => p.id === currentLiberoId)
-
-        if (!currentLibero || !nextLibero) {
-            toast.error('Error al cambiar lÃ­bero')
-            return
-        }
-
-        // Lanzar evento de sustituciÃ³n lÃ­beroâ†”lÃ­bero
-        addEvent('SUBSTITUTION', {
-            substitution: {
-                playerOutId: currentLiberoId,
-                playerInId: nextLibero.id,
-                position: 0 as any, // PosiciÃ³n especial para lÃ­bero
-                setNumber: derivedState.currentSet,
-                playerIn: nextLibero,
-                isLiberoSwap: true
-            }
-        })
-        toast.success(`Líbero: ${nextLibero.name} entra`)
-    }
-
-    // PRE-RECEPTION ACTION HANDLERS
-    // These are called from within ReceptionModalV2 before the user selects a receiver
-
-    // Timeout from reception modal - does NOT close reception modal
-    const handleTimeoutFromReception = (team: 'home' | 'away') => {
-        addEvent('TIMEOUT', { team, setNumber: derivedState.currentSet })
-        toast.success(`Tiempo muerto: ${team === derivedState.ourSide ? 'Nuestro equipo' : 'Rival'}`)
-    }
-
-    // Substitution from reception - closes reception, opens substitution modal
-    // When substitution is complete/cancelled, reception modal will auto-reopen
-    // (handled by useReceptionModal hook which checks showSubstitutionModal)
-    const handleSubstitutionFromReception = () => {
-        receptionModal.setShowReceptionModal(false)
-        substitutionModal.setShowSubstitutionModal(true)
-    }
-
-    // derived booleans
-    const isServing = derivedState.servingSide === 'our'
+    // Custom Hooks - Handlers (extracted from this component)
+    const matchHandlers = useLiveMatchHandlers({
+        derivedState,
+        availablePlayers,
+        addEvent,
+        addReceptionEval,
+        startersModal,
+        substitutionModal,
+        receptionModal,
+        setShowSubstitutionModal: substitutionModal.setShowSubstitutionModal
+    })
 
     // Custom Hooks - Player Helpers
+    const isServing = derivedState.servingSide === 'our'
     const {
         getPlayerDisplay,
         effectiveOnCourtPlayers,
-        benchPlayers,
-        getPlayerAt
+        benchPlayers
     } = usePlayerHelpers({
         availablePlayers,
         derivedState,
         isServing
     })
 
-    // Reception handler with player selection
-    const handleReceptionEval = (playerId: string, rating: 0 | 1 | 2 | 3 | 4) => {
-        addReceptionEval(playerId, rating)
-        receptionModal.markReceptionCompleted()
+    // Local State
+    const [showTimeline, setShowTimeline] = useState(false)
+    const [activeTab, setActiveTab] = useState<TabView>('actions')
 
-        // If rating is 0 (error directo), award point to opponent
-        if (rating === 0) {
-            setTimeout(() => {
-                // Direct call is safe here as modal determines timing
-                addEvent('POINT_OPPONENT', { reason: 'reception_error' })
-            }, 100)
+    // Blocker Effect
+    useEffect(() => {
+        if (blocker.state === "blocked" && !modals.exitModalOpen && !isConfirmingExitRef.current) {
+            handlers.openExit()
         }
+    }, [blocker.state, modals.exitModalOpen])
+
+    // Navigation Handlers
+    const handleGoToMatches = () => navigate('/matches')
+    const handleGoToAnalysis = () => {
+        if (matchData) navigate(`/match-analysis/${matchData.id}`)
     }
 
-    if (loading) return <div className="h-screen bg-zinc-950 flex items-center justify-center text-zinc-500">Cargando datos del partido...</div>
+    // Loading State
+    if (loading) {
+        return <div className="h-screen bg-zinc-950 flex items-center justify-center text-zinc-500">Cargando datos del partido...</div>
+    }
 
+    // Error State
     if (!matchData) {
         return (
             <div className="h-screen bg-zinc-950 flex flex-col items-center justify-center text-red-500 gap-4">
@@ -383,6 +191,17 @@ export function LiveMatchScouting() {
             </div>
         )
     }
+
+    // Prepare rotation for ReceptionModal
+    const receptionRotation = prepareReceptionModalRotation(
+        derivedState.onCourtPlayers,
+        derivedState.currentLiberoId,
+        isServing,
+        availablePlayers
+    )
+
+    // Calculate match stats for MatchFinished modal
+    const matchStats = calculateMatchStats(events, derivedState.ourSide)
 
     return (
         <div className="min-h-screen bg-zinc-950 flex justify-center text-white font-sans overflow-y-auto">
@@ -410,19 +229,14 @@ export function LiveMatchScouting() {
                     disabled={derivedState.isMatchFinished}
                 />
 
-                {/* MOBILE TABS (Sticky below Header) */}
-                <MobileTabNav
-                    activeTab={activeTab}
-                    onTabChange={setActiveTab}
-                />
+                {/* MOBILE TABS */}
+                <MobileTabNav activeTab={activeTab} onTabChange={setActiveTab} />
 
                 {/* MAIN GRID */}
                 <div className="flex-1 px-3 pt-3 flex flex-col pb-20 lg:pb-0">
 
-                    {/* ACTIONS TAB/SECTION */}
-                    <div className={clsx(
-                        activeTab === 'actions' ? 'block' : 'hidden lg:block'
-                    )}>
+                    {/* ACTIONS TAB */}
+                    <div className={clsx(activeTab === 'actions' ? 'block' : 'hidden lg:block')}>
                         <ActionButtons
                             isServing={isServing}
                             disabled={actionCapture.isProcessing}
@@ -433,27 +247,8 @@ export function LiveMatchScouting() {
                         />
                     </div>
 
-                    {/* ROTATION TAB/SECTION */}
-                    <div className={clsx(
-                        // On Mobile: Only show if tab is 'rotation' OR 'actions' (small rotation strip)
-                        // Actually, user requested Tabs: Actions | Rotation | Timeline.
-                        // Standard: Actions tab usually has a small rotation view? 
-                        // User request: "Área central con tabs o switch: Acciones / Rotación / Timeline." implying full separation.
-                        // Let's hide RotationDisplay on 'actions' tab in mobile to save space if desired, OR keep it if it fits. 
-                        // Given portrait constraint, 'Actions' tab needs space for buttons. Let's separate or keep small.
-                        // However, RotationDisplay is currently a "Strip". Let's assume on Mobile 'Rotation' tab shows the full RotationModal or a bigger view? 
-                        // No, let's just show the strip in 'Rotation' tab for now to match current components, or stick to the requested separation.
-                        // If I hide it in Actions tab, user can't see who serves. 
-                        // Compromise: On 'Actions' tab, maybe show valid players? 
-                        // Let's stick to strict separation for now to ensure space. 
-                        // Wait, RotationDisplay is the STRIP. It is useful in Actions view.
-                        // If I hide it, user loses context. 
-                        // User said: "Match HUD... Tabs... Acciones / Rotación / Timeline".
-                        // Let's follow strict tabs.
-                        activeTab === 'rotation' ? 'block' : 'hidden lg:block',
-                        "lg:mt-4"
-                    )}>
-                        {/* Wrapper for Rotation Display to add spacing in desktop */}
+                    {/* ROTATION TAB */}
+                    <div className={clsx(activeTab === 'rotation' ? 'block' : 'hidden lg:block', "lg:mt-4")}>
                         <RotationDisplay
                             onCourtPlayers={derivedState.onCourtPlayers}
                             currentLiberoId={derivedState.currentLiberoId}
@@ -464,42 +259,29 @@ export function LiveMatchScouting() {
                         />
                     </div>
 
-                    {/* TIMELINE TAB/SECTION (Mobile Only View via Tab, Desktop via Toggle) */}
-                    <div className={clsx(
-                        activeTab === 'timeline' ? 'block' : 'hidden', // Mobile: Tab control
-                        'lg:hidden' // Hide on desktop here, we handle it below for desktop toggle
-                    )}>
+                    {/* TIMELINE TAB (Mobile) */}
+                    <div className={clsx(activeTab === 'timeline' ? 'block' : 'hidden', 'lg:hidden')}>
                         <MatchTimeline
                             events={formatTimeline(events, derivedState.ourSide, homeTeamName, awayTeamName)}
                             className="mt-2"
                         />
                     </div>
-
                 </div>
 
-                {/* BOTTOM ACTIONS - Only visible on Actions Tab in Mobile? Or always?
-                    User said: "BottomActions fijo con acciones principales; el resto en 'Más…'."
-                    If I switch to Timeline tab, do I need bottom actions? Probably not.
-                    Let's show BottomActions only on 'actions' tab in mobile.
-                    Always show on Desktop.
-                */}
-                <div className={clsx(
-                    activeTab === 'actions' ? 'block' : 'hidden lg:block'
-                )}>
+                {/* BOTTOM ACTIONS */}
+                <div className={clsx(activeTab === 'actions' ? 'block' : 'hidden lg:block')}>
                     <BottomActions
                         onSubstitution={() => substitutionModal.openModal()}
-                        onLiberoSwap={handleInstantLiberoSwap}
+                        onLiberoSwap={matchHandlers.handleInstantLiberoSwap}
                         onUndo={undoEvent}
                         onExit={handlers.openExit}
                         onToggleTimeline={() => {
-                            // Desktop: Toggle state
                             setShowTimeline(!showTimeline)
-                            // Mobile: Switch tab to timeline if not there, or back to actions
                             if (window.innerWidth < 1024) {
                                 setActiveTab(prev => prev === 'timeline' ? 'actions' : 'timeline')
                             }
                         }}
-                        isTimelineOpen={showTimeline} // Only affects transparency/highlight
+                        isTimelineOpen={showTimeline}
                         lastEventLabel={getLastEventLabel(
                             events[events.length - 1],
                             new Map(availablePlayers.map(p => [p.id, p]))
@@ -511,7 +293,7 @@ export function LiveMatchScouting() {
                     />
                 </div>
 
-                {/* Desktop Timeline Content (Expands Below via BottomAction Toggle) */}
+                {/* Desktop Timeline */}
                 {showTimeline && (
                     <div data-testid="timeline" className="hidden lg:block border-t border-zinc-800">
                         <MatchTimeline
@@ -521,7 +303,7 @@ export function LiveMatchScouting() {
                     </div>
                 )}
 
-                {/* MODAL STARTERS (Selección de Titulares - Visual) */}
+                {/* MODALS */}
                 <StartersModal
                     isOpen={modals.showStartersModal}
                     derivedState={derivedState}
@@ -537,11 +319,10 @@ export function LiveMatchScouting() {
                         startersModal.setSelectedStarters(prev => ({ ...prev, [pos]: playerId }))
                     }
                     onLiberoSelect={startersModal.setSelectedLiberoId}
-                    onConfirm={handleConfirmStarters}
+                    onConfirm={matchHandlers.handleConfirmStarters}
                     onBack={handlers.handleBackFromStarters}
                 />
 
-                {/* MODAL ROTATION */}
                 <RotationModal
                     isOpen={modals.showRotationModal}
                     onClose={handlers.closeRotation}
@@ -549,63 +330,29 @@ export function LiveMatchScouting() {
                     getPlayerDisplay={getPlayerDisplay}
                 />
 
-                {/* MODAL RECEPTION */}
-                {/* Reception Modal V2 */}
-                {(() => {
-                    // Calculate rotation with libero swap (same logic as main rotation display)
-                    const baseRotationIds = [1, 2, 3, 4, 5, 6].map(pos => getPlayerAt(pos)?.id || null)
-                    const isServing = derivedState.servingSide === 'our'
-                    const displayRotationIds = calculateLiberoRotation(
-                        baseRotationIds,
-                        derivedState.currentLiberoId,
-                        isServing,
-                        (id) => availablePlayers.find(p => p.id === id)?.role
-                    )
-
-                    // Convert IDs array into rotation format with player objects
-                    const rotationWithLibero = [1, 2, 3, 4, 5, 6].map((pos, idx) => {
-                        const playerId = displayRotationIds[idx]
-                        const player = availablePlayers.find(p => p.id === playerId)
-                        return player ? {
-                            position: pos,
-                            player: {
-                                id: player.id,
-                                name: player.name,
-                                number: player.number,
-                                role: player.role || '',
-                                firstName: player.firstName,
-                                lastName: player.lastName
-                            }
-                        } : null
-                    }).filter(Boolean) as Array<{ position: number; player: { id: string; name: string; number: number; role: string } }>
-
-                    return (
-                        <ReceptionModal
-                            isOpen={receptionModal.showReceptionModal}
-                            onClose={() => receptionModal.setShowReceptionModal(false)}
-                            onConfirm={handleReceptionEval}
-                            players={rotationWithLibero.map(p => ({
-                                id: p.player.id,
-                                name: p.player.name,
-                                number: p.player.number,
-                                role: p.player.role
-                            }))}
-                            currentSet={derivedState.currentSet}
-                            rotation={rotationWithLibero}
-                            getPlayerDisplay={getPlayerDisplay}
-                            // Pre-reception actions
-                            onTimeoutLocal={() => handleTimeoutFromReception(derivedState.ourSide)}
-                            onTimeoutVisitor={() => handleTimeoutFromReception(derivedState.ourSide === 'home' ? 'away' : 'home')}
-                            onSubstitution={handleSubstitutionFromReception}
-                            onLiberoSwap={handleInstantLiberoSwap}
-                            timeoutsHome={derivedState.timeoutsHome}
-                            timeoutsAway={derivedState.timeoutsAway}
-                            substitutionsUsed={derivedState.currentSetSubstitutions?.totalSubstitutions || 0}
-                            ourSide={derivedState.ourSide}
-                            liberoAvailable={availablePlayers.filter(p => p.role?.toUpperCase() === 'L' || p.role?.toUpperCase() === 'LIBERO').length > 1}
-                        />
-                    )
-                })()}
+                <ReceptionModal
+                    isOpen={receptionModal.showReceptionModal}
+                    onClose={() => receptionModal.setShowReceptionModal(false)}
+                    onConfirm={matchHandlers.handleReceptionEval}
+                    players={receptionRotation.map(p => ({
+                        id: p.player.id,
+                        name: p.player.name,
+                        number: p.player.number,
+                        role: p.player.role
+                    }))}
+                    currentSet={derivedState.currentSet}
+                    rotation={receptionRotation}
+                    getPlayerDisplay={getPlayerDisplay}
+                    onTimeoutLocal={() => matchHandlers.handleTimeoutFromReception(derivedState.ourSide)}
+                    onTimeoutVisitor={() => matchHandlers.handleTimeoutFromReception(derivedState.ourSide === 'home' ? 'away' : 'home')}
+                    onSubstitution={matchHandlers.handleSubstitutionFromReception}
+                    onLiberoSwap={matchHandlers.handleInstantLiberoSwap}
+                    timeoutsHome={derivedState.timeoutsHome}
+                    timeoutsAway={derivedState.timeoutsAway}
+                    substitutionsUsed={derivedState.currentSetSubstitutions?.totalSubstitutions || 0}
+                    ourSide={derivedState.ourSide}
+                    liberoAvailable={availablePlayers.filter(p => p.role?.toUpperCase() === 'L' || p.role?.toUpperCase() === 'LIBERO').length > 1}
+                />
 
                 <SetSummaryModal
                     isOpen={modals.isSetSummaryOpen}
@@ -617,7 +364,6 @@ export function LiveMatchScouting() {
                     onUndo={handlers.handleUndoSetSummary}
                 />
 
-                {/* Match Finished Modal - V2 */}
                 <MatchFinishedModalV2
                     isOpen={modals.isMatchFinishedModalOpen}
                     matchInfo={{
@@ -631,84 +377,20 @@ export function LiveMatchScouting() {
                         homeSetsWon: derivedState.setsWonHome,
                         awaySetsWon: derivedState.setsWonAway,
                         date: matchData?.match_date ? new Date(matchData.match_date).toLocaleDateString('es-ES', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric'
+                            day: 'numeric', month: 'long', year: 'numeric'
                         }) : undefined,
                         time: matchData?.match_time || undefined,
                         competition: matchData?.competition_name || matchData?.teams?.category_stage || undefined,
-                        stats: (() => {
-                            // Helper to parse timestamp
-                            const getTime = (iso: string) => new Date(iso).getTime()
-
-                            // 1. Duration
-                            let duration = "0m"
-                            if (events.length > 1) {
-                                const start = getTime(events[0].timestamp)
-                                const end = getTime(events[events.length - 1].timestamp)
-                                const diffMs = end - start
-                                const hrs = Math.floor(diffMs / (1000 * 60 * 60))
-                                const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
-                                duration = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`
-                            }
-
-                            // 2. Points
-                            // Re-calculation using standard 'winner' logic from payload if available, or event type
-                            const homePoints = events.filter(e => (e.type === 'POINT_US' && derivedState.ourSide === 'home') || (e.type === 'POINT_OPPONENT' && derivedState.ourSide === 'away')).length
-                            const awayPoints = events.filter(e => (e.type === 'POINT_US' && derivedState.ourSide === 'away') || (e.type === 'POINT_OPPONENT' && derivedState.ourSide === 'home')).length
-
-                            // 3. Errors (Approximation based on event flow or payload)
-                            const ownErrors = events.filter(e =>
-                                (e.type === 'POINT_OPPONENT' && derivedState.ourSide === 'home') ||
-                                (e.type === 'POINT_US' && derivedState.ourSide === 'away' && e.payload?.reason?.toLowerCase().includes('error'))
-                            ).length
-
-                            const opponentErrors = events.filter(e =>
-                                (e.type === 'POINT_US' && derivedState.ourSide === 'home' && e.payload?.reason?.toLowerCase().includes('error')) ||
-                                (e.type === 'POINT_OPPONENT' && derivedState.ourSide === 'away')
-                            ).length
-
-                            // 4. Max Streak (Simplistic calculation)
-                            let currentHomeStreak = 0
-                            let maxHomeStreak = 0
-                            let currentAwayStreak = 0
-                            let maxAwayStreak = 0
-
-                            events.forEach(e => {
-                                const isHomePoint = (e.type === 'POINT_US' && derivedState.ourSide === 'home') || (e.type === 'POINT_OPPONENT' && derivedState.ourSide === 'away')
-                                const isAwayPoint = (e.type === 'POINT_US' && derivedState.ourSide === 'away') || (e.type === 'POINT_OPPONENT' && derivedState.ourSide === 'home')
-
-                                if (isHomePoint) {
-                                    currentHomeStreak++
-                                    currentAwayStreak = 0
-                                    maxHomeStreak = Math.max(maxHomeStreak, currentHomeStreak)
-                                } else if (isAwayPoint) {
-                                    currentAwayStreak++
-                                    currentHomeStreak = 0
-                                    maxAwayStreak = Math.max(maxAwayStreak, currentAwayStreak)
-                                }
-                            })
-
-                            return {
-                                duration,
-                                totalPointsHome: homePoints,
-                                totalPointsAway: awayPoints,
-                                ownErrors: ownErrors,
-                                opponentErrors: opponentErrors,
-                                homeMaxStreak: maxHomeStreak,
-                                awayMaxStreak: maxAwayStreak
-                            }
-                        })()
+                        stats: matchStats
                     }}
                     onGoToAnalysis={handleGoToAnalysis}
                     onGoToMatches={handleGoToMatches}
                 />
 
-                {/* MODAL SUBSTITUTION */}
                 <SubstitutionModal
                     isOpen={modals.showSubstitutionModal}
                     onClose={() => substitutionModal.closeModal()}
-                    onConfirm={handleConfirmSubstitution}
+                    onConfirm={matchHandlers.handleConfirmSubstitution}
                     onCourtPlayers={derivedState.onCourtPlayers}
                     benchPlayers={benchPlayers}
                     currentSetNumber={derivedState.currentSet}
@@ -716,7 +398,6 @@ export function LiveMatchScouting() {
                     currentSetSubstitutions={derivedState.currentSetSubstitutions}
                 />
 
-                {/* EXIT MODAL */}
                 <ExitMatchModal
                     isOpen={modals.exitModalOpen}
                     onClose={handlers.closeExit}
@@ -724,7 +405,6 @@ export function LiveMatchScouting() {
                     onExitWithoutSaving={handlers.handleExitWithoutSaving}
                 />
 
-                {/* MODAL ACTION PLAYER (Selección de jugadora para acciones) */}
                 <ActionPlayerModal
                     isOpen={actionCapture.isActionModalOpen}
                     actionType={actionCapture.currentActionType}
@@ -738,6 +418,3 @@ export function LiveMatchScouting() {
         </div>
     )
 }
-
-
-
