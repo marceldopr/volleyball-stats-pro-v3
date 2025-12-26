@@ -1,15 +1,15 @@
 import { supabase } from '@/lib/supabaseClient'
+import type { MatchEvent } from '@/stores/matchStore'
 
 /**
- * matchService - Servei per a partits con event-sourcing
+ * matchService - Servei per a partits amb event-sourcing
  * 
- * IMPORTANT: Aquest servei és COMPLETAMENT NOU i AÏLLAT del V1
- * - Només gestiona partits amb engine: 'v2'
- * - NO toca cap partit V1
- * - Utilitza event-sourcing i time-travel
+ * Event-sourcing system per a seguiment live de partits
+ * - Source of truth: actions[] (event log)
+ * - Derived fields: sets_home/away, points_home/away, winner
  */
 
-export interface MatchV2DB {
+export interface Match {
     id: string
     club_id: string
     season_id: string
@@ -20,10 +20,14 @@ export interface MatchV2DB {
     match_time: string | null
     home_away: 'home' | 'away'
     status: 'planned' | 'in_progress' | 'finished' | 'cancelled'
-    result: string | null
     notes: string | null
-    actions: any[] | null
-    engine: 'v2'  // SEMPRE 'v2'
+    actions: MatchEvent[]  // Event log (source of truth)
+    engine: 'v2'  // Always 'v2' (enforced by DB constraint)
+    sets_home: number
+    sets_away: number
+    points_home: number
+    points_away: number
+    winner: string | null
     created_at: string
     updated_at: string
     teams?: {
@@ -86,7 +90,7 @@ export const matchService = {
     /**
      * Obtenir un partit per ID
      */
-    async getMatch(id: string): Promise<MatchV2DB | null> {
+    async getMatch(id: string): Promise<Match | null> {
         try {
             const { data, error } = await supabase
                 .from('matches')
@@ -103,7 +107,7 @@ export const matchService = {
                 throw error
             }
 
-            return data as MatchV2DB
+            return data as Match
         } catch (error) {
             console.error('Error in getMatchV2:', error)
             throw error
@@ -113,7 +117,7 @@ export const matchService = {
     /**
      * Llistar partits per club i temporada
      */
-    async listMatches(clubId: string, seasonId: string): Promise<MatchV2DB[]> {
+    async listMatches(clubId: string, seasonId: string): Promise<Match[]> {
         try {
             const { data, error } = await supabase
                 .from('matches')
@@ -128,7 +132,7 @@ export const matchService = {
                 throw error
             }
 
-            return (data as MatchV2DB[]) || []
+            return (data as Match[]) || []
         } catch (error) {
             console.error('Error in listMatchesV2:', error)
             throw error

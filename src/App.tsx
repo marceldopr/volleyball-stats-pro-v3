@@ -41,7 +41,6 @@ import { CalendarioPage } from './pages/CalendarioPage'
 import { SaludDisponibilidadPage } from './pages/SaludDisponibilidadPage'
 import { NextSeasonPage } from './pages/NextSeasonPage'
 import { CoachSignupPage } from './pages/CoachSignupPage'
-import { V1BlockedRoute } from '@/components/routing/V1BlockedRoute'
 
 
 function App() {
@@ -145,12 +144,7 @@ function App() {
                       <Matches />
                     </RoleGuard>
                   } />
-                  {/* Legacy route redirects */}
-                  <Route path="/matches/new" element={<V1BlockedRoute />} />
-                  <Route path="/matches/:id" element={<V1BlockedRoute />} />
-                  <Route path="/matches/:id/live" element={<V1BlockedRoute />} />
-
-                  {/* V2 Match System Routes */}
+                  {/* Match System Routes */}
                   <Route path="/matches/create" element={
                     <RoleGuard allowedForDT allowedForCoach>
                       <MatchWizard />
