@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabaseClient'
 import { sortTeamsBySportsCategory } from '@/utils/teamSorting'
+import { auditService } from './auditService'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 
 export interface TeamDB {
     id: string
@@ -18,6 +20,7 @@ export interface TeamDB {
     notes: string | null
     created_at: string
     updated_at: string
+    deleted_at?: string | null  // Soft delete timestamp
     player_team_season?: { id: string }[]
     // Embedded identifier from join (Supabase returns object for FK join)
     identifier?: {
@@ -45,6 +48,7 @@ export const teamService = {
             .from('teams')
             .select('id, club_id, season_id, custom_name, category, category_stage, division_name, team_suffix, gender, competition_level, head_coach_id, assistant_coach_id, identifier_id, notes, created_at, updated_at, identifier:club_identifiers(id, name, type, code, color_hex, sort_order)')
             .eq('club_id', clubId)
+            .is('deleted_at', null)  // Filter out soft-deleted
         // NO .order() here - sorting is done in-memory by sortTeamsBySportsCategory
 
         if (error) throw error
@@ -59,6 +63,7 @@ export const teamService = {
             .select('id, club_id, season_id, custom_name, category, category_stage, division_name, team_suffix, gender, competition_level, head_coach_id, assistant_coach_id, identifier_id, notes, created_at, updated_at, player_team_season(id), identifier:club_identifiers(id, name, type, code, color_hex, sort_order)')
             .eq('club_id', clubId)
             .eq('season_id', seasonId)
+            .is('deleted_at', null)  // Filter out soft-deleted
         // NO .order() here - sorting is done in-memory by sortTeamsBySportsCategory
 
         if (error) {
@@ -121,13 +126,74 @@ export const teamService = {
         return data
     },
 
-    // Delete a team by ID
+    // SOFT DELETE a team by ID
     deleteTeam: async (id: string): Promise<void> => {
-        const { error } = await supabase.from('teams').delete().eq('id', id)
+        // Fetch team data for audit log before soft delete
+        const { data: team } = await supabase
+            .from('teams')
+            .select('*, identifier:club_identifiers(id, name, type, code)')
+            .eq('id', id)
+            .single()
+
+        // Log to audit before deletion
+        if (team) {
+            await auditService.logDeletion({
+                actionType: 'DELETE',
+                entityType: 'team',
+                entityId: id,
+                entityName: getTeamDisplayName(team),
+                clubId: team.club_id,
+                seasonId: team.season_id,
+                entitySnapshot: team
+            })
+        }
+
+        // SOFT DELETE: Set deleted_at instead of actually deleting
+        const { error } = await supabase
+            .from('teams')
+            .update({ deleted_at: new Date().toISOString() })
+            .eq('id', id)
+
         if (error) {
-            console.error('Error deleting team:', error)
+            console.error('Error soft deleting team:', error)
             throw error
         }
+    },
+
+    /**
+     * Restore a soft-deleted team
+     */
+    restoreTeam: async (id: string): Promise<void> => {
+        const { error } = await supabase
+            .from('teams')
+            .update({ deleted_at: null })
+            .eq('id', id)
+
+        if (error) {
+            console.error('Error restoring team:', error)
+            throw error
+        }
+    },
+
+    /**
+     * Get soft-deleted teams for restoration UI
+     */
+    getDeletedTeams: async (clubId: string, seasonId?: string): Promise<TeamDB[]> => {
+        let query = supabase
+            .from('teams')
+            .select('*, identifier:club_identifiers(id, name, type, code)')
+            .eq('club_id', clubId)
+            .not('deleted_at', 'is', null)
+            .order('deleted_at', { ascending: false })
+
+        if (seasonId) {
+            query = query.eq('season_id', seasonId)
+        }
+
+        const { data, error } = await query
+
+        if (error) throw error
+        return (data || []).map(teamService._normalizeIdentifier)
     },
 
     // Fetch a single team by its ID

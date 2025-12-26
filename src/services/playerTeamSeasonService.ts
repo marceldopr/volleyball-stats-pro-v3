@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
-
+import { auditService } from './auditService'
 import { PlayerDB } from './playerService'
 
 export interface PlayerTeamSeasonDB {
@@ -288,6 +288,25 @@ export const playerTeamSeasonService = {
     },
 
     removePlayerFromTeamSeason: async (id: string): Promise<void> => {
+        // Fetch assignment data for audit log before deletion
+        const { data: pts } = await supabase
+            .from('player_team_season')
+            .select('*, player:club_players(first_name, last_name)')
+            .eq('id', id)
+            .single()
+
+        // Log to audit before deletion
+        if (pts) {
+            await auditService.logDeletion({
+                actionType: 'UNASSIGN',
+                entityType: 'player_team',
+                entityId: id,
+                entityName: pts.player ? `${pts.player.first_name} ${pts.player.last_name}` : 'Unknown',
+                seasonId: pts.season_id,
+                entitySnapshot: pts
+            })
+        }
+
         const { error } = await supabase
             .from('player_team_season')
             .delete()
@@ -376,6 +395,25 @@ export const playerTeamSeasonService = {
     },
 
     removeSecondaryAssignment: async (secondaryId: string): Promise<void> => {
+        // Fetch assignment data for audit log before deletion
+        const { data: assignment } = await supabase
+            .from('player_secondary_assignments')
+            .select('*, player:club_players(first_name, last_name)')
+            .eq('id', secondaryId)
+            .single()
+
+        // Log to audit before deletion
+        if (assignment) {
+            await auditService.logDeletion({
+                actionType: 'REMOVE',
+                entityType: 'secondary_assignment',
+                entityId: secondaryId,
+                entityName: assignment.player ? `${assignment.player.first_name} ${assignment.player.last_name} (doblaje)` : 'Unknown',
+                seasonId: assignment.season_id,
+                entitySnapshot: assignment
+            })
+        }
+
         const { error } = await supabase
             .from('player_secondary_assignments')
             .delete()

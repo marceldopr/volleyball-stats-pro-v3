@@ -1,4 +1,4 @@
-import { Building2, Calendar, MapPin, Bell, Users as UsersIcon, Clock, Save, Edit, StickyNote, ChevronRight, AlertCircle } from 'lucide-react'
+import { Building2, Calendar, MapPin, Bell, Users as UsersIcon, Clock, Save, Edit, StickyNote, ChevronRight, AlertCircle, Trash2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
@@ -17,10 +17,11 @@ import { teamService, TeamDB } from '@/services/teamService'
 import { seasonService } from '@/services/seasonService'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { SportStructureSection } from '@/components/settings/SportStructureSection'
+import { TrashTab } from '@/components/settings/TrashTab'
 import { Layers } from 'lucide-react'
 import { useConfirmation } from '@/hooks/useConfirmation'
 
-type SectionId = 'club' | 'categorias' | 'temporada' | 'espacios' | 'horarios' | 'calendario' | 'usuarios' | 'notificaciones'
+type SectionId = 'club' | 'categorias' | 'temporada' | 'espacios' | 'horarios' | 'calendario' | 'usuarios' | 'notificaciones' | 'paperera'
 
 interface Section {
   id: SectionId
@@ -41,7 +42,7 @@ export function SettingsPage() {
   // Read section from URL on mount
   useEffect(() => {
     const sectionParam = searchParams.get('section')
-    if (sectionParam && ['club', 'categorias', 'temporada', 'espacios', 'horarios', 'calendario', 'usuarios', 'notificaciones'].includes(sectionParam)) {
+    if (sectionParam && ['club', 'categorias', 'temporada', 'espacios', 'horarios', 'calendario', 'usuarios', 'notificaciones', 'paperera'].includes(sectionParam)) {
       setActiveSection(sectionParam as SectionId)
     }
   }, [searchParams])
@@ -158,7 +159,8 @@ export function SettingsPage() {
     { id: 'horarios', name: 'Horarios de entrenamiento', icon: <Clock className="w-5 h-5" /> },
     { id: 'calendario', name: 'Calendario', icon: <Calendar className="w-5 h-5" /> },
     { id: 'usuarios', name: 'Usuarios y permisos', icon: <UsersIcon className="w-5 h-5" />, badge: 'Pronto' },
-    { id: 'notificaciones', name: 'Notificaciones', icon: <Bell className="w-5 h-5" />, badge: 'Pronto' }
+    { id: 'notificaciones', name: 'Notificaciones', icon: <Bell className="w-5 h-5" />, badge: 'Pronto' },
+    { id: 'paperera', name: 'Papelera', icon: <Trash2 className="w-5 h-5" /> }
   ]
 
   // Render active section content
@@ -968,6 +970,16 @@ export function SettingsPage() {
             </div>
           </div>
         )
+
+      case 'paperera':
+        return profile?.club_id ? (
+          <div className="space-y-6 max-w-2xl">
+            <TrashTab
+              clubId={profile.club_id}
+              seasonId={selectedSeasonId || undefined}
+            />
+          </div>
+        ) : null
 
       default:
         return null

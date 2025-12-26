@@ -8,6 +8,7 @@
  */
 
 import { supabase } from '@/lib/supabaseClient'
+import { auditService } from './auditService'
 
 export interface IdentifierDB {
     id: string
@@ -111,6 +112,25 @@ export const identifierService = {
 
     // Delete an identifier
     deleteIdentifier: async (id: string): Promise<void> => {
+        // Fetch identifier data for audit log before deletion
+        const { data: identifier } = await supabase
+            .from('club_identifiers')
+            .select('*')
+            .eq('id', id)
+            .single()
+
+        // Log to audit before deletion
+        if (identifier) {
+            await auditService.logDeletion({
+                actionType: 'DELETE',
+                entityType: 'identifier',
+                entityId: id,
+                entityName: identifier.name,
+                clubId: identifier.club_id,
+                entitySnapshot: identifier
+            })
+        }
+
         const { error } = await supabase
             .from('club_identifiers')
             .delete()

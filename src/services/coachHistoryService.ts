@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
+import { auditService } from './auditService'
 import type {
     CoachTeamSeasonDB,
     CreateCoachTeamSeasonParams,
@@ -132,6 +133,25 @@ export const coachHistoryService = {
      * Remove a coach from a team/season
      */
     removeCoachFromTeamSeason: async (assignmentId: string): Promise<void> => {
+        // Fetch assignment data for audit log before deletion
+        const { data: assignment } = await supabase
+            .from('coach_team_season')
+            .select('*, coaches:profiles(first_name, last_name)')
+            .eq('id', assignmentId)
+            .single()
+
+        // Log to audit before deletion
+        if (assignment) {
+            await auditService.logDeletion({
+                actionType: 'UNASSIGN',
+                entityType: 'coach_team',
+                entityId: assignmentId,
+                entityName: assignment.coaches ? `${assignment.coaches.first_name} ${assignment.coaches.last_name}` : 'Unknown',
+                seasonId: assignment.season_id,
+                entitySnapshot: assignment
+            })
+        }
+
         const { error } = await supabase
             .from('coach_team_season')
             .delete()

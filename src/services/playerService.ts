@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
+import { auditService } from './auditService'
 
 export interface PlayerDB {
     id: string
@@ -16,6 +17,7 @@ export interface PlayerDB {
     is_active: boolean
     created_at: string
     updated_at: string
+    deleted_at?: string | null  // Soft delete timestamp
 }
 
 export const playerService = {
@@ -24,6 +26,7 @@ export const playerService = {
             .from('club_players')
             .select('*')
             .eq('club_id', clubId)
+            .is('deleted_at', null)  // Filter out soft-deleted
             .order('first_name', { ascending: true })
 
         if (error) throw error
@@ -54,23 +57,87 @@ export const playerService = {
     },
 
     deletePlayer: async (id: string): Promise<void> => {
-        // First try standard delete
+        // Fetch player data for audit log before soft delete
+        const { data: player } = await supabase
+            .from('club_players')
+            .select('*')
+            .eq('id', id)
+            .single()
+
+        // Log to audit before deletion
+        if (player) {
+            await auditService.logDeletion({
+                actionType: 'DELETE',
+                entityType: 'player',
+                entityId: id,
+                entityName: `${player.first_name} ${player.last_name}`,
+                clubId: player.club_id,
+                entitySnapshot: player
+            })
+        }
+
+        // SOFT DELETE: Set deleted_at instead of actually deleting
         const { error } = await supabase
             .from('club_players')
-            .delete()
+            .update({ deleted_at: new Date().toISOString() })
             .eq('id', id)
 
         if (error) {
-            // If foreign key violation, we might need a force delete
-            if (error.code === '23503') {
-                console.error('Foreign key violation. Use forceDeletePlayer instead.')
-                throw new Error('REFERENCED_DATA')
-            }
+            console.error('Error soft deleting player:', error)
             throw error
         }
     },
 
+    /**
+     * Restore a soft-deleted player
+     */
+    restorePlayer: async (id: string): Promise<void> => {
+        const { error } = await supabase
+            .from('club_players')
+            .update({ deleted_at: null })
+            .eq('id', id)
+
+        if (error) {
+            console.error('Error restoring player:', error)
+            throw error
+        }
+    },
+
+    /**
+     * Get soft-deleted players for restoration UI
+     */
+    getDeletedPlayers: async (clubId: string): Promise<PlayerDB[]> => {
+        const { data, error } = await supabase
+            .from('club_players')
+            .select('*')
+            .eq('club_id', clubId)
+            .not('deleted_at', 'is', null)
+            .order('deleted_at', { ascending: false })
+
+        if (error) throw error
+        return data || []
+    },
+
     forceDeletePlayer: async (id: string): Promise<void> => {
+        // Fetch player data for audit log before deletion
+        const { data: player } = await supabase
+            .from('club_players')
+            .select('*')
+            .eq('id', id)
+            .single()
+
+        // Log to audit before force deletion
+        if (player) {
+            await auditService.logDeletion({
+                actionType: 'DELETE',
+                entityType: 'player',
+                entityId: id,
+                entityName: `${player.first_name} ${player.last_name}`,
+                clubId: player.club_id,
+                entitySnapshot: { ...player, force_delete: true }
+            })
+        }
+
         // 1. Delete reports
         const { error: reportsError } = await supabase
             .from('reports')
@@ -103,17 +170,17 @@ export const playerService = {
 
         if (attendanceError) console.error('Error deleting attendance:', attendanceError)
 
-        // 5. Delete player evaluation scores (Flux B) - inferred table name
+        // 5. Delete player evaluation scores
         const { error: scoresError } = await supabase
             .from('player_evaluation_scores')
             .delete()
             .eq('player_id', id)
 
         if (scoresError) {
-            // Ignore if table doesn't exist or other error
+            // Ignore if table doesn't exist
         }
 
-        // 6. Delete player evaluations (Flux B) - inferred table name
+        // 6. Delete player evaluations
         const { error: evalError } = await supabase
             .from('player_evaluations')
             .delete()
@@ -123,7 +190,7 @@ export const playerService = {
             // Ignore if table doesn't exist
         }
 
-        // finally delete player
+        // Finally delete player
         const { error } = await supabase
             .from('club_players')
             .delete()
@@ -133,11 +200,12 @@ export const playerService = {
     },
 
     getPlayersWithTeam: async (clubId: string, seasonId: string | null): Promise<(PlayerDB & { team?: { id: string, name: string, category: string, gender: string }, display_position?: string, display_status?: string })[]> => {
-        // 1. Get all players
+        // 1. Get all players (excluding soft-deleted)
         const { data: players, error: playersError } = await supabase
             .from('club_players')
             .select('*')
             .eq('club_id', clubId)
+            .is('deleted_at', null)  // Filter out soft-deleted
             .order('first_name', { ascending: true })
 
         if (playersError) throw playersError

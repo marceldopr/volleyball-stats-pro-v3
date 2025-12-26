@@ -8,6 +8,7 @@
  */
 
 import { supabase } from '@/lib/supabaseClient'
+import { auditService } from './auditService'
 
 export interface CategoryDB {
     id: string
@@ -115,6 +116,25 @@ export const categoryService = {
 
     // Delete a category
     deleteCategory: async (id: string): Promise<void> => {
+        // Fetch category data for audit log before deletion
+        const { data: category } = await supabase
+            .from('club_categories')
+            .select('*')
+            .eq('id', id)
+            .single()
+
+        // Log to audit before deletion
+        if (category) {
+            await auditService.logDeletion({
+                actionType: 'DELETE',
+                entityType: 'category',
+                entityId: id,
+                entityName: category.name,
+                clubId: category.club_id,
+                entitySnapshot: category
+            })
+        }
+
         const { error } = await supabase
             .from('club_categories')
             .delete()
