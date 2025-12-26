@@ -159,7 +159,7 @@ export interface MatchV2State {
     // Actions
     loadMatch: (dbMatchId: string, events: any[], ourSide: 'home' | 'away', teamNames?: { home: string; away: string }) => void
     setInitialOnCourtPlayers: (players: PlayerV2[]) => void
-    addEvent: (type: MatchEventType, payload?: any) => void
+    addEvent: (type: MatchEventType, payload?: any) => Promise<void>
     addReceptionEval: (playerId: string, rating: 0 | 1 | 2 | 3 | 4) => void
     undoEvent: () => void
     autoSaveEvents: () => Promise<void>
@@ -855,7 +855,7 @@ export const useMatchStore = create<MatchV2State>()(
                 })
             },
 
-            addEvent: (type, payload) => {
+            addEvent: async (type, payload) => {
                 const { dbMatchId, events, ourSide, initialOnCourtPlayers, dismissedSetSummaries } = get()
                 if (!dbMatchId) return
 
@@ -931,6 +931,16 @@ export const useMatchStore = create<MatchV2State>()(
                     teamStatsService.recalculateMatchStats(dbMatchId, tempEvents)
                         .catch((e: any) => console.error('[MatchStore] Failed to recalculate stats:', e))
                     // -----------------------------------------------------------
+
+                    // CRITICAL FIX: Force save BEFORE showing set summary modal
+                    // This prevents race condition where user closes browser before auto-save completes
+                    try {
+                        await matchService.updateMatch(dbMatchId, { actions: tempEvents })
+                        set({ lastAutoSaveAt: Date.now() })
+                    } catch (err) {
+                        console.error('[MatchStore] Critical save before SET_END failed:', err)
+                        // Continue anyway - localStorage will still have the data
+                    }
                 }
 
                 const finalDerived = calculateDerivedState(tempEvents, ourSide, initialOnCourtPlayers, dismissedSetSummaries)
@@ -940,14 +950,15 @@ export const useMatchStore = create<MatchV2State>()(
                     derivedState: finalDerived
                 })
 
-                // Auto-save logic: save every 5 events, every 15s, or on critical events
+                // Auto-save logic: save every 5 events, every 15s (SET_END already saved above)
                 const state = get()
                 const timeSinceLastSave = Date.now() - (state.lastAutoSaveAt ?? 0)
                 const shouldSaveByCount = tempEvents.length % 5 === 0
                 const shouldSaveByTime = timeSinceLastSave > 15000 // 15 seconds
                 const isCriticalEvent = type === 'SET_END'
 
-                if (shouldSaveByCount || shouldSaveByTime || isCriticalEvent) {
+                // Skip if SET_END (already saved synchronously above)
+                if (!isCriticalEvent && (shouldSaveByCount || shouldSaveByTime)) {
                     // Auto-save asynchronously
                     state.autoSaveEvents()
                 }
