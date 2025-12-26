@@ -166,7 +166,7 @@ export const clubStatsService = {
                 // 2.3 Matches (Finished) - For Win/Loss
                 supabase
                     .from('matches')
-                    .select('result, status, home_away, our_sets, opponent_sets, team_id')
+                    .select('sets_home, sets_away, status, home_away, team_id')
                     .in('team_id', teamIds)
                     .eq('status', 'finished'),
 
@@ -690,54 +690,25 @@ export const clubStatsService = {
 }
 
 /**
- * Helper function: Extreu els sets d'un partit amb lògica de fallback robusta
- * Prioritza our_sets/opponent_sets, i fa fallback a result (string) amb validació
- * V2: Handles "Sets: X-Y (...)" format and considers home_away field
- * IMPORTANT: result is ALWAYS stored as "home-away" format
+ * Helper function: Extract sets from match using V2 structured fields
+ * Uses sets_home/sets_away with home_away context
  */
 function getSetsFromMatch(match: any): { ourSets: number | null; theirSets: number | null } {
-    // 1. Prioritat: utilitzar columnes numèriques
-    if (match.our_sets !== null && match.opponent_sets !== null) {
-        return {
-            ourSets: match.our_sets,
-            theirSets: match.opponent_sets
+    // Use structured V2 fields: sets_home/sets_away
+    if (match.sets_home !== null && match.sets_away !== null) {
+        // Context: determine which sets are "ours" based on home_away
+        if (match.home_away === 'away') {
+            return {
+                ourSets: match.sets_away,
+                theirSets: match.sets_home
+            }
+        } else {
+            return {
+                ourSets: match.sets_home,
+                theirSets: match.sets_away
+            }
         }
     }
 
-    // 2. Fallback: parsejar result (string) amb validació robusta
-    if (!match.result) {
-        return { ourSets: null, theirSets: null }
-    }
-
-    // V2: Clean result from "Sets: X-Y (...)" format
-    let cleanResult = match.result
-        .replace(/^Sets:\s*/i, '')  // Remove "Sets:" prefix
-        .split('(')[0]              // Take only part before parentheses
-        .trim()
-
-    if (!cleanResult.includes('-')) {
-        return { ourSets: null, theirSets: null }
-    }
-
-    const parts = cleanResult.split('-')
-
-    if (parts.length !== 2) {
-        return { ourSets: null, theirSets: null }
-    }
-
-    const homeSets = Number(parts[0])
-    const awaySets = Number(parts[1])
-
-    if (Number.isNaN(homeSets) || Number.isNaN(awaySets)) {
-        return { ourSets: null, theirSets: null }
-    }
-
-    // CRITICAL: Result is ALWAYS in home-away format
-    // If we are 'away', our sets = second number
-    // Otherwise (home or undefined), our sets = first number
-    if (match.home_away === 'away') {
-        return { ourSets: awaySets, theirSets: homeSets }
-    } else {
-        return { ourSets: homeSets, theirSets: awaySets }
-    }
+    return { ourSets: null, theirSets: null }
 }

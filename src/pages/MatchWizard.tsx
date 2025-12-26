@@ -53,7 +53,7 @@ export function MatchWizard() {
         }
     })
 
-    // Replicate V1 team loading pattern with role-based filtering
+    // Team loading pattern with role-based filtering
     useEffect(() => {
         const fetchData = async () => {
             if (!profile?.club_id || roleLoading) return

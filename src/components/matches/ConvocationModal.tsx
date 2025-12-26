@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X, Check, Play, Save, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { matchService, MatchV2DB } from '@/services/matchService'
+import { matchService, Match } from '@/services/matchService'
 import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
 import { toast } from 'sonner'
 import { getEffectivePlayerDisplayData } from '@/utils/playerEffectiveDisplay'
@@ -16,7 +16,7 @@ export function ConvocationModal({ matchId, onClose, onSave }: { matchId: string
     const navigate = useNavigate()
 
     const [loading, setLoading] = useState(true)
-    const [match, setMatch] = useState<MatchV2DB | null>(null)
+    const [match, setMatch] = useState<Match | null>(null)
     const [availablePlayers, setAvailablePlayers] = useState<any[]>([])
     const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set())
 

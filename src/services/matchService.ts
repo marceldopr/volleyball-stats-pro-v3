@@ -254,7 +254,7 @@ export const matchService = {
     },
 
     /**
-     * Get full match details including players and stats (from V1)
+     * Get full match details including players and stats
      * Used for match analysis pages
      */
     async getMatchFullDetails(id: string): Promise<any | null> {

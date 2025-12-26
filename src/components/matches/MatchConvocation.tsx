@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Check, Play, Save } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { matchService, MatchV2DB } from '@/services/matchService'
+import { matchService, Match } from '@/services/matchService'
 import { playerTeamSeasonService } from '@/services/playerTeamSeasonService'
 import { toast } from 'sonner'
 
@@ -17,7 +17,7 @@ export function MatchConvocation() {
     const navigate = useNavigate()
 
     const [loading, setLoading] = useState(true)
-    const [match, setMatch] = useState<MatchV2DB | null>(null)
+    const [match, setMatch] = useState<Match | null>(null)
     const [availablePlayers, setAvailablePlayers] = useState<any[]>([])
     const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set())
     const [saving, setSaving] = useState(false)

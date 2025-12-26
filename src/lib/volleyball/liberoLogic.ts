@@ -1,6 +1,6 @@
 /**
  * Shared Libero Logic for Volleyball Stats Pro
- * Extracted from V1 to ensuring consistency across V1 and V2.
+ * Libero swap logic ensuring consistency.
  */
 
 /**
@@ -42,7 +42,7 @@ export function calculateLiberoRotation(
             const positionNumber = arrayIndex === 4 ? 5 : (arrayIndex === 5 ? 6 : 1);
 
             // Rule a) MB in position 1 (array index 0) and team is serving: no substitution
-            // (Libero cannot serve in most rules, though some allow it, we stick to V1 logic: MB serves)
+            // (Libero cannot serve in most rules, though some allow it: MB serves)
             if (positionNumber === 1 && isServing) {
                 // Keep MB, no substitution
             } else {

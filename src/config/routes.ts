@@ -75,7 +75,7 @@ export const buildRoute = {
 
 /**
  * FORBIDDEN ROUTES - DO NOT USE
- * These are legacy V1 routes that should never be referenced
+ * These routes are handled by the wizard flow
  */
 export const FORBIDDEN_ROUTES = [
     '/matches/new',           // Use ROUTES.CREATE_MATCH instead

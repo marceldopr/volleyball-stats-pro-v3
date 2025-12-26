@@ -1,0 +1,52 @@
+name: V1 Guard - Prevent V1 Reintroduction
+
+on:
+  push:
+    branches: [main, develop, staging]
+  pull_request:
+    branches: [main, develop, staging]
+
+jobs:
+  verify-no-v1:
+    name: Verify No V1 References
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Run V1 Detection Script
+        run: node scripts/verify-no-v1.mjs
+      
+      - name: Report Status
+        if: failure()
+        run: |
+          echo "::error::V1 references detected in codebase!"
+          echo "::error::Please remove all V1 references before merging."
+          exit 1
+  
+  # Optional: Database verification (requires DB access)
+  # verify-db-constraints:
+  #   name: Verify Database Constraints
+  #   runs-on: ubuntu-latest
+  #   if: github.event_name == 'pull_request'
+  #   
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #     
+  #     - name: Verify DB Schema
+  #       env:
+  #         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  #         SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+  #       run: |
+  #         # Run SQL verification queries
+  #         # Check: engine != 'v2' count = 0
+  #         # Check: actions IS NULL count = 0
+  #         # Check: legacy columns don't exist
+  #         echo "DB verification would run here"
