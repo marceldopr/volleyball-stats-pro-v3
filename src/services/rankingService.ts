@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
+import { getTeamDisplayName } from '@/utils/teamDisplay'
 
 export interface RankingFilter {
     clubId: string
@@ -103,11 +104,20 @@ export const rankingService = {
             const pid = row.player_id
 
             if (!agg.has(pid)) {
+                // Use utility function for consistent team name display
+                const teamDisplayName = getTeamDisplayName({
+                    category_stage: row.team.category_stage,
+                    category: row.team.category,
+                    custom_name: row.team.custom_name,
+                    gender: row.team.gender,
+                    identifier: row.team.identifier
+                })
+
                 agg.set(pid, {
                     playerId: pid,
                     playerName: `${row.player.first_name} ${row.player.last_name}`,
                     teamId: row.team.id,
-                    teamName: row.team.custom_name,
+                    teamName: teamDisplayName,
                     matchesCaught: 0, // Will calculate unique matches
                     setsPlayed: 0,
 
