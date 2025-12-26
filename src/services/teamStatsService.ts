@@ -283,23 +283,16 @@ export const teamStatsService = {
     /**
      * BULK: Get Win/Loss records for multiple teams
      */
-    async getWinLossRecordForTeams(teamIds: string[], seasonId: string): Promise<Map<string, { wins: number, losses: number }>> {
+    async getWinLossRecordForTeams(_teamIds: string[], _seasonId: string): Promise<Map<string, { wins: number, losses: number }>> {
         const resultMap = new Map<string, { wins: number, losses: number }>()
-        if (!teamIds.length) return resultMap
-
-        const { data: matches } = await supabase
-            .from('matches')
-            .select('team_id, sets_home, sets_away, winner, status')
-            .in('team_id', teamIds)
-            .eq('season_id', seasonId)
-            .eq('status', 'finished')
-
-        matches?.forEach(m => {
-            // const current = resultMap.get(m.team_id) || { wins: 0, losses: 0 }
-            // Logic needed here if we want bulk stats
-        })
-
-
+        // TODO: Implement bulk stats logic when needed
+        // const { data: matches } = await supabase
+        //     .from('matches')
+        //     .select('team_id, sets_home, sets_away, winner, status, home_away')
+        //     .in('team_id', _teamIds)
+        //     .eq('season_id', _seasonId)
+        //     .eq('status', 'finished')
+        // Process matches and populate resultMap
         return resultMap
     },
 

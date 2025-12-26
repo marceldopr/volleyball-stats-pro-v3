@@ -54,7 +54,7 @@ export const rankingService = {
         teamId,
         categoryId,
         gender,
-        limit = 50
+        limit: _limit = 50
     }: RankingFilter): Promise<PlayerRankingStats[]> {
 
         let query = supabase
