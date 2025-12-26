@@ -9,6 +9,7 @@ import { AssignTeamModal } from '@/components/coaches/AssignTeamModal'
 import { toast } from 'sonner'
 import type { CoachTeamSeasonDB } from '@/types/Coach'
 import type { TeamDB } from '@/services/teamService'
+import { useConfirmation } from '@/hooks/useConfirmation'
 
 interface CoachEquiposAsignadosProps {
     coachId: string
@@ -17,6 +18,7 @@ interface CoachEquiposAsignadosProps {
 export function CoachEquiposAsignados({ coachId }: CoachEquiposAsignadosProps) {
     const { isDT, isAdmin } = useCurrentUserRole()
     const { activeSeasonId } = useSeasonStore()
+    const { confirm, ConfirmDialog } = useConfirmation()
     const [assignments, setAssignments] = useState<(CoachTeamSeasonDB & { team?: TeamDB | null })[]>([])
     const [loading, setLoading] = useState(true)
     const [showAssignModal, setShowAssignModal] = useState(false)
@@ -53,7 +55,14 @@ export function CoachEquiposAsignados({ coachId }: CoachEquiposAsignadosProps) {
     }
 
     const handleRemoveAssignment = async (assignmentId: string) => {
-        if (!confirm('¿Seguro que quieres quitar esta asignación?')) return
+        const confirmed = await confirm({
+            title: 'Quitar Asignación',
+            message: 'El entrenador será desasignado de este equipo. No se eliminarán sus datos.',
+            severity: 'warning',
+            confirmText: 'QUITAR'
+        })
+
+        if (!confirmed) return
 
         try {
             await coachHistoryService.removeCoachFromTeamSeason(assignmentId)
@@ -210,6 +219,7 @@ export function CoachEquiposAsignados({ coachId }: CoachEquiposAsignadosProps) {
                     onSuccess={handleAssignSuccess}
                 />
             )}
+            {ConfirmDialog}
         </div>
     )
 }

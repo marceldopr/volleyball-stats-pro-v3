@@ -9,6 +9,7 @@ import { ArrowUp, ArrowDown, Plus, Edit2, Trash2, Save, X, ChevronDown, AlertCir
 import { Button } from '@/components/ui/Button'
 import { categoryService, CategoryDB, CategoryCreate } from '@/services/categoryService'
 import { toast } from 'sonner'
+import { useConfirmation } from '@/hooks/useConfirmation'
 
 interface CategoriesTabProps {
     clubId: string
@@ -23,6 +24,7 @@ export function CategoriesTab({ clubId }: CategoriesTabProps) {
     const [showModal, setShowModal] = useState(false)
     const [editingCategory, setEditingCategory] = useState<CategoryDB | null>(null)
     const [saving, setSaving] = useState(false)
+    const { confirm, ConfirmDialog } = useConfirmation()
 
     // Form state
     const [formName, setFormName] = useState('')
@@ -174,7 +176,16 @@ export function CategoriesTab({ clubId }: CategoriesTabProps) {
 
     // Delete category
     const deleteCategory = async (category: CategoryDB) => {
-        if (!confirm(`¿Eliminar la categoría "${category.name}"?`)) return
+        const confirmed = await confirm({
+            title: 'Eliminar Categoría',
+            message: `¿Eliminar la categoría "${category.name}"? Esta acción es irreversible.`,
+            severity: 'danger',
+            confirmText: 'ELIMINAR',
+            countdown: 3,
+            requiresTyping: true
+        })
+
+        if (!confirmed) return
 
         try {
             await categoryService.deleteCategory(category.id)
@@ -217,8 +228,8 @@ export function CategoriesTab({ clubId }: CategoriesTabProps) {
                 <button
                     onClick={() => setActiveGender('female')}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeGender === 'female'
-                            ? 'bg-pink-600 text-white'
-                            : 'bg-gray-800 text-gray-400 hover:text-white'
+                        ? 'bg-pink-600 text-white'
+                        : 'bg-gray-800 text-gray-400 hover:text-white'
                         }`}
                 >
                     Femenino
@@ -226,8 +237,8 @@ export function CategoriesTab({ clubId }: CategoriesTabProps) {
                 <button
                     onClick={() => setActiveGender('male')}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeGender === 'male'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-800 text-gray-400 hover:text-white'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-800 text-gray-400 hover:text-white'
                         }`}
                 >
                     Masculino
@@ -405,6 +416,7 @@ export function CategoriesTab({ clubId }: CategoriesTabProps) {
                     </div>
                 </div>
             )}
+            {ConfirmDialog}
         </div>
     )
 }

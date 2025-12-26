@@ -18,6 +18,7 @@ import { seasonService } from '@/services/seasonService'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { SportStructureSection } from '@/components/settings/SportStructureSection'
 import { Layers } from 'lucide-react'
+import { useConfirmation } from '@/hooks/useConfirmation'
 
 type SectionId = 'club' | 'categorias' | 'temporada' | 'espacios' | 'horarios' | 'calendario' | 'usuarios' | 'notificaciones'
 
@@ -32,6 +33,7 @@ export function SettingsPage() {
   const { profile } = useAuthStore()
   const { isDT } = useCurrentUserRole()
   const [searchParams] = useSearchParams()
+  const { confirm, ConfirmDialog } = useConfirmation()
 
   // Navigation state
   const [activeSection, setActiveSection] = useState<SectionId>('club')
@@ -421,16 +423,21 @@ export function SettingsPage() {
                                 <Button
                                   variant="primary"
                                   size="sm"
-                                  onClick={() => {
+                                  onClick={async () => {
                                     if (!season.start_date || !season.end_date) {
                                       toast.error('Define semanas de inicio y fin antes de activar')
                                       return
                                     }
-                                    if (confirm(`¿Activar "${season.name}"? La temporada actual será archivada.`)) {
+                                    const confirmed = await confirm({
+                                      title: 'Activar Temporada',
+                                      message: `La temporada "${season.name}" se activará y la actual será archivada.`,
+                                      severity: 'warning',
+                                      confirmText: 'ACTIVAR'
+                                    })
+                                    if (confirmed) {
                                       seasonService.setActiveSeason(profile!.club_id!, season.id)
                                         .then(() => {
                                           loadSeasons(profile!.club_id)
-                                          // Update calendar highlighting to new active season
                                           setSeasonRange(season.start_date!, season.end_date!)
                                           toast.success(`Temporada "${season.name}" activada`)
                                         })
@@ -1094,6 +1101,7 @@ export function SettingsPage() {
           }
         }}
       />
+      {ConfirmDialog}
     </div>
   )
 }

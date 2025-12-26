@@ -12,11 +12,13 @@ import { toast } from 'sonner'
 import { POSITION_NAMES } from '@/constants'
 import { PlayerImportWizard } from '@/components/players/PlayerImportWizard'
 import { Upload } from 'lucide-react'
+import { useConfirmation } from '@/hooks/useConfirmation'
 
 export function Players() {
     const navigate = useNavigate()
     const { profile } = useAuthStore()
     const { isCoach, assignedTeamIds, loading: roleLoading } = useCurrentUserRole()
+    const { confirm, ConfirmDialog } = useConfirmation()
     const [players, setPlayers] = useState<(PlayerDB & { team?: { name: string, category: string }, has_injury?: boolean | null })[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
@@ -76,7 +78,19 @@ export function Players() {
     }
 
     const handleDeletePlayer = async (id: string) => {
-        if (!window.confirm('¿Estás seguro de que quieres eliminar a esta jugadora? Esta acción no se puede deshacer.')) return
+        const player = players.find(p => p.id === id)
+        const playerName = player ? `${player.first_name} ${player.last_name}` : 'esta jugadora'
+
+        const confirmed = await confirm({
+            title: 'Eliminar Jugadora',
+            message: `¿Estás seguro de que quieres eliminar a ${playerName}?`,
+            severity: 'danger',
+            confirmText: 'ELIMINAR',
+            countdown: 3,
+            requiresTyping: true
+        })
+
+        if (!confirmed) return
 
         try {
             await playerService.deletePlayer(id)
@@ -84,7 +98,22 @@ export function Players() {
             loadPlayers()
         } catch (error: any) {
             if (error.message === 'REFERENCED_DATA') {
-                if (window.confirm('⚠️ Esta jugadora tiene datos asociados (reportes, estadísticas, asignaciones).\n\n¿Quieres BORRAR TODO su historial permanentemente?')) {
+                const forceConfirmed = await confirm({
+                    title: 'Eliminar TODO el Historial',
+                    message: `${playerName} tiene datos asociados.`,
+                    severity: 'danger',
+                    confirmText: 'BORRAR TODO',
+                    countdown: 3,
+                    requiresTyping: true,
+                    itemsToLose: [
+                        'Reportes de evaluación',
+                        'Estadísticas de partidos',
+                        'Asignaciones a equipos',
+                        'Historial completo'
+                    ]
+                })
+
+                if (forceConfirmed) {
                     try {
                         await playerService.forceDeletePlayer(id)
                         toast.success('Jugadora y todos sus datos eliminados')
@@ -559,6 +588,7 @@ export function Players() {
                     existingPlayers={players}
                 />
             )}
+            {ConfirmDialog}
         </div>
     )
 }

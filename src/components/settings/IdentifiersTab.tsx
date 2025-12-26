@@ -10,6 +10,7 @@ import { Plus, Edit2, Trash2, Save, X, Tag, ToggleLeft, ToggleRight } from 'luci
 import { Button } from '@/components/ui/Button'
 import { identifierService, IdentifierDB, IdentifierCreate } from '@/services/identifierService'
 import { toast } from 'sonner'
+import { useConfirmation } from '@/hooks/useConfirmation'
 
 interface IdentifiersTabProps {
     clubId: string
@@ -38,6 +39,7 @@ export function IdentifiersTab({ clubId }: IdentifiersTabProps) {
     const [showModal, setShowModal] = useState(false)
     const [editingIdentifier, setEditingIdentifier] = useState<IdentifierDB | null>(null)
     const [saving, setSaving] = useState(false)
+    const { confirm, ConfirmDialog } = useConfirmation()
 
     // Form state
     const [formName, setFormName] = useState('')
@@ -152,7 +154,16 @@ export function IdentifiersTab({ clubId }: IdentifiersTabProps) {
 
     // Delete identifier
     const deleteIdentifier = async (id: IdentifierDB) => {
-        if (!confirm(`¿Eliminar el identificador "${id.name}"?`)) return
+        const confirmed = await confirm({
+            title: 'Eliminar Identificador',
+            message: `¿Eliminar el identificador "${id.name}"? Esta acción es irreversible y puede afectar equipos que lo usan.`,
+            severity: 'danger',
+            confirmText: 'ELIMINAR',
+            countdown: 3,
+            requiresTyping: true
+        })
+
+        if (!confirmed) return
 
         try {
             await identifierService.deleteIdentifier(id.id)
@@ -289,8 +300,8 @@ export function IdentifiersTab({ clubId }: IdentifiersTabProps) {
                                         type="button"
                                         onClick={() => setFormType('letter')}
                                         className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${formType === 'letter'
-                                                ? 'bg-primary-600 text-white'
-                                                : 'bg-gray-700 text-gray-400 hover:text-white'
+                                            ? 'bg-primary-600 text-white'
+                                            : 'bg-gray-700 text-gray-400 hover:text-white'
                                             }`}
                                     >
                                         Letra
@@ -299,8 +310,8 @@ export function IdentifiersTab({ clubId }: IdentifiersTabProps) {
                                         type="button"
                                         onClick={() => setFormType('color')}
                                         className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${formType === 'color'
-                                                ? 'bg-primary-600 text-white'
-                                                : 'bg-gray-700 text-gray-400 hover:text-white'
+                                            ? 'bg-primary-600 text-white'
+                                            : 'bg-gray-700 text-gray-400 hover:text-white'
                                             }`}
                                     >
                                         Color
@@ -397,6 +408,7 @@ export function IdentifiersTab({ clubId }: IdentifiersTabProps) {
                     </div>
                 </div>
             )}
+            {ConfirmDialog}
         </div>
     )
 }

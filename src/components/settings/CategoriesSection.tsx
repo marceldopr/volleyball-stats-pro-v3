@@ -13,6 +13,7 @@ import { ArrowUp, ArrowDown, Plus, Edit2, Trash2, Save, X, ChevronDown, AlertCir
 import { Button } from '@/components/ui/Button'
 import { categoryService, CategoryDB, CategoryCreate } from '@/services/categoryService'
 import { toast } from 'sonner'
+import { useConfirmation } from '@/hooks/useConfirmation'
 
 interface CategoriesSectionProps {
     clubId: string
@@ -27,6 +28,7 @@ export function CategoriesSection({ clubId }: CategoriesSectionProps) {
     const [editingCategory, setEditingCategory] = useState<CategoryDB | null>(null)
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [saving, setSaving] = useState(false)
+    const { confirm, ConfirmDialog } = useConfirmation()
 
     // Form state
     const [formName, setFormName] = useState('')
@@ -177,9 +179,16 @@ export function CategoriesSection({ clubId }: CategoriesSectionProps) {
 
     // Delete category
     const deleteCategory = async (category: CategoryDB) => {
-        if (!confirm(`¿Eliminar la categoría "${category.name}"? Esta acción no se puede deshacer.`)) {
-            return
-        }
+        const confirmed = await confirm({
+            title: 'Eliminar Categoía',
+            message: `¿Eliminar la categoría "${category.name}"? Esta acción es irreversible y puede afectar la asignación de jugadoras.`,
+            severity: 'danger',
+            confirmText: 'ELIMINAR',
+            countdown: 3,
+            requiresTyping: true
+        })
+
+        if (!confirmed) return
 
         try {
             await categoryService.deleteCategory(category.id)
@@ -459,6 +468,7 @@ export function CategoriesSection({ clubId }: CategoriesSectionProps) {
                     </div>
                 </div>
             )}
+            {ConfirmDialog}
         </div>
     )
 }

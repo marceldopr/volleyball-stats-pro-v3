@@ -15,6 +15,7 @@ import { CoachTeamCard } from '@/components/teams/CoachTeamCard'
 import { coachAssignmentService } from '@/services/coachAssignmentService'
 import { teamStatsService } from '@/services/teamStatsService'
 import { identifierService, IdentifierDB } from '@/services/identifierService'
+import { useConfirmation } from '@/hooks/useConfirmation'
 
 interface EnrichedTeam extends TeamDB {
   coach_name?: string | null
@@ -29,6 +30,7 @@ export function Teams() {
   const { profile } = useAuthStore()
   const { isCoach, isDT, assignedTeamIds, loading: roleLoading } = useRoleScope()
   const navigate = useNavigate()
+  const { confirm, ConfirmDialog } = useConfirmation()
 
   // State
   const [currentSeason, setCurrentSeason] = useState<SeasonDB | null>(null)
@@ -271,7 +273,19 @@ export function Teams() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('¿Estás seguro de que quieres eliminar este equipo?')) return
+    const team = teams.find(t => t.id === id)
+    const teamName = team ? getTeamDisplayName(team) : 'este equipo'
+
+    const confirmed = await confirm({
+      title: 'Eliminar Equipo',
+      message: `¿Estás seguro de que quieres eliminar ${teamName}?`,
+      severity: 'danger',
+      confirmText: 'ELIMINAR',
+      countdown: 3,
+      requiresTyping: true
+    })
+
+    if (!confirmed) return
     if (!profile?.club_id || !currentSeason) return
 
     try {
@@ -802,18 +816,18 @@ export function Teams() {
         managingRosterTeam && currentSeason && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <TeamRosterManager
-                team={managingRosterTeam}
-                season={currentSeason}
-                onClose={() => {
-                  setManagingRosterTeam(null)
-                  loadData()
-                }}
-              />
+              {managingRosterTeam && (
+                <TeamRosterManager
+                  team={managingRosterTeam}
+                  season={currentSeason}
+                  onClose={() => setManagingRosterTeam(null)}
+                />
+              )}
             </div>
           </div>
         )
       }
+      {ConfirmDialog}
     </div >
   )
 }

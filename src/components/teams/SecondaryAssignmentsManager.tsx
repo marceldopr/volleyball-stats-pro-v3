@@ -7,6 +7,7 @@ import { playerService, PlayerDB } from '@/services/playerService'
 import { toast } from 'sonner'
 import { useRoleScope } from '@/hooks/useRoleScope'
 import { supabase } from '@/lib/supabaseClient'
+import { useConfirmation } from '@/hooks/useConfirmation'
 
 interface SecondaryAssignmentsManagerProps {
     teamId: string
@@ -16,6 +17,7 @@ interface SecondaryAssignmentsManagerProps {
 
 export function SecondaryAssignmentsManager({ teamId, seasonId, clubId }: SecondaryAssignmentsManagerProps) {
     const { isDT } = useRoleScope()
+    const { confirm, ConfirmDialog } = useConfirmation()
     // Extend type to include primary_info
     const [assignments, setAssignments] = useState<(PlayerTeamSeasonDB & { primary_info?: any })[]>([])
     const [loading, setLoading] = useState(true)
@@ -152,11 +154,19 @@ export function SecondaryAssignmentsManager({ teamId, seasonId, clubId }: Second
     }
 
     const handleRemoveAssignment = async (secondaryId: string) => {
-        if (!window.confirm('¿Estás seguro de quitar este doblaje?')) return
+        const confirmed = await confirm({
+            title: 'Quitar Doblaje',
+            message: 'La jugadora será desasignada como doblaje de este equipo. No se eliminarán sus datos.',
+            severity: 'warning',
+            confirmText: 'QUITAR'
+        })
+
+        if (!confirmed) return
+
         try {
             await playerTeamSeasonService.removeSecondaryAssignment(secondaryId)
-            toast.success('Doblabje eliminado')
-            loadAssignments()
+            toast.success('Doblaje eliminado')
+            await loadAssignments()
         } catch (error) {
             console.error('Error removing assignment:', error)
             toast.error('Error al eliminar')
@@ -276,6 +286,7 @@ export function SecondaryAssignmentsManager({ teamId, seasonId, clubId }: Second
                     </div>
                 </div>
             )}
+            {ConfirmDialog}
         </div>
     )
 }
