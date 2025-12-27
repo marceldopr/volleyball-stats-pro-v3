@@ -33,7 +33,7 @@ import { Coaches } from './pages/Coaches'
 
 
 import { CoachDetail } from './pages/CoachDetail'
-import { ClubDashboardPage } from '@/pages/ClubDashboardPage'
+
 import { StatsPage } from '@/pages/StatsPage'
 import { RankingsPage } from '@/pages/RankingsPage'
 import { ProtectedRoute } from '@/components/routing/ProtectedRoute'
@@ -46,6 +46,7 @@ import { CalendarioPage } from './pages/CalendarioPage'
 import { SaludDisponibilidadPage } from './pages/SaludDisponibilidadPage'
 import { NextSeasonPage } from './pages/NextSeasonPage'
 import { CoachSignupPage } from './pages/CoachSignupPage'
+import { PlanningActivePage } from '@/pages/PlanningActivePage'
 
 
 function App() {
@@ -106,12 +107,15 @@ function App() {
                     </RoleGuard>
                   } />
 
+
+
                   {/* DT Only Routes */}
-                  <Route path="/club/dashboard" element={
+                  <Route path="/planning/active" element={
                     <RoleGuard allowedForDT>
-                      <ClubDashboardPage />
+                      <PlanningActivePage />
                     </RoleGuard>
                   } />
+
                   <Route path="/stats" element={
                     <RoleGuard allowedForDT>
                       <StatsPage />

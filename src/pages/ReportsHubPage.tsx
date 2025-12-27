@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Users, FileText, Briefcase, Activity, Shield, Trophy } from 'lucide-react'
+import { Users, FileText, Briefcase, Activity, Shield } from 'lucide-react'
 import { useRoleScope } from '@/hooks/useRoleScope'
 import { clsx } from 'clsx'
 import { useEffect } from 'react'
@@ -50,15 +50,7 @@ export function ReportsHubPage() {
             href: '/reports/coaches',
             visible: isDT // DT Only
         },
-        {
-            id: 'club',
-            title: 'Club Dashboard',
-            description: 'Visión global del club, rankings y estado general.',
-            icon: Trophy,
-            color: 'bg-purple-500',
-            href: '/club/dashboard',
-            visible: isDT // DT Only
-        }
+
     ]
 
     return (

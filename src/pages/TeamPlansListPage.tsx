@@ -1,14 +1,22 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Calendar, CheckCircle, XCircle, ChevronRight, Search, ArrowLeft } from 'lucide-react'
+import { BarChart3, CheckCircle, AlertCircle, XCircle, TrendingUp, TrendingDown, Minus, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useAuthStore } from '@/stores/authStore'
 import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 import { teamService, TeamDB } from '@/services/teamService'
-import { teamSeasonPlanService } from '@/services/teamSeasonPlanService'
-import { seasonService } from '@/services/seasonService'
+import { seasonService, SeasonDB } from '@/services/seasonService'
+import { teamSeasonPhaseService, TeamSeasonPhaseDB } from '@/services/teamSeasonPhaseService'
+import { phaseEvaluationService, PhaseEvaluationDB } from '@/services/phaseEvaluationService'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { toast } from 'sonner'
+
+interface TeamWithPhases {
+    team: TeamDB
+    phases: TeamSeasonPhaseDB[]
+    evaluations: Record<string, PhaseEvaluationDB>
+    latestEvaluation: PhaseEvaluationDB | null
+}
 
 export function TeamPlansListPage() {
     const navigate = useNavigate()
@@ -16,10 +24,8 @@ export function TeamPlansListPage() {
     const { isDT, isCoach, assignedTeamIds } = useCurrentUserRole()
 
     const [loading, setLoading] = useState(true)
-    const [teams, setTeams] = useState<TeamDB[]>([])
-    const [plansMap, setPlansMap] = useState<Record<string, any>>({})
-    const [currentSeason, setCurrentSeason] = useState<any>(null)
-    const [searchTerm, setSearchTerm] = useState('')
+    const [currentSeason, setCurrentSeason] = useState<SeasonDB | null>(null)
+    const [teamsData, setTeamsData] = useState<TeamWithPhases[]>([])
 
     useEffect(() => {
         const fetchData = async () => {
@@ -50,24 +56,39 @@ export function TeamPlansListPage() {
                 setCurrentSeason(season)
 
                 // 2. Get teams
-                let teamsData = await teamService.getTeamsByClubAndSeason(profile.club_id, season.id)
+                let teams = await teamService.getTeamsByClubAndSeason(profile.club_id, season.id)
 
-                // Filter for coaches
+                // Filter for coaches: only show assigned teams
                 if (isCoach && !isDT) {
-                    teamsData = teamsData.filter(t => assignedTeamIds.includes(t.id))
+                    teams = teams.filter(t => assignedTeamIds.includes(t.id))
                 }
 
-                setTeams(teamsData)
+                // 3. For each team, get phases and evaluations
+                const teamsWithData: TeamWithPhases[] = await Promise.all(
+                    teams.map(async (team) => {
+                        const phases = await teamSeasonPhaseService.getPhasesByTeamAndSeason(team.id, season.id)
+                        const allEvaluations = await phaseEvaluationService.getEvaluationsByTeamAndSeason(team.id, season.id)
 
-                // 3. Get all plans for this season
-                const plans = await teamSeasonPlanService.getPlansByClubSeason(profile.club_id, season.id)
+                        const evaluationsMap: Record<string, PhaseEvaluationDB> = {}
+                        allEvaluations.forEach(evaluation => {
+                            evaluationsMap[evaluation.phase_id] = evaluation
+                        })
 
-                // Create a map for easy lookup: team_id -> plan
-                const map: Record<string, any> = {}
-                plans.forEach(plan => {
-                    map[plan.team_id] = plan
-                })
-                setPlansMap(map)
+                        // Get latest evaluation (highest phase number with evaluation)
+                        const phasesWithEval = phases.filter(p => evaluationsMap[p.id])
+                        const latestPhase = phasesWithEval.sort((a, b) => b.phase_number - a.phase_number)[0]
+                        const latestEvaluation = latestPhase ? evaluationsMap[latestPhase.id] : null
+
+                        return {
+                            team,
+                            phases,
+                            evaluations: evaluationsMap,
+                            latestEvaluation
+                        }
+                    })
+                )
+
+                setTeamsData(teamsWithData)
 
             } catch (error) {
                 console.error('Error fetching data:', error)
@@ -80,25 +101,51 @@ export function TeamPlansListPage() {
         fetchData()
     }, [profile?.club_id, isDT, isCoach, assignedTeamIds])
 
-    const filteredTeams = teams.filter(team =>
-        (team.custom_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        team.category_stage.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    const getStatusIcon = (status: string) => {
+        switch (status) {
+            case 'Cumplido':
+                return <CheckCircle className="w-5 h-5 text-green-600" />
+            case 'Parcial':
+                return <AlertCircle className="w-5 h-5 text-yellow-600" />
+            case 'No Cumplido':
+                return <XCircle className="w-5 h-5 text-red-600" />
+            default:
+                return <Minus className="w-5 h-5 text-gray-400" />
+        }
+    }
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('es-ES', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        })
+    const getTrendIcon = (trend: string | null) => {
+        switch (trend) {
+            case 'improving':
+                return <TrendingUp className="w-5 h-5 text-green-600" />
+            case 'declining':
+                return <TrendingDown className="w-5 h-5 text-red-600" />
+            case 'stable':
+                return <Minus className="w-5 h-5 text-gray-600" />
+            default:
+                return <Minus className="w-5 h-5 text-gray-400" />
+        }
+    }
+
+    const getTrendLabel = (trend: string | null) => {
+        switch (trend) {
+            case 'improving':
+                return '↑'
+            case 'declining':
+                return '↓'
+            case 'stable':
+                return '—'
+            default:
+                return '—'
+        }
     }
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-900">
+            <div className="flex items-center justify-center h-screen bg-gray-900">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-gray-500 dark:text-gray-400 font-medium">Cargando planificaciones...</p>
+                    <p className="text-gray-500 font-medium">Cargando informes...</p>
                 </div>
             </div>
         )
@@ -114,13 +161,13 @@ export function TeamPlansListPage() {
                             <Button variant="ghost" size="sm" onClick={() => navigate('/reports')} className="mr-2">
                                 <ArrowLeft className="w-5 h-5" />
                             </Button>
-                            <FileText className="w-8 h-8 text-primary-600" />
+                            <BarChart3 className="w-8 h-8 text-primary-600" />
                             <div>
                                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                    Planificación de Equipos
+                                    Informes de Equipos
                                 </h1>
                                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                    Temporada {currentSeason?.name}
+                                    Seguimiento de objetivos por fases • {currentSeason?.name}
                                 </p>
                             </div>
                         </div>
@@ -130,108 +177,118 @@ export function TeamPlansListPage() {
 
             {/* Content */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {/* Search Bar */}
-                <div className="p-4 mb-4 bg-slate-700/30 dark:bg-slate-900/50 rounded-lg border border-gray-600/30">
-                    <div className="relative max-w-md">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                        <input
-                            type="text"
-                            placeholder="Buscar equipo..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-600 dark:border-gray-600 rounded-lg bg-gray-800/50 text-gray-100 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        />
-                    </div>
+                {/* Table */}
+                <div className="overflow-x-auto bg-gray-800/20 rounded-lg border border-gray-700/50">
+                    <table className="w-full">
+                        <thead className="bg-gray-800/30 dark:bg-gray-900/30 border-b border-gray-700/50">
+                            <tr>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">
+                                    Equipo
+                                </th>
+                                <th className="px-4 py-4 text-center text-xs font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">
+                                    F1
+                                </th>
+                                <th className="px-4 py-4 text-center text-xs font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">
+                                    F2
+                                </th>
+                                <th className="px-4 py-4 text-center text-xs font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">
+                                    F3
+                                </th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">
+                                    Problema Dominante
+                                </th>
+                                <th className="px-4 py-4 text-center text-xs font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">
+                                    Tendencia
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-gray-800/20 divide-y divide-gray-700/30">
+                            {teamsData.map(({ team, phases, evaluations, latestEvaluation }) => {
+                                // Get evaluations for first 3 phases
+                                const phase1 = phases.find(p => p.phase_number === 1)
+                                const phase2 = phases.find(p => p.phase_number === 2)
+                                const phase3 = phases.find(p => p.phase_number === 3)
+
+                                const eval1 = phase1 ? evaluations[phase1.id] : null
+                                const eval2 = phase2 ? evaluations[phase2.id] : null
+                                const eval3 = phase3 ? evaluations[phase3.id] : null
+
+                                return (
+                                    <tr
+                                        key={team.id}
+                                        className="hover:bg-slate-700/30 dark:hover:bg-slate-700/30 transition-colors cursor-pointer"
+                                        onClick={() => navigate(`/reports/team-plan/${team.id}`)}
+                                    >
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium text-gray-100 dark:text-white">{getTeamDisplayName(team)}</span>
+                                                <span className="text-xs text-gray-400 dark:text-gray-400">{team.category_stage}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-4 text-center">
+                                            {eval1 ? getStatusIcon(eval1.status) : <span className="text-gray-400">—</span>}
+                                        </td>
+                                        <td className="px-4 py-4 text-center">
+                                            {eval2 ? getStatusIcon(eval2.status) : <span className="text-gray-400">—</span>}
+                                        </td>
+                                        <td className="px-4 py-4 text-center">
+                                            {eval3 ? getStatusIcon(eval3.status) : <span className="text-gray-400">—</span>}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {latestEvaluation?.dominant_weakness ? (
+                                                <span className="text-sm text-gray-200 dark:text-gray-200 font-medium">
+                                                    {latestEvaluation.dominant_weakness}
+                                                </span>
+                                            ) : (
+                                                <span className="text-sm text-gray-500 dark:text-gray-500 italic">Sin evaluar</span>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-4 text-center">
+                                            <div className="flex items-center justify-center gap-1">
+                                                {getTrendIcon(latestEvaluation?.trend || null)}
+                                                <span className="text-sm font-medium text-gray-200 dark:text-gray-200">
+                                                    {getTrendLabel(latestEvaluation?.trend || null)}
+                                                </span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )
+                            })}
+                        </tbody>
+                    </table>
                 </div>
 
-                {filteredTeams.length === 0 ? (
+                {teamsData.length === 0 && (
                     <div className="text-center py-12 bg-gray-800/30 rounded-lg border border-gray-700/50">
-                        <FileText className="w-16 h-16 text-gray-500 dark:text-gray-600 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-200 dark:text-white mb-2">
-                            No se encontraron equipos
-                        </h3>
-                        <p className="text-gray-400 dark:text-gray-400">
-                            {searchTerm ? 'Intenta con otra búsqueda' : 'No hay equipos disponibles para esta temporada'}
-                        </p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto bg-gray-800/20 rounded-lg border border-gray-700/50">
-                        <table className="min-w-full divide-y divide-slate-700/50 dark:divide-gray-700">
-                            <thead className="bg-gray-800/30 dark:bg-gray-900/30">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 dark:text-gray-400 uppercase tracking-wider">
-                                        Equipo
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 dark:text-gray-400 uppercase tracking-wider">
-                                        Categoría
-                                    </th>
-                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-400 dark:text-gray-400 uppercase tracking-wider">
-                                        Estado
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 dark:text-gray-400 uppercase tracking-wider">
-                                        Última Actualización
-                                    </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 dark:text-gray-400 uppercase tracking-wider">
-                                        Acción
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-gray-800/20 divide-y divide-gray-700/30">
-                                {filteredTeams.map((team) => {
-                                    const plan = plansMap[team.id]
-                                    return (
-                                        <tr
-                                            key={team.id}
-                                            className="hover:bg-slate-700/30 dark:hover:bg-slate-700/30 transition-colors cursor-pointer"
-                                            onClick={() => navigate(`/reports/team-plan/${team.id}`)}
-                                        >
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm font-medium text-gray-100 dark:text-white">
-                                                    {getTeamDisplayName(team)}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-700 text-gray-300 dark:bg-gray-700 dark:text-gray-300">
-                                                    {team.category_stage}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                {plan ? (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900 text-green-200 dark:bg-green-900 dark:text-green-200">
-                                                        <CheckCircle className="w-3 h-3" />
-                                                        Planificado
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-900 text-yellow-200 dark:bg-yellow-900 dark:text-yellow-200">
-                                                        <XCircle className="w-3 h-3" />
-                                                        Pendiente
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 dark:text-gray-400">
-                                                {plan ? (
-                                                    <div className="flex items-center gap-1">
-                                                        <Calendar className="w-3 h-3" />
-                                                        {formatDate(plan.updated_at)}
-                                                    </div>
-                                                ) : (
-                                                    '-'
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <button className="text-emerald-400 hover:text-emerald-300 dark:text-emerald-400 dark:hover:text-emerald-300">
-                                                    <ChevronRight className="w-5 h-5" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    )
-                                })}
-                            </tbody>
-                        </table>
+                        <BarChart3 className="w-12 h-12 text-gray-500 dark:text-gray-600 mx-auto mb-3" />
+                        <h3 className="text-lg font-medium text-gray-200 dark:text-white">No hay equipos</h3>
+                        <p className="text-gray-400 dark:text-gray-400 mt-1">Crea equipos para ver el seguimiento.</p>
                     </div>
                 )}
+
+                {/* Legend */}
+                <div className="mt-6 bg-gray-800/30 rounded-lg border border-gray-700/50 p-4">
+                    <h3 className="text-sm font-bold text-gray-200 dark:text-gray-200 mb-3">Leyenda</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                            <span className="text-gray-300 dark:text-gray-300">Cumplido</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <AlertCircle className="w-5 h-5 text-yellow-600" />
+                            <span className="text-gray-300 dark:text-gray-300">Parcial</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <XCircle className="w-5 h-5 text-red-600" />
+                            <span className="text-gray-300 dark:text-gray-300">No Cumplido</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Minus className="w-5 h-5 text-gray-400" />
+                            <span className="text-gray-300 dark:text-gray-300">Sin evaluar</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     )
 }
-

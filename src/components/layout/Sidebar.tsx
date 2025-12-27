@@ -107,7 +107,7 @@ export function Sidebar() {
         icon: FileText,
         level: 4,
         children: [
-          { name: 'Temporada activa', href: '/reports/team-plans' },
+          { name: 'Temporada activa', href: '/planning/active' },
           { name: 'Próxima temporada', href: '/next-season' }
         ]
       },
