@@ -8,6 +8,7 @@ import { teamService, TeamDB } from '@/services/teamService'
 import { seasonService, SeasonDB } from '@/services/seasonService'
 import { teamSeasonPhaseService, TeamSeasonPhaseDB } from '@/services/teamSeasonPhaseService'
 import { phaseEvaluationService, PhaseEvaluationDB } from '@/services/phaseEvaluationService'
+import { teamSeasonContextService, TeamSeasonContextDB } from '@/services/teamSeasonContextService'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { toast } from 'sonner'
 
@@ -16,6 +17,7 @@ interface TeamWithPhases {
     phases: TeamSeasonPhaseDB[]
     evaluations: Record<string, PhaseEvaluationDB>
     latestEvaluation: PhaseEvaluationDB | null
+    context: TeamSeasonContextDB | null
 }
 
 export function TeamPlansListPage() {
@@ -68,6 +70,7 @@ export function TeamPlansListPage() {
                     teams.map(async (team) => {
                         const phases = await teamSeasonPhaseService.getPhasesByTeamAndSeason(team.id, season.id)
                         const allEvaluations = await phaseEvaluationService.getEvaluationsByTeamAndSeason(team.id, season.id)
+                        const context = await teamSeasonContextService.getContextByTeamAndSeason(team.id, season.id)
 
                         const evaluationsMap: Record<string, PhaseEvaluationDB> = {}
                         allEvaluations.forEach(evaluation => {
@@ -83,7 +86,8 @@ export function TeamPlansListPage() {
                             team,
                             phases,
                             evaluations: evaluationsMap,
-                            latestEvaluation
+                            latestEvaluation,
+                            context
                         }
                     })
                 )
@@ -185,6 +189,9 @@ export function TeamPlansListPage() {
                                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">
                                     Equipo
                                 </th>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">
+                                    Objetivo
+                                </th>
                                 <th className="px-4 py-4 text-center text-xs font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">
                                     F1
                                 </th>
@@ -203,7 +210,7 @@ export function TeamPlansListPage() {
                             </tr>
                         </thead>
                         <tbody className="bg-gray-800/20 divide-y divide-gray-700/30">
-                            {teamsData.map(({ team, phases, evaluations, latestEvaluation }) => {
+                            {teamsData.map(({ team, phases, evaluations, latestEvaluation, context }) => {
                                 // Get evaluations for first 3 phases
                                 const phase1 = phases.find(p => p.phase_number === 1)
                                 const phase2 = phases.find(p => p.phase_number === 2)
@@ -224,6 +231,11 @@ export function TeamPlansListPage() {
                                                 <span className="font-medium text-gray-100 dark:text-white">{getTeamDisplayName(team)}</span>
                                                 <span className="text-xs text-gray-400 dark:text-gray-400">{team.category_stage}</span>
                                             </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-sm text-gray-300 dark:text-gray-300 line-clamp-2" title={context?.primary_goal || ''}>
+                                                {context?.primary_goal || <span className="italic text-gray-500">Sin definir</span>}
+                                            </span>
                                         </td>
                                         <td className="px-4 py-4 text-center">
                                             {eval1 ? getStatusIcon(eval1.status) : <span className="text-gray-400">—</span>}

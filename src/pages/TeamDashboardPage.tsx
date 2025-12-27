@@ -217,10 +217,8 @@ export function TeamDashboardPage() {
                 )}
 
                 {activeTab === 'context' && (
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                        <div className="[&>div>div:first-child]:hidden">
-                            <TeamSeasonContext />
-                        </div>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                        <TeamSeasonContext embedded={true} />
                     </div>
                 )}
 

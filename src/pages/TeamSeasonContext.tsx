@@ -8,7 +8,11 @@ import { teamSeasonContextService } from '../services/teamSeasonContextService'
 import { Button } from '@/components/ui/Button'
 import { toast } from 'sonner'
 
-export function TeamSeasonContext() {
+interface TeamSeasonContextProps {
+    embedded?: boolean
+}
+
+export function TeamSeasonContext({ embedded = false }: TeamSeasonContextProps) {
     const { teamId } = useParams<{ teamId: string }>()
     const navigate = useNavigate()
     const { profile } = useAuthStore()
@@ -148,34 +152,48 @@ export function TeamSeasonContext() {
     const cardClassName = "bg-gray-800 rounded-xl border border-gray-700 p-4 shadow-sm"
 
     return (
-        <div className="p-6 space-y-4 max-w-5xl mx-auto bg-gray-900 min-h-screen">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
+        <div className={embedded ? "space-y-4" : "p-6 space-y-4 max-w-5xl mx-auto bg-gray-900 min-h-screen"}>
+            {/* Header / Toolbar */}
+            {embedded ? (
+                <div className="flex justify-end p-2 bg-gray-800/50 rounded-lg border border-gray-700/50">
                     <Button
-                        variant="secondary"
+                        variant="primary"
                         size="md"
-                        icon={ArrowLeft}
-                        onClick={() => navigate('/teams')}
-                        className="mb-4"
+                        icon={Save}
+                        onClick={handleSave}
+                        disabled={saving}
                     >
-                        Volver a Equipos
+                        {saving ? 'Guardando...' : 'Guardar Cambios'}
                     </Button>
-                    <h1 className="text-2xl font-bold text-white">Contexto de Temporada</h1>
-                    <p className="text-gray-400 mt-1 text-sm">
-                        {team?.name} • {currentSeason?.name}
-                    </p>
                 </div>
-                <Button
-                    variant="primary"
-                    size="md"
-                    icon={Save}
-                    onClick={handleSave}
-                    disabled={saving}
-                >
-                    {saving ? 'Guardando...' : 'Guardar Cambios'}
-                </Button>
-            </div>
+            ) : (
+                <div className="flex items-center justify-between">
+                    <div>
+                        <Button
+                            variant="secondary"
+                            size="md"
+                            icon={ArrowLeft}
+                            onClick={() => navigate('/teams')}
+                            className="mb-4"
+                        >
+                            Volver a Equipos
+                        </Button>
+                        <h1 className="text-2xl font-bold text-white">Contexto de Temporada</h1>
+                        <p className="text-gray-400 mt-1 text-sm">
+                            {team?.name} • {currentSeason?.name}
+                        </p>
+                    </div>
+                    <Button
+                        variant="primary"
+                        size="md"
+                        icon={Save}
+                        onClick={handleSave}
+                        disabled={saving}
+                    >
+                        {saving ? 'Guardando...' : 'Guardar Cambios'}
+                    </Button>
+                </div>
+            )}
 
             {/* A) Objetivos de la temporada */}
             <div className={cardClassName}>
@@ -389,4 +407,3 @@ export function TeamSeasonContext() {
         </div>
     )
 }
-
