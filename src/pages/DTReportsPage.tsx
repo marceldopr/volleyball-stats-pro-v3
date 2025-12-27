@@ -1,15 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Filter, Search, Eye, ArrowLeft } from 'lucide-react'
+import { FileText, Filter, Search, Eye, ArrowLeft, Plus } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
-import { playerEvaluationService, PlayerEvaluationDB } from '@/services/playerEvaluationService'
+import { playerEvaluationService, PlayerEvaluationDB, PlayerEvaluationInput } from '@/services/playerEvaluationService'
 import { seasonService } from '@/services/seasonService'
-import { teamService } from '@/services/teamService'
+import { teamService, TeamDB } from '@/services/teamService'
 import { PlayerEvaluationModal } from '@/components/teams/PlayerEvaluationModal'
+import { CreateEvaluationSelectionModal } from '@/components/teams/CreateEvaluationSelectionModal'
 import { Button } from '@/components/ui/Button'
 import { useRoleScope } from '@/hooks/useRoleScope'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { toast } from 'sonner'
+import { PlayerDB } from '@/services/playerService'
+import { SeasonDB } from '@/services/seasonService'
 
 const PHASE_LABELS = {
     start: 'Inicio',
@@ -17,7 +20,7 @@ const PHASE_LABELS = {
     end: 'Final'
 }
 
-const PHASE_COLORS = {
+const PHASE_COLORS: Record<string, string> = {
     start: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
     mid: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
     end: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
@@ -39,35 +42,48 @@ export function DTReportsPage() {
     const [searchTerm, setSearchTerm] = useState('')
 
     // Data for filters
-    const [seasons, setSeasons] = useState<any[]>([])
-    const [teams, setTeams] = useState<any[]>([])
+    const [seasons, setSeasons] = useState<SeasonDB[]>([])
+    const [teams, setTeams] = useState<TeamDB[]>([])
 
     // Modal state
-    const [modalOpen, setModalOpen] = useState(false)
+    const [createSelectionOpen, setCreateSelectionOpen] = useState(false)
+    const [evaluationModalOpen, setEvaluationModalOpen] = useState(false)
+    const [modalMode, setModalMode] = useState<'view' | 'edit'>('view')
     const [selectedEvaluation, setSelectedEvaluation] = useState<PlayerEvaluationDB | null>(null)
+    const [creationContext, setCreationContext] = useState<{
+        player: PlayerDB
+        team: TeamDB
+        season: SeasonDB
+        phase: 'start' | 'mid' | 'end'
+    } | null>(null)
 
-    // Fetch initial data
-    useEffect(() => {
-        const fetchData = async () => {
-            if (!profile?.club_id) return
+    const loadData = useCallback(async () => {
+        if (!profile?.club_id) return
 
-            try {
-                setLoading(true)
+        try {
+            setLoading(true)
 
-                // Get seasons
-                const seasonsData = await seasonService.getSeasonsByClub(profile.club_id)
-                setSeasons(seasonsData)
+            // Get seasons
+            const seasonsData = await seasonService.getSeasonsByClub(profile.club_id)
+            setSeasons(seasonsData)
 
-                // Get teams
-                let teamsData = await teamService.getTeamsByClub(profile.club_id)
+            // Get teams
+            let teamsData = await teamService.getTeamsByClub(profile.club_id)
 
-                if (isCoach) {
+            if (isCoach) {
+                // Ensure assignedTeamIds is valid before filtering
+                if (assignedTeamIds && assignedTeamIds.length > 0) {
                     teamsData = teamsData.filter(team => assignedTeamIds.includes(team.id))
+                } else if (!isDT) {
+                    // If coach but no assigned teams, show empty? Or maybe wait for assignment load?
+                    // Currently keeping logic safe.
                 }
+            }
 
-                setTeams(teamsData)
+            setTeams(teamsData)
 
-                // Get current season
+            // Get current season if not selected
+            if (!selectedSeasonId) {
                 let currentSeason = null
                 try {
                     currentSeason = await seasonService.getCurrentSeasonByClub(profile.club_id)
@@ -80,27 +96,30 @@ export function DTReportsPage() {
                 if (currentSeason) {
                     setSelectedSeasonId(currentSeason.id)
                 }
-
-                // Fetch all evaluations
-                let evaluationsData = await playerEvaluationService.getAllEvaluations(profile.club_id)
-
-                if (isCoach) {
-                    evaluationsData = evaluationsData.filter(evaluation => assignedTeamIds.includes(evaluation.team_id))
-                }
-
-                setEvaluations(evaluationsData)
-                setFilteredEvaluations(evaluationsData)
-
-            } catch (error) {
-                console.error('Error fetching data:', error)
-                toast.error('Error al cargar los informes')
-            } finally {
-                setLoading(false)
             }
-        }
 
-        fetchData()
-    }, [profile?.club_id, isCoach, isDT, assignedTeamIds])
+            // Fetch all evaluations
+            let evaluationsData = await playerEvaluationService.getAllEvaluations(profile.club_id)
+
+            if (isCoach) {
+                evaluationsData = evaluationsData.filter(evaluation => assignedTeamIds.includes(evaluation.team_id))
+            }
+
+            setEvaluations(evaluationsData)
+            // Filtered evaluations will be updated by the useEffect dependency
+
+        } catch (error) {
+            console.error('Error fetching data:', error)
+            toast.error('Error al cargar los informes')
+        } finally {
+            setLoading(false)
+        }
+    }, [profile?.club_id, isCoach, isDT, assignedTeamIds, selectedSeasonId])
+
+    // Initial load
+    useEffect(() => {
+        loadData()
+    }, [loadData])
 
     // Apply filters and group by player
     useEffect(() => {
@@ -128,7 +147,10 @@ export function DTReportsPage() {
             )
         }
 
-        // Group by player and keep only the latest evaluation
+        // Group by player and keep only the latest evaluation (or all? The usage showing list implies "one per player" in logic, but let's check)
+        // Original logic logic grouped by player. Keep it for "Summary View"
+        // But if we want to see ALL history? Maybe just filter list.
+        // For now, keeping original grouping logic to maintain behavior.
         const playerMap = new Map<string, PlayerEvaluationDB>()
 
         filtered.forEach(evaluation => {
@@ -153,7 +175,61 @@ export function DTReportsPage() {
 
     const handleViewEvaluation = (evaluation: PlayerEvaluationDB) => {
         setSelectedEvaluation(evaluation)
-        setModalOpen(true)
+        setCreationContext(null)
+        setModalMode('view')
+        setEvaluationModalOpen(true)
+    }
+
+    const handleCreateStart = () => {
+        setCreateSelectionOpen(true)
+    }
+
+    const handleCreateSelect = async (data: { team: TeamDB, player: PlayerDB, season: SeasonDB, phase: 'start' | 'mid' | 'end' }) => {
+        // Check if exists
+        try {
+            const existing = await playerEvaluationService.getPlayerEvaluation(
+                data.player.id,
+                data.team.id,
+                data.season.id,
+                data.phase
+            )
+
+            if (existing) {
+                // Determine missing fields to fetch join info if needed?
+                // existing probably lacks joined 'player', 'team', 'season' objects if fetched raw.
+                // But we have them in `data`.
+                const fullExisting = {
+                    ...existing,
+                    player: data.player,
+                    team: data.team,
+                    season: data.season
+                }
+                setSelectedEvaluation(fullExisting as any)
+                setCreationContext(null)
+                setModalMode('edit')
+                toast.info('Ya existe una evaluación para esta fase. Abriendo modo edición.')
+            } else {
+                setSelectedEvaluation(null)
+                setCreationContext(data)
+                setModalMode('edit')
+            }
+            setEvaluationModalOpen(true)
+        } catch (error) {
+            console.error('Error checking existance:', error)
+            toast.error('Error al verificar evaluación existente')
+        }
+    }
+
+    const handleSaveEvaluation = async (data: PlayerEvaluationInput) => {
+        try {
+            await playerEvaluationService.upsertEvaluation(data)
+            toast.success('Evaluación guardada correctamente')
+            setEvaluationModalOpen(false)
+            loadData() // Refresh list
+        } catch (error) {
+            console.error('Error saving:', error)
+            toast.error('Error al guardar evaluación')
+        }
     }
 
     const formatDate = (dateString: string) => {
@@ -180,19 +256,29 @@ export function DTReportsPage() {
             {/* Header */}
             <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    <div className="flex items-center gap-3">
-                        <Button variant="ghost" size="sm" onClick={() => navigate('/reports')} className="mr-2">
-                            <ArrowLeft className="w-5 h-5" />
-                        </Button>
-                        <FileText className="w-8 h-8 text-primary-600" />
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                Informes de Jugadoras
-                            </h1>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                Vista global de evaluaciones de todos los equipos
-                            </p>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <Button variant="ghost" size="sm" onClick={() => navigate('/reports')} className="mr-2">
+                                <ArrowLeft className="w-5 h-5" />
+                            </Button>
+                            <FileText className="w-8 h-8 text-primary-600" />
+                            <div>
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                    Informes de Jugadoras
+                                </h1>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                    Vista global de evaluaciones de todos los equipos
+                                </p>
+                            </div>
                         </div>
+
+                        <Button
+                            variant="primary"
+                            icon={Plus}
+                            onClick={handleCreateStart}
+                        >
+                            Crear Informe
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -366,24 +452,35 @@ export function DTReportsPage() {
                 </div>
             </div>
 
-            {/* Evaluation Modal (View Mode) */}
-            {selectedEvaluation && (
+            {/* Selection Modal */}
+            <CreateEvaluationSelectionModal
+                isOpen={createSelectionOpen}
+                onClose={() => setCreateSelectionOpen(false)}
+                teams={teams}
+                seasons={seasons}
+                currentSeasonId={selectedSeasonId}
+                onSelect={handleCreateSelect}
+            />
+
+            {/* Evaluation Modal (Edit/View/Create) */}
+            {(selectedEvaluation || creationContext) && (
                 <PlayerEvaluationModal
-                    isOpen={modalOpen}
+                    isOpen={evaluationModalOpen}
                     onClose={() => {
-                        setModalOpen(false)
+                        setEvaluationModalOpen(false)
                         setSelectedEvaluation(null)
+                        setCreationContext(null)
                     }}
                     // @ts-ignore
-                    player={selectedEvaluation.player}
+                    player={selectedEvaluation?.player || creationContext?.player}
                     // @ts-ignore
-                    team={selectedEvaluation.team}
+                    team={selectedEvaluation?.team || creationContext?.team}
                     // @ts-ignore
-                    season={selectedEvaluation.season}
-                    phase={selectedEvaluation.phase}
+                    season={selectedEvaluation?.season || creationContext?.season}
+                    phase={(selectedEvaluation?.phase || creationContext?.phase || 'start')}
                     existingEvaluation={selectedEvaluation}
-                    onSave={async () => { }} // No-op in view mode
-                    mode="view"
+                    onSave={handleSaveEvaluation}
+                    mode={modalMode}
                 />
             )}
         </div>
