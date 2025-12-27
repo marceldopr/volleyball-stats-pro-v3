@@ -2,6 +2,10 @@ import { useState, useEffect, useMemo } from 'react'
 import { Loader2, Calendar, History, TrendingUp, Activity, PieChart, Info } from 'lucide-react'
 import { teamStatsService, PlayerAggregatedStats, TeamEvolutionData, TeamKPIs } from '@/services/teamStatsService'
 import { toast } from 'sonner'
+import { supabase } from '@/lib/supabaseClient'
+import { clubRankingsService, TeamStanding } from '@/services/clubRankingsService'
+import { ClubTeamRankingCard } from '@/components/dashboard/ClubTeamRankingCard'
+import { useNavigate } from 'react-router-dom'
 
 
 // --- Inline UI Components (since @/components/ui/card is missing) ---
@@ -35,6 +39,8 @@ export function TeamStatsTab({ teamId, teamIds, seasonId }: TeamStatsTabProps) {
     const [evolutionData, setEvolutionData] = useState<TeamEvolutionData[]>([])
     const [kpis, setKpis] = useState<TeamKPIs | null>(null)
     const [winLoss, setWinLoss] = useState<{ wins: number, losses: number, setsWon: number, setsLost: number, pointsScored: number, pointsLost: number }>({ wins: 0, losses: 0, setsWon: 0, setsLost: 0, pointsScored: 0, pointsLost: 0 })
+    const [standings, setStandings] = useState<TeamStanding[]>([])
+    const navigate = useNavigate()
 
     useEffect(() => {
         loadData()
@@ -64,6 +70,7 @@ export function TeamStatsTab({ teamId, teamIds, seasonId }: TeamStatsTabProps) {
             } else if (teamIds) {
                 // Multi-team aggregation
                 const stats = await teamStatsService.getMultiTeamPlayerStats(teamIds, seasonId, limit)
+                const aggregatedKPIs = await teamStatsService.getMultiTeamKPIs(teamIds, seasonId, limit)
 
                 // Aggregate win/loss records from all teams
                 const recordPromises = teamIds.map(teamId =>
@@ -81,9 +88,19 @@ export function TeamStatsTab({ teamId, teamIds, seasonId }: TeamStatsTabProps) {
                 }), { wins: 0, losses: 0, setsWon: 0, setsLost: 0, pointsScored: 0, pointsLost: 0 })
 
                 setPlayerStats(stats)
-                setKpis(null) // KPIs can't be accurately aggregated across teams in the same way
+                setKpis(aggregatedKPIs) // Now we have actual KPIs (specifically Opponent Errors)
                 setEvolutionData([])
                 setWinLoss(aggregatedWinLoss)
+            }
+
+            // Fetch club ranking (Shared Logic)
+            const refTeamId = targetTeamId || (teamIds && teamIds.length > 0 ? teamIds[0] : null)
+            if (refTeamId) {
+                const { data: teamData } = await supabase.from('teams').select('club_id').eq('id', refTeamId).single()
+                if (teamData?.club_id) {
+                    const rankings = await clubRankingsService.getClubStandings(seasonId, teamData.club_id)
+                    setStandings(rankings)
+                }
             }
 
         } catch (error) {
@@ -102,9 +119,13 @@ export function TeamStatsTab({ teamId, teamIds, seasonId }: TeamStatsTabProps) {
         const totalBlockPoints = playerStats.reduce((acc, p) => acc + p.points.block, 0)
         const totalPointsEarned = totalAttackPoints + totalServePoints + totalBlockPoints
 
-        // Own points (from KPIs if available, else Earned)
-        const totalOwnPoints = kpis ? kpis.totalOwnPoints : totalPointsEarned
-        const opponentErrorPoints = Math.max(0, totalOwnPoints - totalPointsEarned)
+        // Own points (Explicit priority: explicit opp errors first, then winLoss, then inferred)
+        const totalOwnPoints = winLoss.pointsScored || (kpis ? kpis.totalOwnPoints : totalPointsEarned)
+
+        // Opponent Errors: Prefer explicit count if available (kpis.totalOpponentErrors from new service)
+        const opponentErrorPoints = (kpis?.totalOpponentErrors !== undefined)
+            ? kpis.totalOpponentErrors
+            : Math.max(0, totalOwnPoints - totalPointsEarned)
 
         // Efficiency Aggregates
         // Since attackAttempts is missing in PlayerAggregatedStats, we'll refrain from calculating exact attack efficiency here
@@ -245,6 +266,13 @@ export function TeamStatsTab({ teamId, teamIds, seasonId }: TeamStatsTabProps) {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Club Ranking Card */}
+            <ClubTeamRankingCard
+                standings={standings}
+                currentTeamId={teamId || (teamIds?.[0])}
+                onTeamSelect={(id) => navigate(`/teams/${id}/dashboard`)}
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* BLOCK 2: Scoring Profile */}

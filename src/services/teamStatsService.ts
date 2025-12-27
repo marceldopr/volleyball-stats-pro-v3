@@ -82,6 +82,7 @@ export interface TeamKPIs {
     totalOwnPoints: number
     totalGivenPoints: number
     totalSets: number
+    totalOpponentErrors?: number // Explicit count of opponent errors
 }
 
 export interface ServeEfficiencyStats {
@@ -1416,7 +1417,7 @@ export const teamStatsService = {
 
             // Count unique sets (match_id + set_number combinations)
             const uniqueSets = new Set<string>()
-            setStats?.forEach(stat => {
+            setStats?.forEach((stat: any) => {
                 uniqueSets.add(`${stat.match_id}-${stat.set_number}`)
             })
             const totalSets = uniqueSets.size
@@ -1440,6 +1441,84 @@ export const teamStatsService = {
             }
         } catch (error) {
             console.error('Error fetching team KPIs:', error)
+            return {
+                errorsPerSet: 0,
+                ownPointsPercentage: 0,
+                givenPointsPercentage: 0,
+                totalOwnPoints: 0,
+                totalGivenPoints: 0,
+                totalSets: 0
+            }
+        }
+    },
+
+    /**
+     * Get aggregated KPIs for multiple teams/matches
+     * Includes explicit 'opponent_error' count from match actions
+     */
+    async getMultiTeamKPIs(teamIds: string[], seasonId: string | null = null, limit: number | null = null): Promise<TeamKPIs> {
+        try {
+            let query = supabase
+                .from('matches')
+                .select('id, actions, sets_home, sets_away, home_away')
+                .in('team_id', teamIds)
+                .eq('status', 'finished')
+
+            if (seasonId) {
+                query = query.eq('season_id', seasonId)
+            }
+
+            if (limit) {
+                query = query.order('match_date', { ascending: false }).limit(limit)
+            } else {
+                query = query.order('match_date', { ascending: false }) // Default order
+            }
+
+            const { data: matches, error } = await query
+
+            if (error) throw error
+
+            let totalOwnPoints = 0
+            let totalOpponentErrors = 0
+            let totalSets = 0
+
+            matches?.forEach(match => {
+                // Calculate sets
+                if (match.home_away === 'home') {
+                    totalSets += (match.sets_home || 0) + (match.sets_away || 0)
+                } else {
+                    totalSets += (match.sets_home || 0) + (match.sets_away || 0)
+                }
+
+                // Analyze actions
+                if (match.actions && Array.isArray(match.actions)) {
+                    match.actions.forEach((action: any) => {
+                        if (action.type === 'POINT_US') {
+                            const reason = action.payload?.reason
+                            if (reason === 'opponent_error') {
+                                totalOpponentErrors++
+                            } else if (['attack_point', 'serve_point', 'block_point'].includes(reason)) {
+                                totalOwnPoints++
+                            }
+                        }
+                    })
+                }
+            })
+
+            const totalPoints = totalOwnPoints + totalOpponentErrors
+            // Note: We don't have "Given Points" (our errors) easily accessible without checking 'POINT_OPPONENT'
+
+            return {
+                errorsPerSet: 0, // Not calculated for now
+                ownPointsPercentage: totalPoints > 0 ? (totalOwnPoints / totalPoints) * 100 : 0,
+                givenPointsPercentage: 0, // Not calculated
+                totalOwnPoints, // Here we use purely "Earned" points
+                totalGivenPoints: 0,
+                totalSets,
+                totalOpponentErrors // New field, need to add to interface if not present. WAIT. Check interface.
+            }
+        } catch (error) {
+            console.error('Error fetching multi-team KPIs:', error)
             return {
                 errorsPerSet: 0,
                 ownPointsPercentage: 0,

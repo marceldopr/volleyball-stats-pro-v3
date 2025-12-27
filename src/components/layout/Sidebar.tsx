@@ -115,8 +115,8 @@ export function Sidebar() {
         ]
       },
 
-      { id: 'temporadas', title: 'Temporadas', href: '/settings?section=temporada', icon: Calendar, level: 4 },
-      { id: 'ajustes', title: 'Ajustes del club', href: '/settings', icon: Settings, level: 4 }
+
+      { id: 'ajustes', title: 'Configuración', href: '/settings', icon: Settings, level: 4 }
     ]
   }, [isDT])
 
