@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Users, Plus, Search, Edit, Trash2, UserCog, Loader2, X } from 'lucide-react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
+import { useUiStore } from '@/stores/uiStore'
 import { seasonService, SeasonDB } from '@/services/seasonService'
 import { teamService, TeamDB } from '@/services/teamService'
 import { Button } from '@/components/ui/Button'
@@ -28,6 +29,7 @@ interface EnrichedTeam extends TeamDB {
 
 export function Teams() {
   const { profile } = useAuthStore()
+  const { setUiMode } = useUiStore()
   const { isCoach, isDT, assignedTeamIds, loading: roleLoading } = useRoleScope()
   const navigate = useNavigate()
   const { confirm, ConfirmDialog } = useConfirmation()
@@ -501,6 +503,17 @@ export function Teams() {
                     : 'Todavía no tienes equipos asignados en esta temporada. Contacta con Dirección Técnica para que te asignen equipos.'
                   }
                 </p>
+                {/* DT Rescue Button */}
+                {profile?.role === 'dt' && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setUiMode('DT')}
+                    className="mt-2"
+                  >
+                    Volver a Modo DT
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

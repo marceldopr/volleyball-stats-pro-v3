@@ -80,5 +80,34 @@ export const trainingService = {
             throw error
         }
         return data
+    },
+
+    // Get trainings by team
+    getTrainingsByTeam: async (teamId: string, limit = 50): Promise<TrainingDB[]> => {
+        const { data, error } = await supabase
+            .from('trainings')
+            .select('*')
+            .eq('team_id', teamId)
+            .order('date', { ascending: false })
+            .limit(limit)
+
+        if (error) {
+            console.error('Error fetching team trainings:', error)
+            throw error
+        }
+        return data
+    },
+
+    // Delete training
+    deleteTraining: async (id: string): Promise<void> => {
+        const { error } = await supabase
+            .from('trainings')
+            .delete()
+            .eq('id', id)
+
+        if (error) {
+            console.error('Error deleting training:', error)
+            throw error
+        }
     }
 }

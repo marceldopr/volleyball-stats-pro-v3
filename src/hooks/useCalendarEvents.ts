@@ -4,11 +4,12 @@ import { useSeasonStore } from '@/stores/seasonStore'
 
 interface UseCalendarEventsOptions {
     viewType: 'team' | 'club'
-    teamId?: string
+    teamId?: string // Legacy support or single team
+    teamIds?: string[] // New support for multiple teams
     clubId?: string
 }
 
-export function useCalendarEvents({ viewType, teamId, clubId }: UseCalendarEventsOptions) {
+export function useCalendarEvents({ viewType, teamId, teamIds, clubId }: UseCalendarEventsOptions) {
     const [events, setEvents] = useState<CalendarEvent[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -28,13 +29,25 @@ export function useCalendarEvents({ viewType, teamId, clubId }: UseCalendarEvent
         try {
             let fetchedEvents: CalendarEvent[] = []
 
-            if (viewType === 'team' && teamId) {
-                fetchedEvents = await calendarService.getTeamEvents(
-                    teamId,
-                    currentSeasonId,
-                    startDate,
-                    endDate
-                )
+            if (viewType === 'team') {
+                // Determine IDs to use
+                const idsToFetch: string[] = []
+                if (teamIds && teamIds.length > 0) {
+                    idsToFetch.push(...teamIds)
+                } else if (teamId) {
+                    idsToFetch.push(teamId)
+                }
+
+                if (idsToFetch.length > 0) {
+                    // Use new multi-team method
+                    fetchedEvents = await calendarService.getMultiTeamEvents(
+                        idsToFetch,
+                        currentSeasonId,
+                        startDate,
+                        endDate,
+                        clubId
+                    )
+                }
             } else if (viewType === 'club' && clubId) {
                 fetchedEvents = await calendarService.getClubEvents(
                     clubId,
@@ -52,7 +65,7 @@ export function useCalendarEvents({ viewType, teamId, clubId }: UseCalendarEvent
         } finally {
             setLoading(false)
         }
-    }, [viewType, teamId, clubId, currentSeasonId])
+    }, [viewType, teamId, teamIds, clubId, currentSeasonId])
 
     return {
         events,

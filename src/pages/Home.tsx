@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useCurrentSeason } from '@/providers/SeasonCacheProvider';
 import { useAuthStore } from '@/stores/authStore';
+import { useUiStore } from '@/stores/uiStore';
 import { useRoleScope } from '@/hooks/useRoleScope';
 import { teamService, TeamDB } from '@/services/teamService';
 import { teamStatsService, TeamHomeSummary } from '@/services/teamStatsService';
@@ -28,6 +29,7 @@ type HomeTab = 'club' | string; // 'club' or teamId
 export function Home() {
     const navigate = useNavigate()
     const { profile } = useAuthStore()
+    const { setUiMode } = useUiStore()
     const { isDT, isCoach, assignedTeamIds, loading: roleLoading } = useRoleScope()
     const { currentSeason } = useCurrentSeason() // Use cached season
 
@@ -120,6 +122,16 @@ export function Home() {
                 <p className="text-gray-500 dark:text-gray-400 max-w-md">
                     Contacta con la dirección técnica para que te asignen un equipo.
                 </p>
+                {profile?.role === 'dt' && (
+                    <Button
+                        variant="secondary"
+                        size="md"
+                        className="mt-4"
+                        onClick={() => setUiMode('DT')}
+                    >
+                        Volver a Modo DT
+                    </Button>
+                )}
             </div>
         )
     }

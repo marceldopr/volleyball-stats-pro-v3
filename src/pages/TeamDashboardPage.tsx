@@ -10,13 +10,14 @@ import { TeamSeasonContext } from '@/pages/TeamSeasonContext'
 import { TeamSeasonPlanPage } from '@/pages/TeamSeasonPlanPage'
 import { Matches } from '@/pages/Matches'
 import { TeamStatsTab } from '@/components/dashboard/TeamStatsTab'
+import { TeamTrainings } from '@/components/teams/TeamTrainings'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { Button } from '@/components/ui/Button'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
 import { useRoleScope } from '@/hooks/useRoleScope'
 
-type TabId = 'home' | 'roster' | 'context' | 'planning' | 'matches' | 'stats'
+type TabId = 'home' | 'roster' | 'context' | 'planning' | 'trainings' | 'matches' | 'stats'
 
 export function TeamDashboardPage() {
     const { teamId } = useParams<{ teamId: string }>()
@@ -89,6 +90,7 @@ export function TeamDashboardPage() {
         { id: 'roster', label: 'Plantilla', icon: Users },
         { id: 'context', label: 'Contexto', icon: Target },
         { id: 'planning', label: 'Planificación', icon: FileText },
+        { id: 'trainings', label: 'Entrenos', icon: BookOpen },
         { id: 'matches', label: 'Partidos', icon: Trophy },
         { id: 'stats', label: 'Estadísticas', icon: BarChart3 },
     ]
@@ -228,6 +230,10 @@ export function TeamDashboardPage() {
                             <TeamSeasonPlanPage />
                         </div>
                     </div>
+                )}
+
+                {activeTab === 'trainings' && (
+                    <TeamTrainings team={team} />
                 )}
 
                 {activeTab === 'matches' && (

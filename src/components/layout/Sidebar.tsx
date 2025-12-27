@@ -16,6 +16,7 @@ import {
 import { useState, useEffect, useMemo } from 'react'
 import { clsx } from 'clsx'
 import { useAuthStore } from '@/stores/authStore'
+import { useUiStore } from '@/stores/uiStore'
 import { useRoleScope } from '@/hooks/useRoleScope'
 import { clubService } from '@/services/clubService'
 
@@ -35,6 +36,7 @@ export function Sidebar() {
   const location = useLocation()
   const navigate = useNavigate()
   const { profile, logout } = useAuthStore()
+  const { uiMode, toggleUiMode } = useUiStore()
   const { isDT, role } = useRoleScope()
 
   // Expanded items (for items with children)
@@ -341,6 +343,24 @@ export function Sidebar() {
 
             {isClubMenuOpen && (
               <div className="mt-2 space-y-1">
+                {profile.role === 'dt' && (
+                  <div className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-800/50 transition-colors cursor-pointer" onClick={() => toggleUiMode()}>
+                    <span className="text-gray-300">Modo Entrenador</span>
+                    <div className={clsx(
+                      "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2  focus-visible:ring-white/75",
+                      uiMode === 'COACH' ? 'bg-primary-600' : 'bg-gray-600'
+                    )}>
+                      <span
+                        aria-hidden="true"
+                        className={clsx(
+                          "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out",
+                          uiMode === 'COACH' ? 'translate-x-4' : 'translate-x-0'
+                        )}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={handleLogout}

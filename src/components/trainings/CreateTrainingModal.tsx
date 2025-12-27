@@ -10,7 +10,8 @@ interface CreateTrainingModalProps {
     isOpen: boolean
     onClose: () => void
     activeTeamId?: string | null
-    availableTeams: TeamDB[]
+    availableTeams?: TeamDB[]
+    onSuccess?: () => void
 }
 
 interface AttendanceState {
@@ -18,7 +19,7 @@ interface AttendanceState {
     reason: string
 }
 
-export function CreateTrainingModal({ isOpen, onClose, activeTeamId, availableTeams }: CreateTrainingModalProps) {
+export function CreateTrainingModal({ isOpen, onClose, activeTeamId, availableTeams = [], onSuccess }: CreateTrainingModalProps) {
     const [isSubmitting, setIsSubmitting] = useState(false)
 
     // Form State
@@ -132,6 +133,7 @@ export function CreateTrainingModal({ isOpen, onClose, activeTeamId, availableTe
             await trainingService.upsertAttendance(attendanceRecords)
 
             toast.success('Entrenamiento y asistencia guardados correctamente')
+            if (onSuccess) onSuccess()
             onClose()
 
         } catch (error) {

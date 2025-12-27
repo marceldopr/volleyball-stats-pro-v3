@@ -27,29 +27,11 @@ export function CalendarioPage() {
         loadSeasons
     } = useSeasonStore()
     const { profile } = useAuthStore()
-    const { isDT } = useCurrentUserRole()
-    const [coachTeamId, setCoachTeamId] = useState<string | null>(null)
+    const { isDT, assignedTeamIds } = useCurrentUserRole()
     const [spaces, setSpaces] = useState<{ id: string, name: string }[]>([])
     const [selectedDetailDay, setSelectedDetailDay] = useState<Date | null>(null) // V3: Modal State
 
-    // Fetch coach's assigned team
-    useEffect(() => {
-        if (!isDT && profile?.id) {
-            supabase
-                .from('coach_team_assignments')
-                .select('team_id')
-                .eq('user_id', profile.id)
-                .limit(1)
-                .single()
-                .then(({ data }) => {
-                    if (data) {
-                        setCoachTeamId(data.team_id)
-                    }
-                })
-        }
-    }, [isDT, profile?.id])
-
-    // Fetch club spaces for DT view
+    // Fetch club spaces for DT view (unchanged)
     useEffect(() => {
         if (isDT && profile?.club_id) {
             supabase
@@ -80,7 +62,7 @@ export function CalendarioPage() {
     // Use unified calendar events
     const { events, loadEvents } = useCalendarEvents({
         viewType: isDT ? 'club' : 'team',
-        teamId: isDT ? undefined : (coachTeamId || undefined),
+        teamIds: isDT ? undefined : assignedTeamIds,
         clubId: profile?.club_id
     })
 

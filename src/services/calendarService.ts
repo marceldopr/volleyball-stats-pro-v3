@@ -244,48 +244,62 @@ export const calendarService = {
         return dedupedEvents.sort((a, b) => a.startAt.localeCompare(b.startAt))
     },
 
-    /**
-     * Get all events for all teams in a club (DT view)
-     */
     async getClubEvents(
         clubId: string,
         seasonId: string,
         startDate: Date,
         endDate: Date
     ): Promise<CalendarEvent[]> {
+        const { data: teams } = await supabase
+            .from('teams')
+            .select('id')
+            .eq('club_id', clubId)
+
+        const teamIds = (teams || []).map(t => t.id)
+        return this.getMultiTeamEvents(teamIds, seasonId, startDate, endDate, clubId)
+    },
+
+    /**
+     * Get all events for specific team IDs
+     */
+    async getMultiTeamEvents(
+        teamIds: string[],
+        seasonId: string,
+        startDate: Date,
+        endDate: Date,
+        clubId?: string // Optional, if known, to save a query or passed to event
+    ): Promise<CalendarEvent[]> {
+        if (teamIds.length === 0) return []
+
         const startISO = startOfDay(startDate).toISOString()
         const endISO = endOfDay(endDate).toISOString()
 
-        // Fetch all teams for this club (teams are club entities, not seasonal)
+        // Fetch team info for map
+        // Note: We need team info to display names
         const { data: teams } = await supabase
             .from('teams')
-            .select('id, custom_name, category, gender, identifier_id, identifier:identifier_id(name)')
-            .eq('club_id', clubId)
+            .select('id, custom_name, category, gender, identifier_id, identifier:identifier_id(name), club_id')
+            .in('id', teamIds)
 
         const teamsMap = new Map(
-            (teams || []).map((t: any) => { // Type as any to avoid strict typing issues with the join
+            (teams || []).map((t: any) => {
                 const baseName = t.custom_name || `${t.category || ''}`.trim() || 'Equipo'
-
                 let suffix = ''
                 if (t.identifier?.name) {
                     suffix = ` ${t.identifier.name}`
                 } else if (t.gender) {
-                    // Map gender to short label if needed, or use as is
                     const genderLabel = t.gender.toLowerCase() === 'male' ? 'Masc' :
-                        t.gender.toLowerCase() === 'female' ? 'Fem' :
-                            t.gender
+                        t.gender.toLowerCase() === 'female' ? 'Fem' : t.gender
                     suffix = ` ${genderLabel}`
                 }
-
                 return [t.id, `${baseName}${suffix}`]
             })
         )
 
-        const teamIds = Array.from(teamsMap.keys())
+        // Use the first team's club_id if not provided (assuming all in same club usually)
+        const effectiveClubId = clubId || (teams && teams.length > 0 ? teams[0].club_id : '')
 
-        if (teamIds.length === 0) return []
-
-        // Fetch seasonal data in parallel with error handling
+        // Fetch seasonal data in parallel
         const [matchesResult, trainingsResult, schedulesResult] = await Promise.all([
             // Matches
             supabase
@@ -312,7 +326,6 @@ export const calendarService = {
                 .eq('season_id', seasonId)
         ])
 
-        // Check for errors
         if (matchesResult.error) console.error('[Calendar] Error fetching matches:', matchesResult.error)
         if (trainingsResult.error) console.error('[Calendar] Error fetching trainings:', trainingsResult.error)
         if (schedulesResult.error) console.error('[Calendar] Error fetching schedules:', schedulesResult.error)
@@ -321,22 +334,19 @@ export const calendarService = {
         const trainings = trainingsResult.data || []
         const schedules = schedulesResult.data || []
 
-        // Transform to events
-        const matchEvents = (matches || []).map(m =>
+        const matchEvents = matches.map(m =>
             matchToEvent(m, teamsMap.get(m.team_id) || 'Equipo')
         )
 
-        const trainingEvents = (trainings || []).map(t =>
-            trainingToEvent(t, teamsMap.get(t.team_id) || 'Equipo', clubId, seasonId)
+        const trainingEvents = trainings.map(t =>
+            trainingToEvent(t, teamsMap.get(t.team_id) || 'Equipo', effectiveClubId, seasonId)
         )
 
-        const scheduleEvents = expandSchedulesToEvents(schedules || [], startDate, endDate, teamsMap)
+        const scheduleEvents = expandSchedulesToEvents(schedules, startDate, endDate, teamsMap)
 
-        // Combine and deduplicate
         const allEvents = [...matchEvents, ...trainingEvents, ...scheduleEvents]
         const dedupedEvents = filterDuplicates(allEvents)
 
-        // Sort by startAt
         return dedupedEvents.sort((a, b) => a.startAt.localeCompare(b.startAt))
     }
 }

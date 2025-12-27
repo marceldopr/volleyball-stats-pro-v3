@@ -121,8 +121,9 @@ export const useAuthStore = create<AuthState>()(
                 // If we already have assignments and not forcing, skip
                 if (!force && assignedTeamIds !== null) return
 
-                // Only fetch for coaches with club
-                if (profile?.role !== 'coach' || !profile?.club_id) {
+                // Only fetch for coaches on login, but here valid for DT too if requested
+                // Modified to allow DT to fetch assignments manually or if role is coach
+                if ((profile?.role !== 'coach' && profile?.role !== 'dt') || !profile?.club_id) {
                     set({ assignedTeamIds: [] })
                     return
                 }
