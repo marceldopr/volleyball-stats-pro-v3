@@ -24,9 +24,14 @@ import { TeamSeasonPlanPage } from './pages/TeamSeasonPlanPage'
 import { TeamSeasonSummaryPage } from '@/pages/TeamSeasonSummaryPage'
 import { TeamPlansListPage } from '@/pages/TeamPlansListPage'
 import { TeamDashboardPage } from '@/pages/TeamDashboardPage'
+import { ReportsHubPage } from './pages/ReportsHubPage'
 import { CoachReportsPage } from './pages/CoachReportsPage'
 import { TrainingAttendancePage } from '@/pages/TrainingAttendancePage'
 import { Coaches } from './pages/Coaches'
+
+// ... existing imports ...
+
+
 import { CoachDetail } from './pages/CoachDetail'
 import { ClubDashboardPage } from '@/pages/ClubDashboardPage'
 import { StatsPage } from '@/pages/StatsPage'
@@ -125,6 +130,11 @@ function App() {
                   <Route path="/players/:id" element={
                     <RoleGuard allowedForDT>
                       <PlayerDetail />
+                    </RoleGuard>
+                  } />
+                  <Route path="/reports" element={
+                    <RoleGuard allowedForDT allowedForCoach>
+                      <ReportsHubPage />
                     </RoleGuard>
                   } />
                   <Route path="/reports/players" element={

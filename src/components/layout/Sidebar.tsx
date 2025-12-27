@@ -66,7 +66,7 @@ export function Sidebar() {
         { id: 'calendario', title: 'Calendario', href: '/calendario', icon: Calendar, level: 1 },
         { id: 'equipos', title: 'Mis Equipos', href: '/teams', icon: Users, level: 2 },
         { id: 'partidos', title: 'Partidos', href: '/matches', icon: Trophy, level: 2 },
-        { id: 'informes', title: 'Informes', href: '/reports/players', icon: BarChart3, level: 3 }
+        { id: 'informes', title: 'Informes', href: '/reports', icon: BarChart3, level: 3 }
       ]
     }
 
@@ -94,12 +94,9 @@ export function Sidebar() {
       {
         id: 'informes',
         title: 'Informes',
+        href: '/reports',
         icon: FileText,
-        level: 3,
-        children: [
-          { name: 'Club', href: '/club/dashboard' },
-          { name: 'Jugadoras', href: '/reports/players' }
-        ]
+        level: 3
       },
       { id: 'salud', title: 'Salud y disponibilidad', href: '/salud-disponibilidad', icon: Activity, level: 3 },
 

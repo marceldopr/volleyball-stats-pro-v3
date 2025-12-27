@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
-import { FileText, Filter, Search, Eye } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { FileText, Filter, Search, Eye, ArrowLeft } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { playerEvaluationService, PlayerEvaluationDB } from '@/services/playerEvaluationService'
 import { seasonService } from '@/services/seasonService'
 import { teamService } from '@/services/teamService'
 import { PlayerEvaluationModal } from '@/components/teams/PlayerEvaluationModal'
+import { Button } from '@/components/ui/Button'
 import { useRoleScope } from '@/hooks/useRoleScope'
 import { getTeamDisplayName } from '@/utils/teamDisplay'
 import { toast } from 'sonner'
@@ -22,6 +24,7 @@ const PHASE_COLORS = {
 }
 
 export function DTReportsPage() {
+    const navigate = useNavigate()
     const { profile } = useAuthStore()
     const { isCoach, isDT, assignedTeamIds } = useRoleScope()
 
@@ -178,6 +181,9 @@ export function DTReportsPage() {
             <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     <div className="flex items-center gap-3">
+                        <Button variant="ghost" size="sm" onClick={() => navigate('/reports')} className="mr-2">
+                            <ArrowLeft className="w-5 h-5" />
+                        </Button>
                         <FileText className="w-8 h-8 text-primary-600" />
                         <div>
                             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">

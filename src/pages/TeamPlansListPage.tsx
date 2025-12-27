@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Calendar, CheckCircle, XCircle, ChevronRight, Search } from 'lucide-react'
+import { FileText, Calendar, CheckCircle, XCircle, ChevronRight, Search, ArrowLeft } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
 import { useAuthStore } from '@/stores/authStore'
 import { useCurrentUserRole } from '@/hooks/useCurrentUserRole'
 import { teamService, TeamDB } from '@/services/teamService'
@@ -110,6 +111,9 @@ export function TeamPlansListPage() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
+                            <Button variant="ghost" size="sm" onClick={() => navigate('/reports')} className="mr-2">
+                                <ArrowLeft className="w-5 h-5" />
+                            </Button>
                             <FileText className="w-8 h-8 text-primary-600" />
                             <div>
                                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
